@@ -17,7 +17,7 @@ export async function login(req, res) {
         );
         const usuario = rows[0];
         if (!usuario) {
-            return res.status(401).json({ error: 'Çredenciales incorrectas' })
+            return res.status(401).json({ error: 'Credenciales incorrectas' })
         }
         const valida = await bcrypt.compare(contrasena, usuario.contrasena);
         if (!valida) {
@@ -50,12 +50,12 @@ export async function me(req, res) {
 }
 
 export async function registrar(req, res) {
-    const {nombre, correo, contrasena, rol, id_departamento} = req.body;
-    if(!nombre || !correo || !contrasena){
-        return res.status(400).json({error:'LOS CAMPOS NOMBRE, CONTRASENA Y CORREO SON REQUERIDOS'})
+    const { nombre, correo, contrasena, rol, id_departamento } = req.body;
+    if (!nombre || !correo || !contrasena) {
+        return res.status(400).json({ error: 'LOS CAMPOS NOMBRE, CONTRASENA Y CORREO SON REQUERIDOS' })
     }
-    
-    try{
+
+    try {
         const hash = await bcrypt.hash(contrasena, 10);
         const { rows } = await pool.query(`
             INSERT INTO USUARIOS (nombre, correo, contrasena, rol, id_departamento)
@@ -64,10 +64,10 @@ export async function registrar(req, res) {
             [nombre, correo, hash, rol || 'usuario', id_departamento || null]
         );
         res.status(201).json(rows[0]);
-    }catch(err){
+    } catch (err) {
         if (err.code == '23505') {
-            return res.status(409).json({error:'EL CORREO YA A SIDO REGISTRADO'});
+            return res.status(409).json({ error: 'EL CORREO YA A SIDO REGISTRADO' });
         }
-        res.status(500).json({error:err.message})
+        res.status(500).json({ error: err.message })
     }
 }

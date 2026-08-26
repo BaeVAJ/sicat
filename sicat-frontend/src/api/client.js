@@ -13,7 +13,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    const isLoginRequest = err.config?.url?.includes('/auth/login');
+    if (!isLoginRequest && (err.response?.status === 401 || err.response?.status === 403)) {
       localStorage.removeItem('token');
       localStorage.removeItem('usuario');
       window.location.href = '/Login';

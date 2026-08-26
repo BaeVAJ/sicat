@@ -25,9 +25,9 @@ function Login() {
       const usuario = await login(correo, contrasena);
       // Redirigir según el rol del usuario
       if (usuario.rol === 'admin' || usuario.rol === 'gerente') {
-        navigate('/dashboard');
+        navigate('/dashboardAdmin');
       } else {
-        navigate('/dashboard');
+        navigate('/dashboardUser');
       }
     } catch (err) {
       const mensaje =
@@ -54,7 +54,7 @@ function Login() {
             </svg>
           </div>
           <h1 className="login-brand__title">SICAT</h1>
-          <p className="login-brand__subtitle">Sistema Integral de Control y Administración</p>
+          <p className="login-brand__subtitle">Sistema Integral de Control</p>
         </div>
 
         {/* ── Error message ── */}
@@ -156,8 +156,6 @@ function Login() {
             </span>
           </button>
         </form>
-
-
       </div>
     </div>
   );
