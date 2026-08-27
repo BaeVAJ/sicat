@@ -1,59 +1,299 @@
+// src/components/layout/sidebar.jsx
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import './sidebar.css';
 
-const enlaces = [
-  { to: '/dashboard',     label: 'Dashboard',        roles: ['admin','gerente'] },
-  { to: '/empresas',      label: 'Empresas',          roles: ['admin'] },
-  { to: '/departamentos', label: 'Departamentos',     roles: ['admin'] },
-  { to: '/proveedores',   label: 'Proveedores',       roles: ['admin','gerente'] },
-  { to: '/categorias',    label: 'Categorías',        roles: ['admin'] },
-  { to: '/productos',     label: 'Productos',         roles: ['admin','gerente'] },
-  { to: '/compras',       label: 'Compras',           roles: ['admin','gerente'] },
-  { to: '/inventario',    label: 'Inventario',        roles: ['admin','gerente','usuario'] },
-  { to: '/asignaciones',  label: 'Asignaciones',      roles: ['admin','gerente'] },
-  { to: '/facturas',      label: 'Facturas',          roles: ['admin','gerente'] },
-  { to: '/tickets',       label: 'Tickets',           roles: ['admin','gerente','usuario'] },
-  { to: '/crear-ticket',  label: '🚨 Pedir Material', roles: ['admin','gerente','usuario'] },
+// ── SVG Icons (Lucide-style) ──
+const icons = {
+    dashboard: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+    ),
+    building: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+            <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+            <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+            <path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" />
+        </svg>
+    ),
+    department: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+    ),
+    truck: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+            <path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+            <circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" />
+        </svg>
+    ),
+    tag: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
+            <path d="M7 7h.01" />
+        </svg>
+    ),
+    box: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+            <path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" />
+        </svg>
+    ),
+    cart: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" />
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+        </svg>
+    ),
+    warehouse: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
+            <path d="M6 18h12" /><path d="M6 14h12" />
+        </svg>
+    ),
+    assign: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+        </svg>
+    ),
+    receipt: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+            <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+            <path d="M12 17.5v-11" />
+        </svg>
+    ),
+    ticket: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+            <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+        </svg>
+    ),
+    plus: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+    ),
+    logout: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+    ),
+    menu: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
+    ),
+};
+
+// ── Sidebar link definitions (with icon keys and role access) ──
+// ── Grupos con submenús ──
+const grupos = [
+    {
+        label: 'General',
+        icon: 'dashboard',
+        roles: ['admin', 'gerente', 'usuario'],
+        enlaces: [
+            { to: '/dashboardAdmin', label: 'Dashboard', icon: 'dashboard', roles: ['admin', 'gerente'] },
+        ],
+    },
+    {
+        label: 'Organización',
+        icon: 'building',
+        roles: ['admin'],
+        enlaces: [
+            { to: '/empresas', label: 'Empresas', icon: 'building', roles: ['admin'] },
+            { to: '/departamentos', label: 'Departamentos', icon: 'department', roles: ['admin'] },
+        ],
+    },
+    {
+        label: 'Catálogo',
+        icon: 'tag',
+        roles: ['admin', 'gerente'],
+        enlaces: [
+            { to: '/categorias', label: 'Categorías', icon: 'tag', roles: ['admin'] },
+            { to: '/productos', label: 'Productos', icon: 'box', roles: ['admin', 'gerente'] },
+            { to: '/proveedores', label: 'Proveedores', icon: 'truck', roles: ['admin', 'gerente'] },
+        ],
+    },
+    {
+        label: 'Operaciones',
+        icon: 'warehouse',
+        roles: ['admin', 'gerente', 'usuario'],
+        enlaces: [
+            { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'] },
+            { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'] },
+        ],
+    },
+    {
+        label: 'Documentos',
+        icon: 'receipt',
+        roles: ['admin', 'gerente'],
+        enlaces: [
+            { to: '/facturas', label: 'Facturas', icon: 'receipt', roles: ['admin', 'gerente'] },
+        ],
+    },
+    {
+        label: 'Soporte',
+        icon: 'ticket',
+        roles: ['admin', 'gerente', 'usuario'],
+        enlaces: [
+            { to: '/tickets', label: 'Tickets', icon: 'ticket', roles: ['admin', 'gerente'] },
+            { to: '/crear-ticket', label: 'Crear Tickets', icon: 'plus', roles: ['admin', 'gerente', 'usuario'] },
+        ],
+    },
 ];
+function GrupoMenu({ grupo, rol }) {
+    const [abierto, setAbierto] = useState(false);
 
+    // Filtra enlaces visibles para este rol
+    const visibles = grupo.enlaces.filter(e => e.roles.includes(rol));
+
+    // Si no hay enlaces visibles para este rol, no renderiza nada
+    if (visibles.length === 0) return null;
+
+    // Si solo tiene 1 enlace, muestra directo sin desplegable
+    if (visibles.length === 1) {
+        const { to, label, icon } = visibles[0];
+        return (
+            <NavLink
+                to={to}
+                className={({ isActive }) =>
+                    `sidebar__link ${isActive ? 'active' : ''}`
+                }
+            >
+                <span className="sidebar__link-icon">{icons[icon]}</span>
+                <span className="sidebar__link-label">{label}</span>
+            </NavLink>
+        );
+    }
+
+    return (
+        <div className="sidebar__group">
+            {/* Cabecera del grupo — toggle */}
+            <button
+                className={`sidebar__group-header ${abierto ? 'sidebar__group-header--open' : ''}`}
+                onClick={() => setAbierto(v => !v)}
+            >
+                <span className="sidebar__link-icon">{icons[grupo.icon]}</span>
+                <span className="sidebar__link-label">{grupo.label}</span>
+                <span className="sidebar__group-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: abierto ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </span>
+            </button>
+
+            {/* Submenú colapsable */}
+            <div className={`sidebar__submenu ${abierto ? 'sidebar__submenu--open' : ''}`}>
+                {visibles.map(({ to, label, icon }) => (
+                    <NavLink
+                        key={to}
+                        to={to}
+                        className={({ isActive }) =>
+                            `sidebar__link sidebar__link--sub ${isActive ? 'active' : ''}`
+                        }
+                    >
+                        <span className="sidebar__link-icon">{icons[icon]}</span>
+                        <span className="sidebar__link-label">{label}</span>
+                    </NavLink>
+                ))}
+            </div>
+        </div>
+    );
+}
 function Sidebar() {
-  const { usuario, logout } = useAuth();
-  const navigate = useNavigate();
+    const { usuario, logout } = useAuth();
+    const navigate = useNavigate();
+    const [open, setOpen] = useState(false);
 
-  const visibles = enlaces.filter(e => e.roles.includes(usuario?.rol));
+    const visibles = grupos.filter((g) => g.roles.includes(usuario?.rol));
 
-  return (
-    <aside className="w-60 min-h-screen bg-gray-900 text-white flex flex-col">
-      <div className="px-6 py-5 border-b border-gray-700">
-        <h1 className="text-xl font-bold">SICAT</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Control de Activos</p>
-      </div>
-      <div className="px-6 py-4 border-b border-gray-700">
-        <p className="text-sm font-medium truncate">{usuario?.nombre}</p>
-        <p className="text-xs text-gray-400 capitalize">{usuario?.rol}</p>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {visibles.map(({ to, label }) => (
-          <NavLink key={to} to={to}
-            className={({ isActive }) =>
-              `block px-3 py-2 rounded-lg text-sm transition-colors duration-150 ` +
-              (isActive ? 'bg-blue-600 text-white font-medium'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white')
-            }
-          >
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="px-3 py-4 border-t border-gray-700">
-        <button onClick={() => { logout(); navigate('/Login'); }}
-          className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-300
-                     hover:bg-red-600 hover:text-white transition-colors duration-150">
-          Cerrar sesión
-        </button>
-      </div>
-    </aside>
-  );
+    // Obtener iniciales del usuario para el avatar
+    const iniciales = usuario?.nombre
+        ? usuario.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+        : '?';
+
+    const handleLogout = () => {
+        logout();
+        navigate('/Login');
+    };
+
+    return (
+        <>
+            {/* Mobile toggle */}
+            <button
+                className="sidebar__toggle"
+                onClick={() => setOpen((v) => !v)}
+                aria-label="Abrir menú"
+            >
+                <span className="sidebar__link-icon">{icons.menu}</span>
+            </button>
+
+            {/* Mobile overlay */}
+            <div
+                className={`sidebar__overlay ${open ? 'sidebar__overlay--visible' : ''}`}
+                onClick={() => setOpen(false)}
+            />
+
+            {/* Sidebar */}
+            <aside className={`sidebar ${open ? 'sidebar--open' : ''}`}>
+
+                {/* Brand */}
+                <div className="sidebar__brand">
+                    <div className="sidebar__brand-icon" />
+                    <div className="sidebar__brand-text">
+                        <span className="sidebar__brand-name">SICAT</span>
+                        <span className="sidebar__brand-sub">Control de Activos</span>
+                    </div>
+                </div>
+
+                {/* Navigation */}
+                <nav className="sidebar__nav">
+                    {grupos
+                        .filter(g => g.roles.includes(usuario?.rol))
+                        .map(grupo => (
+                            <GrupoMenu key={grupo.label} grupo={grupo} rol={usuario?.rol} />
+                        ))
+                    }
+                </nav>
+
+                {/* Footer */}
+                <div className="sidebar__footer">
+                    <div className="sidebar__user">
+                        <div className="sidebar__avatar">{iniciales}</div>
+                        <div className="sidebar__user-info">
+                            <span className="sidebar__user-name">{usuario?.nombre}</span>
+                            <span className="sidebar__user-role">{usuario?.rol}</span>
+                        </div>
+                    </div>
+                    <button className="sidebar__logout" onClick={handleLogout}>
+                        <span className="sidebar__link-icon">{icons.logout}</span>
+                        <span className="sidebar__logout-label">Cerrar sesión</span>
+                    </button>
+                </div>
+            </aside>
+        </>
+    );
 }
 
 export default Sidebar;

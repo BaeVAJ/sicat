@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAll, create, atender, actualizarEstado } from '../controllers/ticket.controller.js';
+import { getAll, create, actualizarEstado } from '../controllers/ticket.controller.js';
 import { verificarToken } from '../middlewares/auth.middleware.js';
 
 const router = Router();

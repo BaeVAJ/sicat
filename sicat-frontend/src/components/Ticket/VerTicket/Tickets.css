@@ -1,0 +1,268 @@
+/* ═══════════════════════════════════════════════════════════
+   DashboardAdmin — Dark theme table + stats
+   ═══════════════════════════════════════════════════════════ */
+
+.dash-container {
+    padding: 2rem;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- Header ---------- */
+.dash-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.dash-header__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+.dash-header__subtitle {
+    font-size: 0.88rem;
+    color: rgba(148, 163, 184, 0.7);
+    margin-top: 0.25rem;
+}
+
+.dash-refresh {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: rgba(203, 213, 225, 0.85);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.dash-refresh:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+}
+
+.dash-refresh:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dash-refresh__spin {
+    animation: dashSpin 0.8s linear infinite;
+}
+
+@keyframes dashSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---------- Stats ---------- */
+.dash-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.dash-stat {
+    flex: 1;
+    min-width: 120px;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.dash-stat__count {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.dash-stat__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(148, 163, 184, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ---------- Error ---------- */
+.dash-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    color: #fca5a5;
+    font-size: 0.84rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ---------- Table ---------- */
+.dash-table-wrap {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    color: #cbd5e1;
+}
+
+.dash-table thead tr {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dash-table th {
+    padding: 0.85rem 1rem;
+    font-weight: 600;
+    font-size: 0.72rem;
+    color: rgba(148, 163, 184, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.dash-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical-align: middle;
+}
+
+.dash-table tbody tr {
+    transition: background 0.15s;
+}
+
+.dash-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.dash-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.dash-table__id {
+    font-weight: 600;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-table__desc {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dash-table__empty {
+    padding: 3rem 1rem !important;
+    text-align: center;
+    color: rgba(148, 163, 184, 0.45);
+    font-size: 0.9rem;
+}
+
+/* Loading spinner inside table */
+.dash-table__spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2.5px solid rgba(148, 163, 184, 0.2);
+    border-top-color: rgba(148, 163, 184, 0.6);
+    border-radius: 50%;
+    animation: dashSpin 0.65s linear infinite;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+/* ---------- Badge ---------- */
+.dash-badge {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* ---------- Actions select ---------- */
+.dash-select {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dash-select:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.dash-select option {
+    background: #1e1b4b;
+    color: #f1f5f9;
+}
+
+.dash-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+    .dash-container {
+        padding: 1.25rem;
+        padding-top: 4rem;
+    }
+
+    .dash-stats {
+        gap: 0.6rem;
+    }
+
+    .dash-stat {
+        min-width: 80px;
+        padding: 0.75rem;
+    }
+
+    .dash-stat__count {
+        font-size: 1.2rem;
+    }
+
+    .dash-table-wrap {
+        overflow-x: auto;
+    }
+
+    .dash-table {
+        min-width: 600px;
+    }
+}

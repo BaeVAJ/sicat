@@ -1,14 +1,16 @@
-import Sidebar from './Sidebar';
+// src/components/layout/Layout.jsx
+import Sidebar from './sidebar';
+import './sidebar.css';
 
 function Layout({ children }) {
-  return (
-    <div className="flex min-h-screen bg-gray-100">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
-        {children}
-      </main>
-    </div>
-  );
+    return (
+        <div className="app-layout">
+            <Sidebar />
+            <main className="app-layout__content">
+                {children}
+            </main>
+        </div>
+    );
 }
 
 export default Layout;
