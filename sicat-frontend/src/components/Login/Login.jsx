@@ -12,6 +12,7 @@ function Login() {
   const [contrasena, setContrasena] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isServerStarting, setIsServerStarting] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
@@ -19,6 +20,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsServerStarting(false);
     setLoading(true);
 
     try {
@@ -30,11 +32,31 @@ function Login() {
         navigate('/dashboardUser');
       }
     } catch (err) {
-      const mensaje =
-        err.response?.data?.error ||
-        err.message ||
-        'Error de conexión con el servidor';
-      setError(mensaje);
+      const status = err.response?.status;
+      const errorMsg = err.response?.data?.error || err.message || '';
+
+      // Detección de error 502 / 503 / 504 / caída de red / cold start del backend
+      const is502Error =
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        err.code === 'ERR_NETWORK' ||
+        errorMsg.includes('502') ||
+        errorMsg.includes('Network Error') ||
+        errorMsg.includes('Bad Gateway');
+
+      if (is502Error) {
+        setIsServerStarting(true);
+        setError(
+          'El servidor se está iniciando o estableciendo conexión con la base de datos. Por favor, espera unos segundos e intenta nuevamente.'
+        );
+      } else if (status === 401) {
+        setIsServerStarting(false);
+        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+      } else {
+        setIsServerStarting(false);
+        setError(errorMsg || 'Error al conectar con el servidor.');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,15 +81,47 @@ function Login() {
 
         {/* ── Error message ── */}
         {error && (
-          <div className="login-error" role="alert">
+          <div
+            className={`login-error ${isServerStarting ? 'login-error--warning' : ''}`}
+            role="alert"
+          >
             <span className="login-error__icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
+              {isServerStarting ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              )}
             </span>
-            <span>{error}</span>
+            <div style={{ flex: 1, lineHeight: '1.4' }}>
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'currentColor',
+                opacity: 0.6,
+                cursor: 'pointer',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Cerrar aviso"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -152,7 +206,7 @@ function Login() {
           >
             <span className="login-btn__content">
               {loading && <span className="login-spinner" aria-hidden="true" />}
-              {loading ? 'Ingresando…' : 'Iniciar sesión'}
+              {loading ? (isServerStarting ? 'Conectando…' : 'Ingresando…') : 'Iniciar sesión'}
             </span>
           </button>
         </form>
