@@ -4,9 +4,11 @@ import RutaProtegida from './components/RutaProtegida';
 import Login from './components/Login/Login.jsx';
 import FoFPage from './components/404Page/ErrorSVG.jsx';
 import DashboardAdmin from './components/DashboardAdmin/DashboardAdmin.jsx';
-import CrearTicket from './components/Ticket/CrearTicket.jsx';
+import CrearTicket from './components/Ticket/CrearTicket/CrearTicket.jsx';
+
 import Tickets from './components/Ticket/VerTicket/Tickets.jsx';
-import VerEmpresa from './components/Empresa/VerEmpresa/VerEmpresa.jsx';
+import VerEmpresa from './components/Organizacion/Empresa/Empresa.jsx';
+import Departamento from './components/Organizacion/Departamento/Departamento.jsx';
 
 function App() {
   return (
@@ -32,11 +34,22 @@ function App() {
               <Tickets />
             </RutaProtegida>
           } />
-          <Route path="/empresa" element={
-            <RutaProtegida>
-              <VerEmpresa />
-            </RutaProtegida>
-          } />
+          <Route
+            path="/empresas"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <VerEmpresa />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/departamentos"
+            element={
+              <RutaProtegida rolesPermitidos={['admin']}>
+                <Departamento />
+              </RutaProtegida>
+            }
+          />
 
         </Routes>
       </BrowserRouter>
