@@ -116,18 +116,13 @@ export async function comprimirPdf(buffer) {
  * @returns {Promise<{ url: string, path: string, originalSize: number, compressedSize: number }>}
  */
 export async function subirPdfFactura(buffer, originalName = 'factura.pdf') {
-  // 1. Obtener cliente de Supabase
   const client = getSupabaseClient();
-
-  // 2. Comprimir primero
   const { buffer: optimizedBuffer, originalSize, compressedSize } = await comprimirPdf(buffer);
 
-  // 3. Generar nombre de archivo único y seguro
   const cleanName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const uniquePrefix = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const filePath = `facturas_${uniquePrefix}_${cleanName.endsWith('.pdf') ? cleanName : cleanName + '.pdf'}`;
+  const filePath = `facturas_pdf_${uniquePrefix}_${cleanName.endsWith('.pdf') ? cleanName : cleanName + '.pdf'}`;
 
-  // 4. Subir a Supabase Storage
   const { error: uploadError } = await client.storage
     .from(BUCKET_NAME)
     .upload(filePath, optimizedBuffer, {
@@ -136,23 +131,12 @@ export async function subirPdfFactura(buffer, originalName = 'factura.pdf') {
     });
 
   if (uploadError) {
-    console.error('[Supabase Storage Error]:', uploadError);
-    throw new Error(`Error al subir archivo a Supabase: ${uploadError.message}`);
-  }
-
-  let url = filePath;
-  try {
-    const { data: signedData } = await client.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 año
-
-    url = signedData?.signedUrl || client.storage.from(BUCKET_NAME).getPublicUrl(filePath).data.publicUrl;
-  } catch {
-    url = client.storage.from(BUCKET_NAME).getPublicUrl(filePath).data.publicUrl;
+    console.error('[Supabase Storage PDF Error]:', uploadError);
+    throw new Error(`Error al subir PDF a Supabase: ${uploadError.message}`);
   }
 
   return {
-    url,
+    url: filePath,
     path: filePath,
     originalSize,
     compressedSize,
@@ -160,20 +144,60 @@ export async function subirPdfFactura(buffer, originalName = 'factura.pdf') {
 }
 
 /**
- * Elimina un archivo PDF de Supabase Storage
+ * Sube un archivo XML al bucket de Supabase Storage
+ * @param {Buffer} buffer - Buffer del archivo XML
+ * @param {string} originalName - Nombre original del archivo
+ * @returns {Promise<{ url: string, path: string, size: number }>}
+ */
+export async function subirXmlFactura(buffer, originalName = 'factura.xml') {
+  const client = getSupabaseClient();
+
+  const cleanName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const uniquePrefix = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const filePath = `facturas_xml_${uniquePrefix}_${cleanName.endsWith('.xml') ? cleanName : cleanName + '.xml'}`;
+
+  const { error: uploadError } = await client.storage
+    .from(BUCKET_NAME)
+    .upload(filePath, buffer, {
+      contentType: 'application/xml',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    console.error('[Supabase Storage XML Error]:', uploadError);
+    throw new Error(`Error al subir XML a Supabase: ${uploadError.message}`);
+  }
+
+  return {
+    url: filePath,
+    path: filePath,
+    size: buffer.length,
+  };
+}
+
+/**
+ * Elimina un archivo de Supabase Storage
  * @param {string} pathOrUrl - Ruta o URL del archivo
  */
-export async function eliminarPdfFactura(pathOrUrl) {
+export async function eliminarArchivoFactura(pathOrUrl) {
   if (!pathOrUrl) return;
-
   try {
-    const path = extraerPathArchivo(pathOrUrl);
     const client = getSupabaseClient();
-    const { error } = await client.storage.from(BUCKET_NAME).remove([path]);
+    const filePath = extraerPathArchivo(pathOrUrl);
+
+    if (!filePath) return;
+
+    const { error } = await client.storage
+      .from(BUCKET_NAME)
+      .remove([filePath]);
+
     if (error) {
-      console.warn('[Supabase Storage Remove Warn]:', error.message);
+      console.warn('[Supabase Storage Eliminar Warning]:', error.message);
     }
   } catch (err) {
-    console.warn('[Supabase Storage Remove Error]:', err.message);
+    console.warn('[Supabase Storage Eliminar Exception]:', err.message);
   }
 }
+
+// Mantener retrocompatibilidad
+export const eliminarPdfFactura = eliminarArchivoFactura;

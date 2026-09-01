@@ -10,6 +10,7 @@ import Tickets from './components/Ticket/VerTicket/Tickets.jsx';
 import VerEmpresa from './components/Organizacion/Empresa/Empresa.jsx';
 import Departamento from './components/Organizacion/Departamento/Departamento.jsx';
 import Facturas from './components/Facturas/facturas.jsx';
+import Productos from './components/catalogo/Productos/Productos.jsx';
 
 function App() {
   return (
@@ -59,7 +60,14 @@ function App() {
               </RutaProtegida>
             }
           />
-
+          <Route
+            path="/productos"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Productos />
+              </RutaProtegida>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

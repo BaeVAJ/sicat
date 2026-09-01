@@ -1,64 +1,91 @@
-import pool from '../db/pool.js'
+import pool from '../db/pool.js';
 
-export async function getAll(req, res){
-    try{
-        const { rows } = await pool.query('SELECT * FROM CATEGORIA ORDER BY id_categoria')
-        res.json(rows);
-    } catch (err){
-        res.status(500).json({error:err.message})
-    }
+// GET /api/categorias
+export async function getAll(req, res) {
+  try {
+    const { rows } = await pool.query('SELECT * FROM CATEGORIA ORDER BY id_categoria');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
-export async function getById(res, req){
-    try{
-    const { rows }= await pool.query('Select * FROM CATEORIA WHERE id_categoria = $1', [req.params.id]);
+
+// GET /api/categorias/:id
+export async function getById(req, res) {
+  try {
+    const { rows } = await pool.query('SELECT * FROM CATEGORIA WHERE id_categoria = $1', [req.params.id]);
     if (!rows[0]) {
-        return res.status(404).json({error:'Categoria no encontrado'})
+      return res.status(404).json({ error: 'Categoría no encontrada' });
     }
     res.json(rows[0]);
-    } catch(err){
-        res.status(500).json({error: err.message});
-    }
-}
-export async function create(res, req){
-    const body = req.body;
-    const keys = Object.keys(body);
-    const vals = Object.values(body);
-    const cols = keys.join(', ');
-    const phs = keys.map((_, i) => '$' + (i+1).join('. '));
-
-    try{
-        const {rows} = await pool.query(`
-            INSERT INTO CATEGORIA (${cols}) VALUES (${phs}) RETURNIGN *`, vals);
-            res.status(201).json(rows[0]);
-    }catch (error){
-        res.status(500).json({error:error.message});
-    }
-}
-export async function update(res, req){
-    const body = req.body;
-    const keys = Object.keys(body);
-    const vals = Object.values(body);
-    const sets = keys.map((k,i) => `${k} = $${i + 1}`).join(', ');
-     try{
-        const { rows }= await pool.query(`UPDATE CATEGORIA SET ${sets} WHERE id_categoria = $${keys.length +1 } RETURNING *`,
-            [...vals, req.params.id]
-        );
-        
-        if(!rows[0]){
-            return res.status(404).json({error:'Categoria no encontrado'})
-        }
-        res.json(rows[0]);
-     }catch(err){
-        res.status(500).json({error:err.message})
-     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
-export async function remove(res, req){
-    try {
-        const { rowCount }= await pool.query(`DELETE FROM Categoria WHERE id_proveedor = $1`, [req.params.id]);
-        if (!rowCount) {return res.status(404).json({error:'Categoria no encontrada'});}
-        res.json({mensaje:'Categoria eliminado correctamente'});
-    }catch(err){
-        res.status(500).json({error:err.message})
+// POST /api/categorias
+export async function create(req, res) {
+  const { nombre, descripcion, tipo } = req.body;
+  if (!nombre) {
+    return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO CATEGORIA (nombre, descripcion, tipo)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `, [
+      nombre.trim(),
+      descripcion ? descripcion.trim() : null,
+      tipo || 'GENERAL'
+    ]);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// PUT /api/categorias/:id
+export async function update(req, res) {
+  const { nombre, descripcion, tipo } = req.body;
+  const { id } = req.params;
+
+  if (!nombre) {
+    return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      UPDATE CATEGORIA
+      SET nombre = $1, descripcion = $2, tipo = $3
+      WHERE id_categoria = $4
+      RETURNING *
+    `, [
+      nombre.trim(),
+      descripcion ? descripcion.trim() : null,
+      tipo || 'GENERAL',
+      id
+    ]);
+
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Categoría no encontrada' });
     }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// DELETE /api/categorias/:id
+export async function remove(req, res) {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM CATEGORIA WHERE id_categoria = $1', [req.params.id]);
+    if (!rowCount) {
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+    res.json({ mensaje: 'Categoría eliminada correctamente', id_categoria: req.params.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }

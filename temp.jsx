@@ -1,780 +1,754 @@
-// src/components/Organizacion/Departamento/Departamento.jsx
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-import client from '../../../api/client';
-import Layout from '../../layout/Layout';
-import './Departamento.css';
+/* ═══════════════════════════════════════════════════════════
+   Departamento — Clean, Minimal & Grouped-first View (SICAT)
+   ═══════════════════════════════════════════════════════════ */
 
-function Departamento() {
-    const { usuario } = useAuth();
-
-    const [departamentos, setDepartamentos] = useState([]);
-    const [empresas, setEmpresas] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-
-    // Vista activa por defecto: 'GROUPED' (Por Empresa)
-    const [viewMode, setViewMode] = useState('GROUPED');
-
-    // Búsqueda y Filtro por Empresa
-    const [search, setSearch] = useState('');
-    const [filterEmpresa, setFilterEmpresa] = useState('ALL');
-
-    // Modales
-    const [modalOpen, setModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' | 'EDIT'
-    const [currentDepto, setCurrentDepto] = useState(null);
-
-    // Form inputs
-    const [nombre, setNombre] = useState('');
-    const [idEmpresa, setIdEmpresa] = useState('');
-
-    // Modal de confirmación de eliminación
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [deptoToDelete, setDeptoToDelete] = useState(null);
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const [deptRes, empRes] = await Promise.all([
-                client.get('/departamentos'),
-                client.get('/empresas'),
-            ]);
-            setDepartamentos(Array.isArray(deptRes.data) ? deptRes.data : []);
-            setEmpresas(Array.isArray(empRes.data) ? empRes.data : []);
-        } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar los departamentos');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Mapa id_empresa -> objeto Empresa
-    const empresaMap = useMemo(() => {
-        const map = {};
-        empresas.forEach((e) => {
-            map[e.id_empresa] = e;
-        });
-        return map;
-    }, [empresas]);
-
-    // Abrir modal para crear departamento
-    const handleOpenCreate = (preselectedEmpresaId = null) => {
-        setModalMode('CREATE');
-        setCurrentDepto(null);
-        setNombre('');
-        if (preselectedEmpresaId) {
-            setIdEmpresa(String(preselectedEmpresaId));
-        } else if (filterEmpresa !== 'ALL') {
-            setIdEmpresa(filterEmpresa);
-        } else {
-            setIdEmpresa(empresas.length > 0 ? String(empresas[0].id_empresa) : '');
-        }
-        setError('');
-        setModalOpen(true);
-    };
-
-    // Abrir modal para editar departamento
-    const handleOpenEdit = (depto) => {
-        setModalMode('EDIT');
-        setCurrentDepto(depto);
-        setNombre(depto.nombre || '');
-        setIdEmpresa(String(depto.id_empresa));
-        setError('');
-        setModalOpen(true);
-    };
-
-    // Guardar (Crear o Actualizar)
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!nombre.trim()) {
-            setError('El nombre del departamento es obligatorio.');
-            return;
-        }
-        if (!idEmpresa) {
-            setError('Debes seleccionar una empresa.');
-            return;
-        }
-
-        setActionLoading(true);
-        setError('');
-        setSuccess('');
-
-        const payload = {
-            nombre: nombre.trim(),
-            id_empresa: Number(idEmpresa),
-        };
-
-        try {
-            if (modalMode === 'CREATE') {
-                const { data } = await client.post('/departamentos', payload);
-                setDepartamentos((prev) => [...prev, data]);
-                setSuccess('Departamento registrado exitosamente.');
-            } else {
-                const { data } = await client.put(`/departamentos/${currentDepto.id_departamento}`, payload);
-                setDepartamentos((prev) =>
-                    prev.map((d) => (d.id_departamento === currentDepto.id_departamento ? data : d))
-                );
-                setSuccess('Departamento actualizado exitosamente.');
-            }
-            setModalOpen(false);
-        } catch (err) {
-            setError(err.response?.data?.error || 'Error al guardar el departamento');
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    // Abrir modal de eliminación
-    const handleOpenDelete = (depto) => {
-        setDeptoToDelete(depto);
-        setDeleteModalOpen(true);
-    };
-
-    // Confirmar eliminación
-    const handleConfirmDelete = async () => {
-        if (!deptoToDelete) return;
-        setActionLoading(true);
-        setError('');
-        setSuccess('');
-        try {
-            await client.delete(`/departamentos/${deptoToDelete.id_departamento}`);
-            setDepartamentos((prev) => prev.filter((d) => d.id_departamento !== deptoToDelete.id_departamento));
-            setSuccess('Departamento eliminado exitosamente.');
-            setDeleteModalOpen(false);
-            setDeptoToDelete(null);
-        } catch (err) {
-            setError(err.response?.data?.error || 'No se puede eliminar. Podría tener usuarios o inventario vinculado.');
-        } finally {
-            setActionLoading(false);
-        }
-    };
-
-    // Departamentos filtrados
-    const deptosFiltrados = useMemo(() => {
-        return departamentos.filter((d) => {
-            const empNombre = empresaMap[d.id_empresa]?.nombre || '';
-            const matchSearch =
-                (d.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
-                empNombre.toLowerCase().includes(search.toLowerCase());
-
-            if (!matchSearch) return false;
-            if (filterEmpresa !== 'ALL') return String(d.id_empresa) === filterEmpresa;
-            return true;
-        });
-    }, [departamentos, search, filterEmpresa, empresaMap]);
-
-    // Métricas compactas
-    const totalCount = departamentos.length;
-    const empresasConDeptosCount = new Set(departamentos.map((d) => d.id_empresa)).size;
-
-    // Agrupación de departamentos por empresa
-    const groupedData = useMemo(() => {
-        const list = filterEmpresa === 'ALL'
-            ? empresas
-            : empresas.filter((e) => String(e.id_empresa) === filterEmpresa);
-
-        return list.map((emp) => {
-            const deptos = deptosFiltrados.filter((d) => d.id_empresa === emp.id_empresa);
-            return {
-                empresa: emp,
-                departamentos: deptos,
-            };
-        });
-    }, [empresas, deptosFiltrados, filterEmpresa]);
-
-    return (
-        <Layout>
-            <div className="depto-page">
-                {/* ── Header ── */}
-                <div className="depto-header">
-                    <div>
-                        <h1 className="depto-header__title">
-                            Departamentos
-                        </h1>
-                    </div>
-
-                    <div className="depto-header__actions">
-                        <button
-                            type="button"
-                            className="depto-btn depto-btn--secondary"
-                            onClick={fetchData}
-                            disabled={loading}
-                        >
-                            <svg
-                                width="15"
-                                height="15"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className={loading ? 'depto-btn__spin' : ''}
-                            >
-                                <polyline points="23 4 23 10 17 10" />
-                                <polyline points="1 20 1 14 7 14" />
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                            </svg>
-                            <span>Refrescar</span>
-                        </button>
-
-                        {usuario?.rol === 'admin' && (
-                            <button
-                                type="button"
-                                className="depto-btn depto-btn--primary"
-                                onClick={() => handleOpenCreate()}
-                            >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                                <span>Nuevo Departamento</span>
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* ── Compact Non-Invasive Metrics ── */}
-                <div className="depto-metrics-bar">
-                    <span className="depto-metric-pill">
-                        Departamentos: <strong>{totalCount}</strong>
-                    </span>
-                    <span className="depto-metric-pill depto-metric-pill--purple">
-                        Empresas con áreas: <strong>{empresasConDeptosCount} / {empresas.length}</strong>
-                    </span>
-                </div>
-
-                {/* ── Alerts ── */}
-                {error && (
-                    <div className="depto-alert depto-alert--error" role="alert">
-                        <div className="depto-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                            <span>{error}</span>
-                        </div>
-                        <button type="button" className="depto-alert__close" onClick={() => setError('')} aria-label="Cerrar alerta">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {success && (
-                    <div className="depto-alert depto-alert--success" role="alert">
-                        <div className="depto-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                            <span>{success}</span>
-                        </div>
-                        <button type="button" className="depto-alert__close" onClick={() => setSuccess('')} aria-label="Cerrar notificación">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {/* ── Controls Toolbar ── */}
-                <div className="depto-toolbar">
-                    <div className="depto-toolbar__search-box">
-                        <span className="depto-toolbar__search-icon">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                        </span>
-                        <input
-                            type="text"
-                            className="depto-toolbar__search-input"
-                            placeholder="Buscar departamento o empresa..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-
-                    {/* View Switcher */}
-                    <div className="depto-view-switch">
-                        <button
-                            type="button"
-                            className={`depto-view-switch__btn ${viewMode === 'GROUPED' ? 'depto-view-switch__btn--active' : ''}`}
-                            onClick={() => setViewMode('GROUPED')}
-                            title="Vista Agrupada por Empresa"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                                <polyline points="2 17 12 22 22 17" />
-                                <polyline points="2 12 12 17 22 12" />
-                            </svg>
-                            <span>Por Empresa</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className={`depto-view-switch__btn ${viewMode === 'GRID' ? 'depto-view-switch__btn--active' : ''}`}
-                            onClick={() => setViewMode('GRID')}
-                            title="Vista Mosaico"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="3" width="7" height="7" rx="1" />
-                                <rect x="14" y="3" width="7" height="7" rx="1" />
-                                <rect x="3" y="14" width="7" height="7" rx="1" />
-                                <rect x="14" y="14" width="7" height="7" rx="1" />
-                            </svg>
-                            <span>Tarjetas</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className={`depto-view-switch__btn ${viewMode === 'TABLE' ? 'depto-view-switch__btn--active' : ''}`}
-                            onClick={() => setViewMode('TABLE')}
-                            title="Vista Tabla"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="8" y1="6" x2="21" y2="6" />
-                                <line x1="8" y1="12" x2="21" y2="12" />
-                                <line x1="8" y1="18" x2="21" y2="18" />
-                                <line x1="3" y1="6" x2="3.01" y2="6" />
-                                <line x1="3" y1="12" x2="3.01" y2="12" />
-                                <line x1="3" y1="18" x2="3.01" y2="18" />
-                            </svg>
-                            <span>Lista</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* ── Company Filter Pills Strip ── */}
-                <div className="depto-pills">
-                    <button
-                        type="button"
-                        className={`depto-pill ${filterEmpresa === 'ALL' ? 'depto-pill--active' : ''}`}
-                        onClick={() => setFilterEmpresa('ALL')}
-                    >
-                        <span>Todas</span>
-                        <span className="depto-pill__count">{departamentos.length}</span>
-                    </button>
-
-                    {empresas.map((emp) => {
-                        const count = departamentos.filter((d) => d.id_empresa === emp.id_empresa).length;
-                        return (
-                            <button
-                                key={emp.id_empresa}
-                                type="button"
-                                className={`depto-pill ${filterEmpresa === String(emp.id_empresa) ? 'depto-pill--active' : ''}`}
-                                onClick={() => setFilterEmpresa(String(emp.id_empresa))}
-                            >
-                                <span>{emp.nombre}</span>
-                                <span className="depto-pill__count">{count}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* ── CONTENT VIEWS ── */}
-                {loading ? (
-                    <div className="depto-empty-state">
-                        <div className="depto-empty-state__icon">
-                            <span className="depto-btn__spin">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="23 4 23 10 17 10" />
-                                    <polyline points="1 20 1 14 7 14" />
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                                </svg>
-                            </span>
-                        </div>
-                        <h3 className="depto-empty-state__title">Cargando departamentos...</h3>
-                    </div>
-                ) : deptosFiltrados.length === 0 ? (
-                    <div className="depto-empty-state">
-                        <div className="depto-empty-state__icon">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                        </div>
-                        <h3 className="depto-empty-state__title">No se encontraron departamentos</h3>
-                        <p className="depto-empty-state__desc">
-                            {search || filterEmpresa !== 'ALL'
-                                ? 'No hay departamentos que coincidan con la búsqueda o filtro.'
-                                : 'Aún no hay departamentos registrados.'}
-                        </p>
-                        {usuario?.rol === 'admin' && (
-                            <button
-                                type="button"
-                                className="depto-btn depto-btn--primary"
-                                onClick={() => handleOpenCreate()}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                                <span>Crear Departamento</span>
-                            </button>
-                        )}
-                    </div>
-                ) : viewMode === 'GROUPED' ? (
-                    /* ── VISTA DEFAULT: AGRUPADO POR EMPRESA ── */
-                    <div className="depto-grouped-list">
-                        {groupedData.map(({ empresa, departamentos: deptos }) => (
-                            <div key={empresa.id_empresa} className="depto-company-group">
-                                <div className="depto-company-group__header">
-                                    <div className="depto-company-group__title-wrap">
-                                        <div className="depto-company-group__icon">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-                                                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                                                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 className="depto-company-group__name">{empresa.nombre}</h3>
-                                            <span className="depto-company-group__sub">
-                                                {empresa.rfc ? `RFC: ${empresa.rfc}` : 'Sin RFC'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                                        <span className="depto-company-group__badge">
-                                            {deptos.length} {deptos.length === 1 ? 'área' : 'áreas'}
-                                        </span>
-
-                                        {usuario?.rol === 'admin' && (
-                                            <button
-                                                type="button"
-                                                className="depto-btn depto-btn--secondary"
-                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
-                                                onClick={() => handleOpenCreate(empresa.id_empresa)}
-                                            >
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                                </svg>
-                                                <span>Añadir</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {deptos.length === 0 ? (
-                                    <div className="depto-company-group__empty">
-                                        No hay departamentos asociados a esta empresa
-                                    </div>
-                                ) : (
-                                    <div className="depto-company-group__grid">
-                                        {deptos.map((d) => (
-                                            <div key={d.id_departamento} className="depto-mini-card">
-                                                <div>
-                                                    <h4 className="depto-mini-card__title">{d.nombre}</h4>
-                                                    <span className="depto-mini-card__id">ID #{d.id_departamento}</span>
-                                                </div>
-
-                                                {usuario?.rol === 'admin' && (
-                                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                                        <button
-                                                            type="button"
-                                                            className="depto-action-btn depto-action-btn--edit"
-                                                            onClick={() => handleOpenEdit(d)}
-                                                            disabled={actionLoading}
-                                                            title="Editar"
-                                                        >
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="depto-action-btn depto-action-btn--delete"
-                                                            onClick={() => handleOpenDelete(d)}
-                                                            disabled={actionLoading}
-                                                            title="Eliminar"
-                                                        >
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                <polyline points="3 6 5 6 21 6" />
-                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                ) : viewMode === 'GRID' ? (
-                    /* ── VISTA 2: MOSAICO / GRID CARDS ── */
-                    <div className="depto-grid">
-                        {deptosFiltrados.map((depto) => {
-                            const emp = empresaMap[depto.id_empresa];
-                            return (
-                                <div key={depto.id_departamento} className="depto-card">
-                                    <div className="depto-card__top">
-                                        <h3 className="depto-card__name">{depto.nombre}</h3>
-                                        <span className="depto-card__id">#{depto.id_departamento}</span>
-                                    </div>
-
-                                    <div>
-                                        <div className="depto-card__company">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-                                                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-                                                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-                                            </svg>
-                                            <span>{emp?.nombre || `Empresa #${depto.id_empresa}`}</span>
-                                        </div>
-                                    </div>
-
-                                    {usuario?.rol === 'admin' && (
-                                        <div className="depto-card__footer">
-                                            <button
-                                                type="button"
-                                                className="depto-action-btn depto-action-btn--edit"
-                                                onClick={() => handleOpenEdit(depto)}
-                                                disabled={actionLoading}
-                                                title="Editar departamento"
-                                            >
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                </svg>
-                                                <span>Editar</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="depto-action-btn depto-action-btn--delete"
-                                                onClick={() => handleOpenDelete(depto)}
-                                                disabled={actionLoading}
-                                                title="Eliminar departamento"
-                                            >
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polyline points="3 6 5 6 21 6" />
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                </svg>
-                                                <span>Eliminar</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    /* ── VISTA 3: TABLA DETALLADA ── */
-                    <div className="depto-table-wrap">
-                        <table className="depto-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Departamento</th>
-                                    <th>Empresa Perteneciente</th>
-                                    {usuario?.rol === 'admin' && <th>Acciones</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {deptosFiltrados.map((depto) => (
-                                    <tr key={depto.id_departamento}>
-                                        <td className="depto-table__id">#{depto.id_departamento}</td>
-                                        <td className="depto-table__name">{depto.nombre}</td>
-                                        <td>
-                                            <span className="depto-card__company">
-                                                {empresaMap[depto.id_empresa]?.nombre || `Empresa #${depto.id_empresa}`}
-                                            </span>
-                                        </td>
-                                        {usuario?.rol === 'admin' && (
-                                            <td>
-                                                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                                    <button
-                                                        type="button"
-                                                        className="depto-action-btn depto-action-btn--edit"
-                                                        onClick={() => handleOpenEdit(depto)}
-                                                        disabled={actionLoading}
-                                                        title="Editar departamento"
-                                                    >
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="depto-action-btn depto-action-btn--delete"
-                                                        onClick={() => handleOpenDelete(depto)}
-                                                        disabled={actionLoading}
-                                                        title="Eliminar departamento"
-                                                    >
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <polyline points="3 6 5 6 21 6" />
-                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {/* ── Modal: Create / Edit ── */}
-                {modalOpen && (
-                    <div className="depto-modal-overlay">
-                        <div className="depto-modal">
-                            <div className="depto-modal__header">
-                                <h2 className="depto-modal__title">
-                                    {modalMode === 'CREATE' ? 'Nuevo Departamento' : 'Editar Departamento'}
-                                </h2>
-                                <button
-                                    type="button"
-                                    className="depto-modal__close"
-                                    onClick={() => setModalOpen(false)}
-                                    disabled={actionLoading}
-                                    aria-label="Cerrar modal"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSubmit}>
-                                <div className="depto-form-group">
-                                    <label className="depto-form-label">Nombre del Departamento *</label>
-                                    <input
-                                        type="text"
-                                        className="depto-form-input"
-                                        placeholder="Ej. Tecnologías de la Información, Recursos Humanos..."
-                                        value={nombre}
-                                        onChange={(e) => setNombre(e.target.value)}
-                                        required
-                                        autoFocus
-                                    />
-                                </div>
-
-                                <div className="depto-form-group">
-                                    <label className="depto-form-label">Empresa Perteneciente *</label>
-                                    <select
-                                        className="depto-form-input"
-                                        value={idEmpresa}
-                                        onChange={(e) => setIdEmpresa(e.target.value)}
-                                        required
-                                    >
-                                        <option value="">Selecciona una empresa</option>
-                                        {empresas.map((emp) => (
-                                            <option key={emp.id_empresa} value={emp.id_empresa}>
-                                                {emp.nombre} {emp.rfc ? `(${emp.rfc})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="depto-modal__footer">
-                                    <button
-                                        type="button"
-                                        className="depto-btn depto-btn--secondary"
-                                        onClick={() => setModalOpen(false)}
-                                        disabled={actionLoading}
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="depto-btn depto-btn--primary"
-                                        disabled={actionLoading}
-                                    >
-                                        {actionLoading ? (
-                                            <>
-                                                <span className="depto-btn__spin">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <polyline points="23 4 23 10 17 10" />
-                                                        <polyline points="1 20 1 14 7 14" />
-                                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                                                    </svg>
-                                                </span>
-                                                <span>Guardando...</span>
-                                            </>
-                                        ) : (
-                                            <span>{modalMode === 'CREATE' ? 'Crear Departamento' : 'Guardar Cambios'}</span>
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Modal: Delete Confirmation ── */}
-                {deleteModalOpen && deptoToDelete && (
-                    <div className="depto-modal-overlay">
-                        <div className="depto-modal" style={{ maxWidth: '400px' }}>
-                            <div className="depto-modal__header">
-                                <h2 className="depto-modal__title" style={{ color: '#fca5a5' }}>
-                                    Confirmar Eliminación
-                                </h2>
-                                <button
-                                    type="button"
-                                    className="depto-modal__close"
-                                    onClick={() => setDeleteModalOpen(false)}
-                                    disabled={actionLoading}
-                                    aria-label="Cerrar modal"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: '1.5', margin: '0.4rem 0 1.25rem' }}>
-                                ¿Deseas eliminar el departamento{' '}
-                                <strong style={{ color: '#f1f5f9' }}>{deptoToDelete.nombre}</strong> de{' '}
-                                <strong style={{ color: '#22d3ee' }}>
-                                    {empresaMap[deptoToDelete.id_empresa]?.nombre || 'su empresa'}
-                                </strong>?
-                            </p>
-
-                            <div className="depto-modal__footer">
-                                <button
-                                    type="button"
-                                    className="depto-btn depto-btn--secondary"
-                                    onClick={() => setDeleteModalOpen(false)}
-                                    disabled={actionLoading}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="button"
-                                    className="depto-btn depto-btn--danger"
-                                    onClick={handleConfirmDelete}
-                                    disabled={actionLoading}
-                                >
-                                    {actionLoading ? 'Eliminando...' : 'Eliminar'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </Layout>
-    );
+.depto - page {
+    padding: 1.75rem 2rem;
+    font - family: 'Inter', 'Segoe UI', system - ui, -apple - system, sans - serif;
+    color: #f1f5f9;
+    min - height: 100vh;
 }
 
-export default Departamento;
+/* ---------- Header ---------- */
+.depto - header {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    margin - bottom: 1.5rem;
+    gap: 1rem;
+    flex - wrap: wrap;
+}
+
+.depto - header__title {
+    font - size: 1.5rem;
+    font - weight: 700;
+    color: #f8fafc;
+    letter - spacing: -0.02em;
+    margin: 0;
+    display: flex;
+    align - items: center;
+    gap: 0.75rem;
+}
+
+.depto - header__actions {
+    display: flex;
+    gap: 0.6rem;
+    align - items: center;
+}
+
+/* ---------- Compact Non-Invasive Metrics ---------- */
+.depto - metrics - bar {
+    display: flex;
+    align - items: center;
+    gap: 0.75rem;
+    margin - bottom: 1.5rem;
+    flex - wrap: wrap;
+}
+
+.depto - metric - pill {
+    display: inline - flex;
+    align - items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.85rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border - radius: 10px;
+    font - size: 0.8rem;
+    color: rgba(203, 213, 225, 0.8);
+}
+
+.depto - metric - pill strong {
+    color: #38bdf8;
+    font - weight: 700;
+}
+
+.depto - metric - pill--purple strong {
+    color: #c4b5fd;
+}
+
+/* ---------- Buttons ---------- */
+.depto - btn {
+    display: inline - flex;
+    align - items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    font - size: 0.84rem;
+    font - weight: 600;
+    font - family: inherit;
+    border - radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white - space: nowrap;
+}
+
+.depto - btn--primary {
+    background: linear - gradient(135deg, #06b6d4, #2563eb);
+    color: #ffffff;
+    box - shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
+}
+
+.depto - btn--primary: hover: not(: disabled) {
+    transform: translateY(-1px);
+    box - shadow: 0 6px 18px rgba(6, 182, 212, 0.45);
+}
+
+.depto - btn--secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(203, 213, 225, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.depto - btn--secondary: hover: not(: disabled) {
+    background: rgba(255, 255, 255, 0.09);
+    color: #f1f5f9;
+}
+
+.depto - btn--danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.depto - btn--danger: hover: not(: disabled) {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.depto - btn:disabled {
+    opacity: 0.5;
+    cursor: not - allowed;
+}
+
+.depto - btn__spin {
+    animation: deptoSpin 0.8s linear infinite;
+}
+
+@keyframes deptoSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- Control Toolbar ---------- */
+.depto - toolbar {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    gap: 0.85rem;
+    margin - bottom: 1.25rem;
+    flex - wrap: wrap;
+}
+
+.depto - toolbar__search - box {
+    flex: 1;
+    min - width: 240px;
+    position: relative;
+    display: flex;
+    align - items: center;
+}
+
+.depto - toolbar__search - icon {
+    position: absolute;
+    left: 12px;
+    color: rgba(148, 163, 184, 0.5);
+    pointer - events: none;
+    display: flex;
+    align - items: center;
+}
+
+.depto - toolbar__search - input {
+    width: 100 %;
+    padding: 0.65rem 0.95rem 0.65rem 2.4rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border - radius: 10px;
+    color: #f1f5f9;
+    font - family: inherit;
+    font - size: 0.85rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.depto - toolbar__search - input:focus {
+    border - color: #06b6d4;
+    background: rgba(255, 255, 255, 0.07);
+    box - shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+
+/* View Switcher */
+.depto - view -switch {
+    display: inline - flex;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border- radius: 10px;
+padding: 3px;
+gap: 2px;
+}
+
+.depto - view - switch__btn {
+    padding: 0.45rem 0.75rem;
+    border - radius: 7px;
+    border: none;
+    background: transparent;
+    color: rgba(148, 163, 184, 0.75);
+    font - size: 0.78rem;
+    font - weight: 600;
+    font - family: inherit;
+    display: inline - flex;
+    align - items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.depto - view - switch__btn:hover {
+    color: #f1f5f9;
+}
+
+.depto - view - switch__btn--active {
+    background: rgba(6, 182, 212, 0.2);
+    border: 1px solid rgba(6, 182, 212, 0.35);
+    color: #38bdf8;
+}
+
+/* ---------- Filter Pills Strip ---------- */
+.depto - pills {
+    display: flex;
+    gap: 0.45rem;
+    overflow - x: auto;
+    padding - bottom: 0.5rem;
+    margin - bottom: 1.25rem;
+    scrollbar - width: thin;
+}
+
+.depto - pills:: -webkit - scrollbar {
+    height: 3px;
+}
+
+.depto - pills:: -webkit - scrollbar - thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border - radius: 3px;
+}
+
+.depto - pill {
+    display: inline - flex;
+    align - items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.8rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border - radius: 9999px;
+    font - size: 0.78rem;
+    font - weight: 500;
+    color: rgba(203, 213, 225, 0.75);
+    cursor: pointer;
+    white - space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.depto - pill:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #f1f5f9;
+}
+
+.depto - pill--active {
+    background: rgba(6, 182, 212, 0.16);
+    border - color: rgba(6, 182, 212, 0.5);
+    color: #22d3ee;
+    font - weight: 600;
+}
+
+.depto - pill__count {
+    padding: 0.05rem 0.4rem;
+    border - radius: 9999px;
+    font - size: 0.7rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+}
+
+.depto - pill--active.depto - pill__count {
+    background: rgba(6, 182, 212, 0.35);
+    color: #ffffff;
+}
+
+/* ---------- Alerts ---------- */
+.depto - alert {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border - radius: 10px;
+    font - size: 0.84rem;
+    margin - bottom: 1.25rem;
+    animation: deptoSlideDown 0.25s ease;
+}
+
+@keyframes deptoSlideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.depto - alert__content {
+    display: flex;
+    align - items: center;
+    gap: 0.55rem;
+}
+
+.depto - alert__close {
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 2px;
+    display: flex;
+}
+
+.depto - alert__close:hover {
+    opacity: 1;
+}
+
+.depto - alert--error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+}
+
+.depto - alert--success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
+}
+
+/* ---------- DEFAULT VIEW: Grouped by Company ---------- */
+.depto - grouped - list {
+    display: flex;
+    flex - direction: column;
+    gap: 1.25rem;
+}
+
+.depto - company - group {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border - radius: 16px;
+    overflow: hidden;
+}
+
+.depto - company - group__header {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border - bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex - wrap: wrap;
+    gap: 0.75rem;
+}
+
+.depto - company - group__title - wrap {
+    display: flex;
+    align - items: center;
+    gap: 0.75rem;
+}
+
+.depto - company - group__icon {
+    width: 34px;
+    height: 34px;
+    border - radius: 8px;
+    background: rgba(124, 58, 237, 0.2);
+    color: #c4b5fd;
+    display: flex;
+    align - items: center;
+    justify - content: center;
+}
+
+.depto - company - group__name {
+    font - size: 1rem;
+    font - weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.depto - company - group__sub {
+    font - size: 0.75rem;
+    color: rgba(148, 163, 184, 0.65);
+}
+
+.depto - company - group__badge {
+    padding: 0.2rem 0.55rem;
+    border - radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+    font - size: 0.72rem;
+    font - weight: 600;
+    color: #cbd5e1;
+}
+
+.depto - company - group__grid {
+    display: grid;
+    grid - template - columns: repeat(auto - fill, minmax(240px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem;
+}
+
+.depto - mini - card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border - radius: 12px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    gap: 0.6rem;
+    transition: all 0.15s ease;
+}
+
+.depto - mini - card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border - color: rgba(6, 182, 212, 0.3);
+}
+
+.depto - mini - card__title {
+    font - size: 0.88rem;
+    font - weight: 600;
+    color: #f1f5f9;
+    margin: 0 0 0.15rem 0;
+}
+
+.depto - mini - card__id {
+    font - size: 0.7rem;
+    color: rgba(148, 163, 184, 0.55);
+}
+
+.depto - company - group__empty {
+    padding: 1.5rem;
+    text - align: center;
+    color: rgba(148, 163, 184, 0.45);
+    font - size: 0.84rem;
+}
+
+/* Action button */
+.depto - action - btn {
+    padding: 0.35rem 0.45rem;
+    border - radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    color: #cbd5e1;
+    cursor: pointer;
+    display: inline - flex;
+    align - items: center;
+    justify - content: center;
+    font - size: 0.75rem;
+    font - family: inherit;
+    transition: all 0.15s ease;
+}
+
+.depto - action - btn:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: #ffffff;
+}
+
+.depto - action - btn--edit:hover {
+    background: rgba(6, 182, 212, 0.2);
+    border - color: #06b6d4;
+    color: #67e8f9;
+}
+
+.depto - action - btn--delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border - color: #ef4444;
+    color: #fca5a5;
+}
+
+/* ---------- VIEW: Cards Grid ---------- */
+.depto - grid {
+    display: grid;
+    grid - template - columns: repeat(auto - fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.depto - card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border - radius: 14px;
+    padding: 1.2rem;
+    display: flex;
+    flex - direction: column;
+    justify - content: space - between;
+    transition: all 0.2s ease;
+}
+
+.depto - card:hover {
+    border - color: rgba(6, 182, 212, 0.3);
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.depto - card__top {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    margin - bottom: 0.85rem;
+}
+
+.depto - card__id {
+    font - size: 0.72rem;
+    font - weight: 600;
+    color: rgba(148, 163, 184, 0.55);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.2rem 0.5rem;
+    border - radius: 6px;
+}
+
+.depto - card__name {
+    font - size: 1.05rem;
+    font - weight: 700;
+    color: #f8fafc;
+    margin: 0 0 0.5rem 0;
+}
+
+.depto - card__company {
+    display: inline - flex;
+    align - items: center;
+    gap: 0.4rem;
+    font - size: 0.78rem;
+    color: #c4b5fd;
+    background: rgba(124, 58, 237, 0.1);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    padding: 0.25rem 0.6rem;
+    border - radius: 6px;
+}
+
+.depto - card__footer {
+    display: flex;
+    align - items: center;
+    justify - content: flex - end;
+    gap: 0.4rem;
+    padding - top: 0.75rem;
+    margin - top: 1rem;
+    border - top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- VIEW: Table View ---------- */
+.depto - table - wrap {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border - radius: 14px;
+    overflow: hidden;
+}
+
+.depto - table {
+    width: 100 %;
+    border - collapse: collapse;
+    font - size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.depto - table thead tr {
+    background: rgba(255, 255, 255, 0.02);
+    border - bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.depto - table th {
+    padding: 0.85rem 1.1rem;
+    font - weight: 600;
+    font - size: 0.72rem;
+    color: rgba(148, 163, 184, 0.8);
+    text - transform: uppercase;
+    letter - spacing: 0.05em;
+    text - align: left;
+}
+
+.depto - table td {
+    padding: 0.8rem 1.1rem;
+    border - bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical - align: middle;
+}
+
+.depto - table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.depto - table tbody tr: last - child td {
+    border - bottom: none;
+}
+
+.depto - table__id {
+    color: #94a3b8;
+    font - family: monospace;
+}
+
+.depto - table__name {
+    font - weight: 600;
+    color: #f8fafc;
+}
+
+/* ---------- Empty State ---------- */
+.depto - empty - state {
+    padding: 3rem 1.5rem;
+    text - align: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border - radius: 16px;
+}
+
+.depto - empty - state__icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 0.75rem;
+    border - radius: 12px;
+    background: rgba(6, 182, 212, 0.1);
+    color: #22d3ee;
+    display: flex;
+    align - items: center;
+    justify - content: center;
+}
+
+.depto - empty - state__title {
+    font - size: 1rem;
+    font - weight: 700;
+    color: #f1f5f9;
+    margin: 0 0 0.3rem 0;
+}
+
+.depto - empty - state__desc {
+    font - size: 0.82rem;
+    color: rgba(148, 163, 184, 0.55);
+    max - width: 320px;
+    margin: 0 auto 1.25rem;
+}
+
+/* ---------- Modals ---------- */
+.depto - modal - overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 12, 41, 0.75);
+    backdrop - filter: blur(8px);
+    -webkit - backdrop - filter: blur(8px);
+    z - index: 1000;
+    display: flex;
+    align - items: center;
+    justify - content: center;
+    padding: 1rem;
+    animation: deptoFadeIn 0.2s ease;
+}
+
+.depto - modal {
+    width: 100 %;
+    max - width: 460px;
+    background: #16133a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border - radius: 18px;
+    padding: 1.6rem;
+    box - shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    animation: deptoScaleIn 0.22s cubic - bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes deptoFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes deptoScaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.depto - modal__header {
+    display: flex;
+    align - items: center;
+    justify - content: space - between;
+    margin - bottom: 1.25rem;
+}
+
+.depto - modal__title {
+    font - size: 1.2rem;
+    font - weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.depto - modal__close {
+    background: none;
+    border: none;
+    color: rgba(148, 163, 184, 0.6);
+    cursor: pointer;
+    display: flex;
+    padding: 4px;
+    border - radius: 6px;
+    transition: all 0.15s;
+}
+
+.depto - modal__close:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.depto - form - group {
+    margin - bottom: 1.15rem;
+}
+
+.depto - form - label {
+    display: block;
+    font - size: 0.75rem;
+    font - weight: 600;
+    color: rgba(203, 213, 225, 0.85);
+    text - transform: uppercase;
+    letter - spacing: 0.05em;
+    margin - bottom: 0.4rem;
+}
+
+.depto - form - input {
+    width: 100 %;
+    padding: 0.7rem 0.95rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid rgba(255, 255, 255, 0.09);
+    border - radius: 10px;
+    color: #f1f5f9;
+    font - family: inherit;
+    font - size: 0.88rem;
+    outline: none;
+    transition: all 0.2s ease;
+    box - sizing: border - box;
+}
+
+.depto - form - input:focus {
+    border - color: #06b6d4;
+    background: rgba(255, 255, 255, 0.08);
+    box - shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+
+.depto - form - input option {
+    background: #1a1640;
+    color: #f1f5f9;
+}
+
+.depto - modal__footer {
+    display: flex;
+    justify - content: flex - end;
+    gap: 0.65rem;
+    margin - top: 1.5rem;
+}
+
+/* ---------- Responsive ---------- */
+@media(max - width: 768px) {
+    .depto - page {
+        padding: 1.25rem;
+        padding - top: 4.5rem;
+    }
+
+    .depto - grid {
+        grid - template - columns: 1fr;
+    }
+
+    .depto - company - group__grid {
+        grid - template - columns: 1fr;
+    }
+
+    .depto - table - wrap {
+        overflow - x: auto;
+    }
+
+    .depto - table {
+        min - width: 500px;
+    }
+}

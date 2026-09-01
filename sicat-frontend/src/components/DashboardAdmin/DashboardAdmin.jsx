@@ -7,12 +7,18 @@ import './DashboardAdmin.css';
 
 
 function DashboardAdmin() {
-    
-    
+    const {usuario} = useAuth();
+
 
     return (
         <Layout>
             <div className="dash-container">
+                <div className="dash-header">
+                    <div className="dash-header--title">
+                        <h1>Bienvenido {usuario?.rol} {usuario?.nombre}</h1>
+                    </div>
+                </div>
+                
             </div>
         </Layout>
     );

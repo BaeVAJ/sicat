@@ -1,6 +1,6 @@
 // src/components/layout/sidebar.jsx
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './sidebar.css';
 
@@ -98,8 +98,19 @@ const icons = {
             <line x1="4" y1="18" x2="20" y2="18" />
         </svg>
     ),
-    user : (
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="#currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+    user: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+        </svg>
+    ),
+    more: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
     ),
 };
 
@@ -111,6 +122,7 @@ const grupos = [
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
             { to: '/dashboardAdmin', label: 'Inicio', icon: 'dashboard', roles: ['admin', 'gerente'] },
+            { to: '/dashboardUser', label: 'Inicio', icon: 'dashboard', roles: ['usuario'] },
         ],
     },
     {
@@ -155,38 +167,37 @@ const grupos = [
         icon: 'ticket',
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
-            { to: '/tickets', label: 'Tickets', icon: 'ticket', roles: ['admin', 'gerente'] },
-            { to: '/crear-ticket', label: 'Crear Tickets', icon: 'plus', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/tickets', label: 'Tickets', icon: 'ticket', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/crear-ticket', label: 'Crear Ticket', icon: 'plus', roles: ['admin', 'gerente', 'usuario'] },
         ],
     },
     {
         label: 'Usuarios',
         icon: 'user',
-        roles:['admin', 'gerente'],
-        enlaces:[
-            {to: '/Usuarios', label: 'Usuarios', icon:'user', roles:['admin', 'gerente'],},
-        ]
-    }
+        roles: ['admin', 'gerente'],
+        enlaces: [
+            { to: '/Usuarios', label: 'Usuarios', icon: 'user', roles: ['admin', 'gerente'] },
+        ],
+    },
 ];
 
-function GrupoMenu({ grupo, rol }) {
+function GrupoMenu({ grupo, rol, onNavigate }) {
     const [abierto, setAbierto] = useState(false);
+    const location = useLocation();
 
     // Filtra enlaces visibles para este rol
-    const visibles = grupo.enlaces.filter(e => e.roles.includes(rol));
+    const visibles = grupo.enlaces.filter((e) => e.roles.includes(rol));
 
-    // Si no hay enlaces visibles para este rol, no renderiza nada
     if (visibles.length === 0) return null;
 
-    // Si solo tiene 1 enlace, muestra directo sin desplegable
+    // Si solo tiene 1 enlace, muestra directo
     if (visibles.length === 1) {
         const { to, label, icon } = visibles[0];
         return (
             <NavLink
                 to={to}
-                className={({ isActive }) =>
-                    `sidebar__link ${isActive ? 'active' : ''}`
-                }
+                onClick={onNavigate}
+                className={({ isActive }) => `sidebar__link ${isActive ? 'active' : ''}`}
             >
                 <span className="sidebar__link-icon">{icons[icon]}</span>
                 <span className="sidebar__link-label">{label}</span>
@@ -194,33 +205,42 @@ function GrupoMenu({ grupo, rol }) {
         );
     }
 
+    const hasActiveChild = visibles.some((e) => location.pathname.toLowerCase() === e.to.toLowerCase());
+
     return (
         <div className="sidebar__group">
-            {/* Cabecera del grupo — toggle */}
             <button
-                className={`sidebar__group-header ${abierto ? 'sidebar__group-header--open' : ''}`}
-                onClick={() => setAbierto(v => !v)}
+                type="button"
+                className={`sidebar__group-header ${abierto || hasActiveChild ? 'sidebar__group-header--open' : ''}`}
+                onClick={() => setAbierto((v) => !v)}
             >
                 <span className="sidebar__link-icon">{icons[grupo.icon]}</span>
                 <span className="sidebar__link-label">{grupo.label}</span>
                 <span className="sidebar__group-arrow">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        style={{ transform: abierto ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{
+                            transform: abierto || hasActiveChild ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s ease',
+                        }}
+                    >
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </span>
             </button>
 
-            {/* Submenú colapsable */}
-            <div className={`sidebar__submenu ${abierto ? 'sidebar__submenu--open' : ''}`}>
+            <div className={`sidebar__submenu ${abierto || hasActiveChild ? 'sidebar__submenu--open' : ''}`}>
                 {visibles.map(({ to, label, icon }) => (
                     <NavLink
                         key={to}
                         to={to}
-                        className={({ isActive }) =>
-                            `sidebar__link sidebar__link--sub ${isActive ? 'active' : ''}`
-                        }
+                        onClick={onNavigate}
+                        className={({ isActive }) => `sidebar__link sidebar__link--sub ${isActive ? 'active' : ''}`}
                     >
                         <span className="sidebar__link-icon">{icons[icon]}</span>
                         <span className="sidebar__link-label">{label}</span>
@@ -234,11 +254,24 @@ function GrupoMenu({ grupo, rol }) {
 function Sidebar() {
     const { usuario, logout } = useAuth();
     const navigate = useNavigate();
-    const [open, setOpen] = useState(false);
+    const location = useLocation();
 
-    // Obtener iniciales del usuario para el avatar
+    // Estado para el menú móvil inferior (Bottom Sheet)
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Cerrar el menú desplegable al cambiar de ruta
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
+
+    // Obtener iniciales del usuario
     const iniciales = usuario?.nombre
-        ? usuario.nombre.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+        ? usuario.nombre
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase()
         : '?';
 
     const handleLogout = () => {
@@ -246,30 +279,22 @@ function Sidebar() {
         navigate('/Login');
     };
 
+    const handleCloseMobile = () => {
+        setMobileMenuOpen(false);
+    };
+
+    // Determinar la ruta de inicio según el rol
+    const homeRoute = usuario?.rol === 'usuario' ? '/dashboardUser' : '/dashboardAdmin';
+
     return (
         <>
-            {/* Mobile toggle */}
-            <button
-                className="sidebar__toggle"
-                onClick={() => setOpen((v) => !v)}
-                aria-label="Abrir menú"
-            >
-                <span className="sidebar__link-icon">{icons.menu}</span>
-            </button>
-
-            {/* Mobile overlay */}
-            <div
-                className={`sidebar__overlay ${open ? 'sidebar__overlay--visible' : ''}`}
-                onClick={() => setOpen(false)}
-            />
-
-            {/* Sidebar */}
-            <aside className={`sidebar ${open ? 'sidebar--open' : ''}`}>
-
+            {/* ══════════════════════════════════════════════════════════
+               1. DESKTOP SIDEBAR (Izquierda colapsable en pantallas > 768px)
+               ══════════════════════════════════════════════════════════ */}
+            <aside className="sidebar desktop-sidebar">
                 {/* Brand */}
                 <div className="sidebar__brand">
-                    <div className="sidebar__brand-icon" />
-                    <div className="sidebar__brand-text">
+<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 16L3.54223 12.3383C1.93278 11.0162 1 9.04287 1 6.96005C1 3.11612 4.15607 0 8 0C11.8439 0 15 3.11612 15 6.96005C15 9.04287 14.0672 11.0162 12.4578 12.3383L8 16ZM3 6H5C6.10457 6 7 6.89543 7 8V9L3 7.5V6ZM11 6C9.89543 6 9 6.89543 9 8V9L13 7.5V6H11Z" fill="#ffffff"></path> </g></svg>                    <div className="sidebar__brand-text">
                         <span className="sidebar__brand-name">SICAT</span>
                         <span className="sidebar__brand-sub">Control de Activos</span>
                     </div>
@@ -278,14 +303,13 @@ function Sidebar() {
                 {/* Navigation */}
                 <nav className="sidebar__nav">
                     {grupos
-                        .filter(g => g.roles.includes(usuario?.rol))
-                        .map(grupo => (
+                        .filter((g) => g.roles.includes(usuario?.rol))
+                        .map((grupo) => (
                             <GrupoMenu key={grupo.label} grupo={grupo} rol={usuario?.rol} />
-                        ))
-                    }
+                        ))}
                 </nav>
 
-                {/* Footer */}
+                {/* Footer / User Profile */}
                 <div className="sidebar__footer">
                     <div className="sidebar__user">
                         <div className="sidebar__avatar">{iniciales}</div>
@@ -294,12 +318,154 @@ function Sidebar() {
                             <span className="sidebar__user-role">{usuario?.rol}</span>
                         </div>
                     </div>
-                    <button className="sidebar__logout" onClick={handleLogout}>
+                    <button type="button" className="sidebar__logout" onClick={handleLogout}>
                         <span className="sidebar__link-icon">{icons.logout}</span>
                         <span className="sidebar__logout-label">Cerrar sesión</span>
                     </button>
                 </div>
             </aside>
+
+            {/* ══════════════════════════════════════════════════════════
+               2. MOBILE BOTTOM NAVIGATION (Barra inferior fija en teléfonos)
+               ══════════════════════════════════════════════════════════ */}
+            <div className="mobile-bottom-bar">
+                {/* 1. Inicio */}
+                <NavLink
+                    to={homeRoute}
+                    className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
+                >
+                    <span className="mobile-bottom-bar__icon">{icons.dashboard}</span>
+                    <span className="mobile-bottom-bar__label">Inicio</span>
+                </NavLink>
+
+                {/* 2. Productos / Catálogo */}
+                {['admin', 'gerente'].includes(usuario?.rol) && (
+                    <NavLink
+                        to="/productos"
+                        className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
+                    >
+                        <span className="mobile-bottom-bar__icon">{icons.box}</span>
+                        <span className="mobile-bottom-bar__label">Productos</span>
+                    </NavLink>
+                )}
+
+                {/* 3. Facturas */}
+                {['admin', 'gerente'].includes(usuario?.rol) && (
+                    <NavLink
+                        to="/facturas"
+                        className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
+                    >
+                        <span className="mobile-bottom-bar__icon">{icons.receipt}</span>
+                        <span className="mobile-bottom-bar__label">Facturas</span>
+                    </NavLink>
+                )}
+
+                {/* 4. Tickets */}
+                <NavLink
+                    to="/tickets"
+                    className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
+                >
+                    <span className="mobile-bottom-bar__icon">{icons.ticket}</span>
+                    <span className="mobile-bottom-bar__label">Tickets</span>
+                </NavLink>
+
+                {/* 5. Botón Menú Completo (Despliega panel inferior) */}
+                <button
+                    type="button"
+                    className={`mobile-bottom-bar__item mobile-bottom-bar__menu-btn ${
+                        mobileMenuOpen ? 'active' : ''
+                    }`}
+                    onClick={() => setMobileMenuOpen((v) => !v)}
+                    aria-label="Abrir menú completo"
+                >
+                    <span className="mobile-bottom-bar__icon">
+                        {mobileMenuOpen ? (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                        ) : (
+                            icons.more
+                        )}
+                    </span>
+                    <span className="mobile-bottom-bar__label">{mobileMenuOpen ? 'Cerrar' : 'Menú'}</span>
+                </button>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════
+               3. MOBILE BOTTOM SHEET (Panel desplegable estático inferior)
+               ══════════════════════════════════════════════════════════ */}
+            {/* Overlay para cerrar al tocar afuera */}
+            <div
+                className={`mobile-sheet-overlay ${mobileMenuOpen ? 'mobile-sheet-overlay--visible' : ''}`}
+                onClick={handleCloseMobile}
+            />
+
+            {/* Drawer que emerge desde la parte inferior */}
+            <div className={`mobile-bottom-sheet ${mobileMenuOpen ? 'mobile-bottom-sheet--open' : ''}`}>
+                {/* Tirador superior táctil */}
+                <div className="mobile-sheet__handle-wrap" onClick={handleCloseMobile}>
+                    <div className="mobile-sheet__handle" />
+                </div>
+
+                {/* Cabecera del panel inferior */}
+                <div className="mobile-sheet__header">
+                    <div className="mobile-sheet__brand">
+                        <div className="sidebar__brand-icon" />
+                        <div>
+                            <span className="sidebar__brand-name">SICAT</span>
+                            <span className="sidebar__brand-sub">Menú del Sistema</span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="mobile-sheet__close"
+                        onClick={handleCloseMobile}
+                        aria-label="Cerrar menú"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Lista de navegación completa */}
+                <div className="mobile-sheet__nav">
+                    {grupos
+                        .filter((g) => g.roles.includes(usuario?.rol))
+                        .map((grupo) => (
+                            <GrupoMenu
+                                key={grupo.label}
+                                grupo={grupo}
+                                rol={usuario?.rol}
+                                onNavigate={handleCloseMobile}
+                            />
+                        ))}
+                </div>
+
+                {/* Footer con información de usuario y cerrar sesión */}
+                <div className="mobile-sheet__footer">
+                    <div className="sidebar__user" style={{ padding: '8px 12px', margin: 0 }}>
+                        <div className="sidebar__avatar">{iniciales}</div>
+                        <div className="sidebar__user-info" style={{ opacity: 1 }}>
+                            <span className="sidebar__user-name">{usuario?.nombre}</span>
+                            <span className="sidebar__user-role">{usuario?.rol}</span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="sidebar__logout"
+                        style={{ width: 'auto', padding: '8px 14px' }}
+                        onClick={handleLogout}
+                    >
+                        <span className="sidebar__link-icon">{icons.logout}</span>
+                        <span className="sidebar__logout-label" style={{ opacity: 1 }}>
+                            Salir
+                        </span>
+                    </button>
+                </div>
+            </div>
         </>
     );
 }

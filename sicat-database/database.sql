@@ -10,7 +10,12 @@ CREATE TYPE tipo_pago_t      AS ENUM ('Contado', 'Credito', 'Transferencia', 'Ch
 CREATE TYPE tipo_categoria_t AS ENUM ('equipo', 'insumo', 'accesorio');
 CREATE TYPE estado_ticket_t  AS ENUM ('PENDIENTE', 'EN_PROCESO', 'SOLUCIONADO');
 CREATE TYPE metodo_pago_t    AS ENUM ('PUE', 'PPD');
-CREATE TYPE uso_cfdi_t       AS ENUM ('G01', 'G02', 'G03', 'I01', 'I02', 'P01');
+CREATE TYPE uso_cfdi_t       AS ENUM (
+    'G01', 'G02', 'G03',
+    'I01', 'I02', 'I03', 'I04', 'I05', 'I06', 'I07', 'I08',
+    'D01', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10',
+    'P01', 'CP01', 'CN01', 'S01'
+);
 CREATE TYPE estatus_asig_t   AS ENUM ('ACTIVO', 'DEVUELTO');
 CREATE TYPE estatus_pedido_t AS ENUM ('PENDIENTE', 'ENTREGADO', 'CANCELADO');
 CREATE TYPE rol_t            AS ENUM ('admin', 'gerente', 'usuario');
@@ -107,6 +112,7 @@ CREATE TABLE FACTURA (
     metodo_pago    metodo_pago_t,
     uso_cfdi       uso_cfdi_t NOT NULL,
     archivo_url    TEXT,
+    archivo_xml_url TEXT,
     CONSTRAINT fk_compraF FOREIGN KEY (id_compra) 
         REFERENCES COMPRA(id_compra)
 );
