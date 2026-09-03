@@ -644,14 +644,77 @@ function Productos() {
                                             </td>
                                         )}
                                     </tr>
-
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 )}
+                {modalOpen && (
+                    <div className='productos-modal-overlay'>
+                        <div className='productos-modal'>
+                            <div className='productos-modal__header'>
+                                <h2 className="productos-modal__title">
+                                    {modalMode === 'CREATE' ? 'Agregar Producto' : 'Editar Producto'}
+                                </h2>
+                                <button
+                                    type="button"
+                                    className='productos-modal__close'
+                                    onClick={() => setModalOpen(false)}
+                                    aria-label='cerrar modal'>
+                                    <svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                                        <line x1='18' y1='6' x2='6' y2='18' />
+                                        <line x1='6' y1='6' x2='18' y2='18' />
+                                    </svg>
+                                </button>
+                            </div>
+                            <form onSubmit={handleSubmit}>
+                                <div className="productos-form-group">
+                                    <label className="productos-form-label">Categoría *</label>
+                                    <select
+                                        className="productos-form-select"
+                                        value={idCategoria}
+                                        onChange={(e) => setIdCategoria(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">Selecciona una categoría</option>
+                                        {categorias.map((cat) => (
+                                            <option key={cat.id_categoria} value={cat.id_categoria}>
+                                                {cat.nombre} {cat.tipo ? `(${cat.tipo})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className='productos-form-group'>
+                                    <label className="productos-form-label">Nombre del producto</label>
+                                    <input
+                                        type="text"
+                                        className="productos-form-input"
+                                        placeholder="Ej. Laptop Dell XPS 15, Switch Gigabit 24 puertos ..."
+                                        value={nombre}
+                                        onChange={(e) => setNombre(e.target.value)}
+                                        required
+                                        autoFocus>
+                                    </input>
+                                </div>
+                                <div className='productos-form-grid-2'>
+                                    <div className='productos-form-group'>
+                                        <input
+                                            type="text"
+                                            className="productos-form-input"
+                                            placeholder='Ej. DELL, HP, Cisco'
+                                            value={marca}
+                                            onChange={(e) => setMarca(e.target.value)} />
+                                    </div>
+
+                                </div>
+                            </form>
+
+                        </div>
+                    </div>
+                )}
             </div>
-        </Layout>
+        </Layout >
 
     )
 };
