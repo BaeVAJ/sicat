@@ -15,20 +15,25 @@ function Productos() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    // Vistas: 'GROUPED' (Por Categoría) | 'GRID' (Mosaico) | 'TABLE' (Tabla)
     const [viewMode, setViewMode] = useState('GROUPED');
 
+    // Búsqueda y Filtro por Categoría
     const [search, setSearch] = useState('');
     const [filterCategoria, setFilterCategoria] = useState('ALL');
 
+    // Modal Crear / Editar
     const [modalOpen, setModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('CREATE');
+    const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' | 'EDIT'
     const [currentProducto, setCurrentProducto] = useState(null);
 
+    // Form inputs
     const [idCategoria, setIdCategoria] = useState('');
     const [nombre, setNombre] = useState('');
     const [marca, setMarca] = useState('');
     const [modelo, setModelo] = useState('');
 
+    // Modal Eliminar
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [productoToDelete, setProductoToDelete] = useState(null);
 
@@ -53,6 +58,7 @@ function Productos() {
         }
     };
 
+    // Mapa id_categoria -> objeto Categoría
     const categoriaMap = useMemo(() => {
         const map = {};
         categorias.forEach((c) => {
@@ -61,6 +67,7 @@ function Productos() {
         return map;
     }, [categorias]);
 
+    // Abrir modal de creación
     const handleOpenCreate = (preselectedCatId = null) => {
         setModalMode('CREATE');
         setCurrentProducto(null);
@@ -78,6 +85,7 @@ function Productos() {
         setModalOpen(true);
     };
 
+    // Abrir modal de edición
     const handleOpenEdit = (producto) => {
         setModalMode('EDIT');
         setCurrentProducto(producto);
@@ -89,6 +97,7 @@ function Productos() {
         setModalOpen(true);
     };
 
+    // Guardar (Crear o Actualizar)
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!nombre.trim()) {
@@ -131,12 +140,13 @@ function Productos() {
         }
     };
 
+    // Abrir confirmación de eliminación
     const handleOpenDelete = (producto) => {
         setProductoToDelete(producto);
         setDeleteModalOpen(true);
     };
 
-
+    // Confirmar eliminación
     const handleConfirmDelete = async () => {
         if (!productoToDelete) return;
         setActionLoading(true);
@@ -155,6 +165,7 @@ function Productos() {
         }
     };
 
+    // Productos filtrados
     const productosFiltrados = useMemo(() => {
         return productos.filter((p) => {
             const catNombre = p.categoria || categoriaMap[p.id_categoria]?.nombre || '';
@@ -170,10 +181,12 @@ function Productos() {
         });
     }, [productos, search, filterCategoria, categoriaMap]);
 
+    // Métricas y estadísticas
     const totalProductos = productos.length;
     const categoriasConProductosCount = new Set(productos.map((p) => p.id_categoria)).size;
     const marcasUnicas = new Set(productos.map((p) => p.marca).filter(Boolean)).size;
 
+    // Agrupación de productos por categoría
     const groupedData = useMemo(() => {
         const list = filterCategoria === 'ALL'
             ? categorias
@@ -204,6 +217,7 @@ function Productos() {
                             Administra, clasifica y gestiona los productos, marcas y modelos del catálogo general
                         </p>
                     </div>
+
                     <div className="productos-header__actions">
                         <button
                             type="button"
@@ -228,6 +242,7 @@ function Productos() {
                             </svg>
                             <span>Actualizar</span>
                         </button>
+
                         {['admin', 'gerente'].includes(usuario?.rol) && (
                             <button
                                 type="button"
@@ -260,6 +275,7 @@ function Productos() {
                         </button>
                     </div>
                 )}
+
                 {success && (
                     <div className="productos-alert productos-alert--success" role="alert">
                         <div className="productos-alert__content">
@@ -276,6 +292,8 @@ function Productos() {
                         </button>
                     </div>
                 )}
+
+                {/* ── Toolbar: Search & Views ── */}
                 <div className="productos-toolbar">
                     <div className="productos-search-wrap">
                         <span className="productos-search-icon">
@@ -292,6 +310,7 @@ function Productos() {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
+
                     <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
                         <select
                             className="productos-filter-select"
@@ -305,6 +324,8 @@ function Productos() {
                                 </option>
                             ))}
                         </select>
+
+                        {/* Switch de Vistas */}
                         <div className="productos-view-switch">
                             <button
                                 type="button"
@@ -319,6 +340,7 @@ function Productos() {
                                 </svg>
                                 <span>Por Categoría</span>
                             </button>
+
                             <button
                                 type="button"
                                 className={`productos-view-switch__btn ${viewMode === 'GRID' ? 'productos-view-switch__btn--active' : ''}`}
@@ -333,6 +355,7 @@ function Productos() {
                                 </svg>
                                 <span>Tarjetas</span>
                             </button>
+
                             <button
                                 type="button"
                                 className={`productos-view-switch__btn ${viewMode === 'TABLE' ? 'productos-view-switch__btn--active' : ''}`}
@@ -352,6 +375,8 @@ function Productos() {
                         </div>
                     </div>
                 </div>
+
+                {/* ── Category Quick Filter Pills ── */}
                 <div className="productos-pills">
                     <button
                         type="button"
@@ -361,6 +386,7 @@ function Productos() {
                         <span>Todas</span>
                         <span className="productos-pill__count">{productos.length}</span>
                     </button>
+
                     {categorias.map((cat) => {
                         const count = productos.filter((p) => p.id_categoria === cat.id_categoria).length;
                         return (
@@ -376,6 +402,8 @@ function Productos() {
                         );
                     })}
                 </div>
+
+                {/* ── Content Views ── */}
                 {loading ? (
                     <div className="productos-empty">
                         <div className="productos-empty__icon">
@@ -418,6 +446,7 @@ function Productos() {
                         )}
                     </div>
                 ) : viewMode === 'GROUPED' ? (
+                    /* ── VISTA 1: AGRUPADO POR CATEGORÍA ── */
                     <div className="productos-grouped-list">
                         {groupedData.map(({ categoria: cat, productos: prods }) => (
                             <div key={cat.id_categoria} className="productos-group-card">
@@ -436,6 +465,7 @@ function Productos() {
                                             )}
                                         </div>
                                     </div>
+
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                                         <span className="productos-badge productos-badge--cat">
                                             {prods.length} {prods.length === 1 ? 'producto' : 'productos'}
@@ -457,6 +487,7 @@ function Productos() {
                                         )}
                                     </div>
                                 </div>
+
                                 {prods.length === 0 ? (
                                     <div style={{ color: 'rgba(148, 163, 184, 0.5)', fontSize: '0.84rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
                                         No hay productos registrados en esta categoría
@@ -480,6 +511,7 @@ function Productos() {
                                                         )}
                                                     </div>
                                                 </div>
+
                                                 {['admin', 'gerente'].includes(usuario?.rol) && (
                                                     <div style={{ display: 'flex', gap: '0.3rem' }}>
                                                         <button
@@ -516,23 +548,26 @@ function Productos() {
                         ))}
                     </div>
                 ) : viewMode === 'GRID' ? (
-                    <div className='productos-grid'>
+                    /* ── VISTA 2: TARJETAS / MOSAICO ── */
+                    <div className="productos-grid">
                         {productosFiltrados.map((prod) => {
                             const cat = categoriaMap[prod.id_categoria];
                             return (
                                 <div key={prod.id_producto} className="productos-card">
                                     <div className="productos-card__header">
-                                        <h3 className='productos-card__name'>{prod.nombre}</h3>
-                                        <span className='productos-card__id'>#{prod.id_producto}</span>
+                                        <h3 className="productos-card__name">{prod.nombre}</h3>
+                                        <span className="productos-card__id">#{prod.id_producto}</span>
                                     </div>
-                                    <div className='productos-card__body'>
-                                        <div className='productos-card__category'>
-                                            <svg width='13' height='13' viewBox=' 0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2.25'>
+
+                                    <div className="productos-card__body">
+                                        <div className="productos-card__category">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                 <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
                                                 <path d="M7 7h.01" />
                                             </svg>
-                                            <span>{prod.categoria || cat?.nombre || `Categoria #${prod.id_categoria}`}</span>
+                                            <span>{prod.categoria || cat?.nombre || `Categoría #${prod.id_categoria}`}</span>
                                         </div>
+
                                         <div className="productos-card__details">
                                             {prod.marca && (
                                                 <span className="productos-badge productos-badge--marca">
@@ -540,19 +575,22 @@ function Productos() {
                                                 </span>
                                             )}
                                             {prod.modelo && (
-                                                <span className="productos-badge productos-badge--marca">
-                                                    Modelo: {prod.modelo}
+                                                <span className="productos-badge productos-badge--modelo">
+                                                    Mod: {prod.modelo}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
+
                                     {['admin', 'gerente'].includes(usuario?.rol) && (
                                         <div className="productos-card__footer">
                                             <button
+                                                type="button"
                                                 className="productos-action-btn productos-action-btn--edit"
                                                 onClick={() => handleOpenEdit(prod)}
                                                 disabled={actionLoading}
-                                                title="editar producto">
+                                                title="Editar producto"
+                                            >
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -560,10 +598,12 @@ function Productos() {
                                                 <span>Editar</span>
                                             </button>
                                             <button
-                                                className='productos-action-btn productos-action-btn--delete'
+                                                type="button"
+                                                className="productos-action-btn productos-action-btn--delete"
                                                 onClick={() => handleOpenDelete(prod)}
                                                 disabled={actionLoading}
-                                                title="Eliminar Producto">
+                                                title="Eliminar producto"
+                                            >
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                     <polyline points="3 6 5 6 21 6" />
                                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -577,13 +617,14 @@ function Productos() {
                         })}
                     </div>
                 ) : (
+                    /* ── VISTA 3: TABLA DETALLADA ── */
                     <div className="productos-table-wrap">
                         <table className="productos-table">
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Nombre del producto</th>
-                                    <th>Categoria</th>
+                                    <th>Nombre del Producto</th>
+                                    <th>Categoría</th>
                                     <th>Marca</th>
                                     <th>Modelo</th>
                                     {['admin', 'gerente'].includes(usuario?.rol) && <th>Acciones</th>}
@@ -644,15 +685,181 @@ function Productos() {
                                             </td>
                                         )}
                                     </tr>
-
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 )}
-            </div>
-        </Layout>
 
-    )
-};
+                {/* ── Modal: Crear / Editar Producto ── */}
+                {modalOpen && (
+                    <div className="productos-modal-overlay">
+                        <div className="productos-modal">
+                            <div className="productos-modal__header">
+                                <h2 className="productos-modal__title">
+                                    {modalMode === 'CREATE' ? 'Nuevo Producto' : 'Editar Producto'}
+                                </h2>
+                                <button
+                                    type="button"
+                                    className="productos-modal__close"
+                                    onClick={() => setModalOpen(false)}
+                                    disabled={actionLoading}
+                                    aria-label="Cerrar modal"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSubmit}>
+                                {/* Categoría */}
+                                <div className="productos-form-group">
+                                    <label className="productos-form-label">Categoría *</label>
+                                    <select
+                                        className="productos-form-select"
+                                        value={idCategoria}
+                                        onChange={(e) => setIdCategoria(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">Selecciona una categoría</option>
+                                        {categorias.map((cat) => (
+                                            <option key={cat.id_categoria} value={cat.id_categoria}>
+                                                {cat.nombre} {cat.tipo ? `(${cat.tipo})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Nombre del Producto */}
+                                <div className="productos-form-group">
+                                    <label className="productos-form-label">Nombre del Producto *</label>
+                                    <input
+                                        type="text"
+                                        className="productos-form-input"
+                                        placeholder="Ej. Laptop Latitude 5420, Switch Gigabit 24 Puertos..."
+                                        value={nombre}
+                                        onChange={(e) => setNombre(e.target.value)}
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {/* Marca y Modelo */}
+                                <div className="productos-grid-2">
+                                    <div className="productos-form-group">
+                                        <label className="productos-form-label">Marca (Opcional)</label>
+                                        <input
+                                            type="text"
+                                            className="productos-form-input"
+                                            placeholder="Ej. Dell, HP, Cisco..."
+                                            value={marca}
+                                            onChange={(e) => setMarca(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="productos-form-group">
+                                        <label className="productos-form-label">Modelo (Opcional)</label>
+                                        <input
+                                            type="text"
+                                            className="productos-form-input"
+                                            placeholder="Ej. SG350-28P, ProBook 450..."
+                                            value={modelo}
+                                            onChange={(e) => setModelo(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="productos-modal__footer">
+                                    <button
+                                        type="button"
+                                        className="productos-btn productos-btn--secondary"
+                                        onClick={() => setModalOpen(false)}
+                                        disabled={actionLoading}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="productos-btn productos-btn--primary"
+                                        disabled={actionLoading}
+                                    >
+                                        {actionLoading ? (
+                                            <>
+                                                <span className="productos-btn__spin">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <polyline points="23 4 23 10 17 10" />
+                                                        <polyline points="1 20 1 14 7 14" />
+                                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                                                    </svg>
+                                                </span>
+                                                <span>Guardando...</span>
+                                            </>
+                                        ) : (
+                                            <span>{modalMode === 'CREATE' ? 'Crear Producto' : 'Guardar Cambios'}</span>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Modal: Confirmar Eliminación ── */}
+                {deleteModalOpen && productoToDelete && (
+                    <div className="productos-modal-overlay">
+                        <div className="productos-modal" style={{ maxWidth: '420px' }}>
+                            <div className="productos-modal__header">
+                                <h2 className="productos-modal__title" style={{ color: '#fca5a5' }}>
+                                    Confirmar Eliminación
+                                </h2>
+                                <button
+                                    type="button"
+                                    className="productos-modal__close"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    disabled={actionLoading}
+                                    aria-label="Cerrar modal"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '1.25rem 1.5rem' }}>
+                                <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: '1.5', margin: '0 0 1.25rem' }}>
+                                    ¿Estás seguro de que deseas eliminar el producto{' '}
+                                    <strong style={{ color: '#f1f5f9' }}>{productoToDelete.nombre}</strong>
+                                    {productoToDelete.marca ? ` (${productoToDelete.marca})` : ''}?
+                                </p>
+
+                                <div className="productos-modal__footer" style={{ padding: 0, border: 'none' }}>
+                                    <button
+                                        type="button"
+                                        className="productos-btn productos-btn--secondary"
+                                        onClick={() => setDeleteModalOpen(false)}
+                                        disabled={actionLoading}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="productos-btn productos-btn--danger"
+                                        onClick={handleConfirmDelete}
+                                        disabled={actionLoading}
+                                    >
+                                        {actionLoading ? 'Eliminando...' : 'Eliminar Producto'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+        </Layout>
+    );
+}
+
 export default Productos;
