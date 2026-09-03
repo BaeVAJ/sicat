@@ -1,5 +1,6 @@
 // src/components/Ticket/VerTicket/Tickets.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
@@ -13,6 +14,8 @@ const ESTADOS = {
 
 function Tickets() {
     const { usuario } = useAuth();
+    const isUsuario = usuario?.rol === 'usuario';
+
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -40,8 +43,17 @@ function Tickets() {
         }
     }
 
-    // Cambiar estado de un ticket
+    // Filtrar los tickets si es rol 'usuario': solo mostrar los que él mandó
+    const ticketsMostrados = useMemo(() => {
+        if (isUsuario && usuario?.id_usuario) {
+            return tickets.filter((t) => t.id_usuario === usuario.id_usuario);
+        }
+        return tickets;
+    }, [tickets, isUsuario, usuario]);
+
+    // Cambiar estado de un ticket (solo para admin / gerente)
     async function cambiarEstado(id, nuevoEstado) {
+        if (isUsuario) return;
         setUpdatingId(id);
         setError('');
         try {
@@ -80,35 +92,50 @@ function Tickets() {
                 {/* Header */}
                 <div className="dash-header">
                     <div>
-                        <h1 className="dash-header__title">Sistema de Tickets</h1>
+                        <h1 className="dash-header__title">
+                            {isUsuario ? 'Mis Tickets' : 'Sistema de Tickets'}
+                        </h1>
                         <p className="dash-header__subtitle">
-                            Bienvenido, {usuario?.nombre}
+                            {isUsuario
+                                ? 'Consulta el estado y seguimiento de los tickets que has enviado'
+                                : `Bienvenido, ${usuario?.nombre || 'Administrador'}`}
                         </p>
                     </div>
-                    <button className="dash-refresh" onClick={fetchTickets} disabled={loading}>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className={loading ? 'dash-refresh__spin' : ''}
-                        >
-                            <polyline points="23 4 23 10 17 10" />
-                            <polyline points="1 20 1 14 7 14" />
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                        </svg>
-                        <span>Actualizar</span>
-                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                        <button className="dash-refresh" onClick={fetchTickets} disabled={loading}>
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className={loading ? 'dash-refresh__spin' : ''}
+                            >
+                                <polyline points="23 4 23 10 17 10" />
+                                <polyline points="1 20 1 14 7 14" />
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                            </svg>
+                            <span>Actualizar</span>
+                        </button>
+
+                        <Link to="/crear-ticket" className="dash-btn-primary">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            <span>Nuevo Ticket</span>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Stats */}
                 <div className="dash-stats">
                     {Object.entries(ESTADOS).map(([key, { label, color }]) => {
-                        const count = tickets.filter((t) => t.estado === key).length;
+                        const count = ticketsMostrados.filter((t) => t.estado === key).length;
                         return (
                             <div key={key} className="dash-stat" style={{ borderColor: color }}>
                                 <span className="dash-stat__count" style={{ color }}>{count}</span>
@@ -117,7 +144,7 @@ function Tickets() {
                         );
                     })}
                     <div className="dash-stat" style={{ borderColor: '#94a3b8' }}>
-                        <span className="dash-stat__count" style={{ color: '#f1f5f9' }}>{tickets.length}</span>
+                        <span className="dash-stat__count" style={{ color: '#f1f5f9' }}>{ticketsMostrados.length}</span>
                         <span className="dash-stat__label">Total</span>
                     </div>
                 </div>
@@ -164,6 +191,7 @@ function Tickets() {
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                {!isUsuario && <th className="hide-on-mobile">Solicitante</th>}
                                 <th>Departamento</th>
                                 <th className="hide-on-mobile">Descripción</th>
                                 <th className="hide-on-mobile">Fecha creación</th>
@@ -175,30 +203,61 @@ function Tickets() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="dash-table__empty">
+                                    <td colSpan={!isUsuario ? 8 : 7} className="dash-table__empty">
                                         <span className="dash-table__spinner" />
                                         Cargando tickets…
                                     </td>
                                 </tr>
-                            ) : tickets.length === 0 ? (
+                            ) : ticketsMostrados.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="dash-table__empty">
-                                        No hay tickets registrados
+                                    <td colSpan={!isUsuario ? 8 : 7} className="dash-table__empty">
+                                        {isUsuario ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                                                <span>Aún no has enviado ningún ticket de soporte.</span>
+                                                <Link to="/crear-ticket" className="dash-btn-primary" style={{ fontSize: '0.78rem' }}>
+                                                    Crear mi primer ticket
+                                                </Link>
+                                            </div>
+                                        ) : (
+                                            'No hay tickets registrados'
+                                        )}
                                     </td>
                                 </tr>
                             ) : (
-                                tickets.map((ticket) => {
+                                ticketsMostrados.map((ticket) => {
                                     const est = ESTADOS[ticket.estado] || ESTADOS.PENDIENTE;
                                     return (
                                         <tr key={ticket.id_ticket}>
                                             <td className="dash-table__id">
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span>#{ticket.id_ticket}</span>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span>#{ticket.id_ticket}</span>
+                                                        {ticket.urgente && (
+                                                            <span className="dash-badge-urgente" title="Ticket urgente">
+                                                                URGENTE
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <span className="show-on-mobile" style={{ fontSize: '0.72rem', color: 'rgba(148,163,184,0.6)' }}>
                                                         {formatFecha(ticket.fecha_creacion)}
                                                     </span>
                                                 </div>
                                             </td>
+
+                                            {/* Columna solicitante para admins */}
+                                            {!isUsuario && (
+                                                <td className="hide-on-mobile">
+                                                    <div style={{ fontWeight: 500, color: '#f1f5f9' }}>
+                                                        {ticket.usuario_nombre || 'General'}
+                                                    </div>
+                                                    {ticket.usuario_correo && (
+                                                        <div style={{ fontSize: '0.72rem', color: 'rgba(148,163,184,0.6)' }}>
+                                                            {ticket.usuario_correo}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            )}
+
                                             <td>
                                                 <div style={{ fontWeight: 600, color: '#f1f5f9' }}>
                                                     {ticket.departamento || 'General'}
@@ -220,32 +279,50 @@ function Tickets() {
                                             </td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                                    {/* Botón de Detalles para abrir modal completo (solo en móvil) */}
-                                                    <button
-                                                        type="button"
-                                                        className="dash-btn-detail show-on-mobile"
-                                                        onClick={() => setTicketDetalle(ticket)}
-                                                        title="Ver detalles completos del ticket"
-                                                    >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <circle cx="12" cy="12" r="10" />
-                                                            <line x1="12" y1="16" x2="12" y2="12" />
-                                                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                                                        </svg>
-                                                        <span>Detalles</span>
-                                                    </button>
+                                                    {isUsuario ? (
+                                                        /* Usuario normal: Botón de detalles siempre visible */
+                                                        <button
+                                                            type="button"
+                                                            className="dash-btn-detail dash-btn-detail--desktop"
+                                                            onClick={() => setTicketDetalle(ticket)}
+                                                            title="Ver detalles del ticket"
+                                                        >
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <circle cx="12" cy="12" r="10" />
+                                                                <line x1="12" y1="16" x2="12" y2="12" />
+                                                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                                                            </svg>
+                                                            <span>Ver Detalles</span>
+                                                        </button>
+                                                    ) : (
+                                                        /* Admin/Gerente: Selector en desktop y botón en móvil */
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                className="dash-btn-detail show-on-mobile"
+                                                                onClick={() => setTicketDetalle(ticket)}
+                                                                title="Ver detalles completos del ticket"
+                                                            >
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <circle cx="12" cy="12" r="10" />
+                                                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                                                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                                                                </svg>
+                                                                <span>Detalles</span>
+                                                            </button>
 
-                                                    {/* Selector de estado visible en desktop */}
-                                                    <select
-                                                        className="dash-select hide-on-mobile"
-                                                        value={ticket.estado}
-                                                        onChange={(e) => cambiarEstado(ticket.id_ticket, e.target.value)}
-                                                        disabled={updatingId === ticket.id_ticket}
-                                                    >
-                                                        {Object.entries(ESTADOS).map(([key, { label }]) => (
-                                                            <option key={key} value={key}>{label}</option>
-                                                        ))}
-                                                    </select>
+                                                            <select
+                                                                className="dash-select hide-on-mobile"
+                                                                value={ticket.estado}
+                                                                onChange={(e) => cambiarEstado(ticket.id_ticket, e.target.value)}
+                                                                disabled={updatingId === ticket.id_ticket}
+                                                            >
+                                                                {Object.entries(ESTADOS).map(([key, { label }]) => (
+                                                                    <option key={key} value={key}>{label}</option>
+                                                                ))}
+                                                            </select>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -261,8 +338,11 @@ function Tickets() {
                     <div className="dash-modal-overlay" onClick={() => setTicketDetalle(null)}>
                         <div className="dash-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="dash-modal__header">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <h2 className="dash-modal__title">Ticket #{ticketDetalle.id_ticket}</h2>
+                                    {ticketDetalle.urgente && (
+                                        <span className="dash-badge-urgente">URGENTE</span>
+                                    )}
                                     <span
                                         className="dash-badge"
                                         style={{
@@ -287,6 +367,15 @@ function Tickets() {
                             </div>
 
                             <div className="dash-modal__body">
+                                {!isUsuario && ticketDetalle.usuario_nombre && (
+                                    <div className="dash-detail-row">
+                                        <span className="dash-detail-label">Solicitante</span>
+                                        <span className="dash-detail-value">
+                                            {ticketDetalle.usuario_nombre} {ticketDetalle.usuario_correo ? `(${ticketDetalle.usuario_correo})` : ''}
+                                        </span>
+                                    </div>
+                                )}
+
                                 <div className="dash-detail-row">
                                     <span className="dash-detail-label">Departamento</span>
                                     <span className="dash-detail-value">{ticketDetalle.departamento || 'General'}</span>
@@ -309,20 +398,36 @@ function Tickets() {
                                     </div>
                                 </div>
 
-                                <div className="dash-detail-group">
-                                    <span className="dash-detail-label">Cambiar Estado</span>
-                                    <select
-                                        className="dash-select"
-                                        style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
-                                        value={ticketDetalle.estado}
-                                        onChange={(e) => cambiarEstado(ticketDetalle.id_ticket, e.target.value)}
-                                        disabled={updatingId === ticketDetalle.id_ticket}
-                                    >
-                                        {Object.entries(ESTADOS).map(([key, { label }]) => (
-                                            <option key={key} value={key}>{label}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {!isUsuario ? (
+                                    /* Solo admin y gerente pueden cambiar el estado */
+                                    <div className="dash-detail-group">
+                                        <span className="dash-detail-label">Cambiar Estado</span>
+                                        <select
+                                            className="dash-select"
+                                            style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                            value={ticketDetalle.estado}
+                                            onChange={(e) => cambiarEstado(ticketDetalle.id_ticket, e.target.value)}
+                                            disabled={updatingId === ticketDetalle.id_ticket}
+                                        >
+                                            {Object.entries(ESTADOS).map(([key, { label }]) => (
+                                                <option key={key} value={key}>{label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div className="dash-detail-row">
+                                        <span className="dash-detail-label">Estado Actual</span>
+                                        <span
+                                            className="dash-badge"
+                                            style={{
+                                                color: ESTADOS[ticketDetalle.estado]?.color || '#f59e0b',
+                                                background: ESTADOS[ticketDetalle.estado]?.bg || 'rgba(245,158,11,0.12)',
+                                            }}
+                                        >
+                                            {ESTADOS[ticketDetalle.estado]?.label || ticketDetalle.estado}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="dash-modal__footer">

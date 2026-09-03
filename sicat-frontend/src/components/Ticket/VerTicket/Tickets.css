@@ -224,6 +224,30 @@
     white-space: nowrap;
 }
 
+.dash-badge-urgente {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    animation: dashPulseUrgente 2s infinite;
+}
+
+@keyframes dashPulseUrgente {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.25);
+    }
+}
+
 /* ---------- Button Detail (Solo en Móvil) ---------- */
 .dash-btn-detail {
     display: none;
@@ -241,11 +265,32 @@
     white-space: nowrap;
 }
 
-.dash-btn-detail:hover {
-    background: rgba(2, 132, 199, 0.25);
-    border-color: #0284c7;
-    color: #7dd3fc;
+.dash-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.05rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+}
+
+.dash-btn-primary:hover {
+    background: linear-gradient(135deg, #0369a1, #075985);
     transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+.dash-btn-detail--desktop {
+    display: inline-flex !important;
 }
 
 /* ---------- Actions select ---------- */

@@ -1,4 +1,4 @@
-// src/components/Ticket/CrearTicket.jsx
+// src/components/Ticket/CrearTicket/CrearTicket.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
@@ -12,6 +12,7 @@ function CrearTicket() {
     const [departamentos, setDepartamentos] = useState([]);
     const [idDepartamento, setIdDepartamento] = useState('');
     const [descripcion, setDescripcion] = useState('');
+    const [urgente, setUrgente] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingDeps, setLoadingDeps] = useState(true);
     const [error, setError] = useState('');
@@ -54,10 +55,13 @@ function CrearTicket() {
             await client.post('/tickets', {
                 id_departamento: Number(idDepartamento),
                 descripcion: descripcion.trim(),
+                id_usuario: usuario?.id_usuario || null,
+                urgente: Boolean(urgente),
             });
 
             setSuccess('Ticket creado exitosamente');
             setDescripcion('');
+            setUrgente(false);
             setIdDepartamento(
                 usuario?.id_departamento ? String(usuario.id_departamento) : ''
             );
@@ -111,7 +115,26 @@ function CrearTicket() {
                                 <polyline points="22 4 12 14.01 9 11.01" />
                             </svg>
                         </span>
-                        <span>{success}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
+                            <span>{success}</span>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/tickets')}
+                                style={{
+                                    background: 'rgba(255,255,255,0.18)',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: '#fff',
+                                    padding: '0.25rem 0.65rem',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Ver Mis Tickets
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -185,6 +208,36 @@ function CrearTicket() {
                         <div className="ticket-field__counter">
                             {descripcion.length} / {MAX_DESC}
                         </div>
+                    </div>
+
+                    {/* ── Botón / Selector de Urgente ── */}
+                    <div className="ticket-field-urgente">
+                        <label className="ticket-urgente-toggle">
+                            <input
+                                type="checkbox"
+                                checked={urgente}
+                                onChange={(e) => setUrgente(e.target.checked)}
+                                className="ticket-urgente-checkbox"
+                            />
+                            <div className={`ticket-urgente-btn ${urgente ? 'ticket-urgente-btn--active' : ''}`}>
+                                <div className="ticket-urgente-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                    </svg>
+                                </div>
+                                <div className="ticket-urgente-texts">
+                                    <span className="ticket-urgente-title">Prioridad Urgente</span>
+                                    <span className="ticket-urgente-desc">
+                                        {urgente
+                                            ? 'Atención inmediata requerida por falla crítica o bloqueo'
+                                            : 'Marcar si el problema detiene completamente tus operaciones'}
+                                    </span>
+                                </div>
+                                <div className={`ticket-urgente-badge ${urgente ? 'ticket-urgente-badge--active' : ''}`}>
+                                    {urgente ? 'URGENTE' : 'NORMAL'}
+                                </div>
+                            </div>
+                        </label>
                     </div>
 
                     {/* Actions */}

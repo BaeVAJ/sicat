@@ -2,28 +2,46 @@ import pool from '../db/pool.js';
 
 export async function getAll(req, res) {
   try {
-    const { rows } = await pool.query(`
-      SELECT t.*, d.nombre AS departamento
+    const rol = req.usuario?.rol;
+    const id_usuario = req.usuario?.id_usuario;
+
+    let query = `
+      SELECT t.*, d.nombre AS departamento, u.nombre AS usuario_nombre, u.correo AS usuario_correo
       FROM TICKETS t
-      JOIN DEPARTAMENTO d ON t.id_departamento = d.id_departamento
-      ORDER BY t.fecha_creacion DESC
-    `);
+      LEFT JOIN DEPARTAMENTO d ON t.id_departamento = d.id_departamento
+      LEFT JOIN USUARIOS u ON t.id_usuario = u.id_usuario
+    `;
+    const params = [];
+
+    if (rol === 'usuario') {
+      query += ` WHERE t.id_usuario = $1`;
+      params.push(id_usuario);
+    }
+
+    query += ` ORDER BY t.fecha_creacion DESC`;
+
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 }
 
 export async function create(req, res) {
-  const { id_departamento, descripcion } = req.body;
+  const { id_departamento, descripcion, urgente } = req.body;
+  const id_usuario = req.usuario?.id_usuario || req.body.id_usuario || null;
+  const esUrgente = Boolean(urgente);
   try {
     const { rows } = await pool.query(`
-      INSERT INTO TICKETS (id_departamento, descripcion)
-      VALUES ($1, $2) RETURNING *
-    `, [id_departamento, descripcion]);
+      INSERT INTO TICKETS (id_departamento, descripcion, id_usuario, urgente)
+      VALUES ($1, $2, $3, $4) RETURNING *
+    `, [id_departamento, descripcion, id_usuario, esUrgente]);
     res.status(201).json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 }
 
 export async function actualizarEstado(req, res) {
+  if (req.usuario?.rol === 'usuario') {
+    return res.status(403).json({ error: 'No tienes permisos para cambiar el estado del ticket' });
+  }
   const { estado, fecha_solucion } = req.body;
   try {
     const { rows } = await pool.query(`

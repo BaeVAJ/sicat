@@ -1,0 +1,900 @@
+/* =========================================================
+   DEPARTAMENTO MODULE STYLES (SICAT THEME)
+   Modern Dark Glassmorphism & High-Aesthetics Design
+   ========================================================= */
+
+/* ── Container ── */
+.depto-page {
+    padding: 2rem;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #cbd5e1;
+    min-height: 100%;
+    position: relative;
+    box-sizing: border-box;
+}
+
+/* ── Header ── */
+.depto-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.depto-header__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.025em;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.depto-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.depto-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.15rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    white-space: nowrap;
+}
+
+.depto-btn svg {
+    flex-shrink: 0;
+    transition: transform 0.25s ease;
+}
+
+.depto-btn--primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.depto-btn--primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    transform: translateY(-1.5px);
+}
+
+.depto-btn--primary:hover:not(:disabled) svg {
+    transform: scale(1.15) rotate(90deg);
+}
+
+.depto-btn--secondary {
+    background: rgba(30, 41, 59, 0.75);
+    backdrop-filter: blur(8px);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.depto-btn--secondary:hover:not(:disabled) {
+    background: rgba(51, 65, 85, 0.85);
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+.depto-btn--secondary:hover:not(:disabled) svg {
+    transform: rotate(180deg);
+}
+
+.depto-btn--danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.depto-btn--danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
+}
+
+.depto-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.depto-btn__spin {
+    animation: deptoSpin 0.85s linear infinite !important;
+}
+
+@keyframes deptoSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Metrics Bar ── */
+.depto-metrics-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.depto-metric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.95rem;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+}
+
+.depto-metric-pill strong {
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.depto-metric-pill:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.depto-metric-pill--purple {
+    border-left: 3px solid #818cf8;
+}
+
+.depto-metric-pill--purple strong {
+    color: #c084fc;
+}
+
+/* ── Alerts ── */
+.depto-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.8rem 1.1rem;
+    border-radius: 11px;
+    font-size: 0.86rem;
+    margin-bottom: 1.25rem;
+    animation: deptoAlertSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes deptoAlertSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.depto-alert--error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #fca5a5;
+}
+
+.depto-alert--success {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #6ee7b7;
+}
+
+.depto-alert__content {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.depto-alert__close {
+    background: transparent;
+    border: none;
+    color: currentColor;
+    opacity: 0.65;
+    cursor: pointer;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    border-radius: 5px;
+    transition: opacity 0.15s ease, transform 0.2s ease;
+}
+
+.depto-alert__close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+/* ── Toolbar ── */
+.depto-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.depto-toolbar__search-box {
+    position: relative;
+    flex: 1;
+    min-width: 270px;
+}
+
+.depto-toolbar__search-icon {
+    position: absolute;
+    left: 0.95rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(148, 163, 184, 0.5);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+}
+
+.depto-toolbar__search-input {
+    width: 100%;
+    padding: 0.62rem 0.95rem 0.62rem 2.45rem;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #f1f5f9;
+    font-size: 0.86rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.depto-toolbar__search-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    background: rgba(15, 23, 42, 0.9);
+}
+
+.depto-toolbar__search-input::placeholder {
+    color: rgba(148, 163, 184, 0.5);
+}
+
+/* ── View Switcher ── */
+.depto-view-switch {
+    display: flex;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.depto-view-switch__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.depto-view-switch__btn:hover {
+    color: #f8fafc;
+}
+
+.depto-view-switch__btn--active {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Company Filter Pills Strip ── */
+.depto-pills {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    overflow-x: auto;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.depto-pills::-webkit-scrollbar {
+    height: 5px;
+}
+
+.depto-pills::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.depto-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.38rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #94a3b8;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 9999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+}
+
+.depto-pill:hover {
+    background: rgba(30, 41, 59, 0.75);
+    color: #f1f5f9;
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+.depto-pill--active {
+    background: rgba(99, 102, 241, 0.22);
+    border-color: #6366f1;
+    color: #c7d2fe;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.depto-pill__count {
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.72rem;
+    padding: 1px 7px;
+    border-radius: 10px;
+    color: inherit;
+}
+
+/* ── Grouped View (Por Empresa) ── */
+.depto-grouped-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+}
+
+.depto-company-group {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    padding: 1.4rem 1.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.depto-company-group:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.depto-company-group__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-wrap: wrap;
+    gap: 0.85rem;
+}
+
+.depto-company-group__title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.depto-company-group__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #a5b4fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.depto-company-group__name {
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.depto-company-group__sub {
+    font-size: 0.78rem;
+    color: rgba(148, 163, 184, 0.7);
+    margin-top: 0.2rem;
+    display: block;
+}
+
+.depto-company-group__badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    padding: 0.28rem 0.65rem;
+    border-radius: 20px;
+}
+
+.depto-company-group__empty {
+    padding: 1.75rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: rgba(148, 163, 184, 0.6);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.2);
+}
+
+.depto-company-group__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.9rem;
+}
+
+.depto-mini-card {
+    background: rgba(30, 41, 59, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 11px;
+    padding: 0.95rem 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.depto-mini-card:hover {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.depto-mini-card__title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin: 0;
+    line-height: 1.35;
+}
+
+/* ── Grid Cards View (Tarjetas) ── */
+.depto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.depto-card {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 15px;
+    padding: 1.3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.1rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.depto-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #38bdf8);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.depto-card:hover {
+    background: rgba(15, 23, 42, 0.88);
+    border-color: rgba(99, 102, 241, 0.35);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.depto-card:hover::before {
+    opacity: 1;
+}
+
+.depto-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.depto-card__name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 0;
+    line-height: 1.35;
+}
+
+.depto-card__company {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    color: #38bdf8;
+    background: rgba(2, 132, 199, 0.12);
+    border: 1px solid rgba(2, 132, 199, 0.25);
+    padding: 0.28rem 0.65rem;
+    border-radius: 7px;
+}
+
+.depto-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Table View (Lista) ── */
+.depto-table-wrap {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 15px;
+    overflow-x: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.depto-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    text-align: left;
+}
+
+.depto-table th {
+    padding: 0.95rem 1.25rem;
+    background: rgba(30, 41, 59, 0.6);
+    color: rgba(148, 163, 184, 0.85);
+    font-weight: 600;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.depto-table td {
+    padding: 0.95rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    vertical-align: middle;
+}
+
+.depto-table tr:hover td {
+    background: rgba(30, 41, 59, 0.4);
+}
+
+.depto-table tr:last-child td {
+    border-bottom: none;
+}
+
+.depto-table__id {
+    font-family: monospace;
+    font-weight: 600;
+    color: rgba(148, 163, 184, 0.65);
+}
+
+.depto-table__name {
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+/* ── Action Buttons ── */
+.depto-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.38rem 0.68rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.depto-action-btn--edit {
+    background: rgba(99, 102, 241, 0.12);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.depto-action-btn--edit:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.25);
+    color: #c7d2fe;
+    border-color: #818cf8;
+    transform: translateY(-1px);
+}
+
+.depto-action-btn--delete {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.depto-action-btn--delete:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+    color: #fee2e2;
+    border-color: #ef4444;
+    transform: translateY(-1px);
+}
+
+.depto-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* ── Empty & Loading States ── */
+.depto-empty-state {
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(10px);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.depto-empty-state__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(148, 163, 184, 0.6);
+}
+
+.depto-empty-state__title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin: 0;
+}
+
+.depto-empty-state__desc {
+    font-size: 0.86rem;
+    color: rgba(148, 163, 184, 0.65);
+    margin: 0;
+    max-width: 420px;
+    line-height: 1.5;
+}
+
+/* ── Modals ── */
+.depto-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 9999;
+    animation: deptoModalFade 0.22s ease-out;
+}
+
+@keyframes deptoModalFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.depto-modal {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: deptoModalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+@keyframes deptoModalScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.depto-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.35rem 1.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(30, 41, 59, 0.35);
+}
+
+.depto-modal__title {
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.depto-modal__close {
+    background: transparent;
+    border: none;
+    color: rgba(148, 163, 184, 0.6);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.depto-modal__close:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.depto-modal form {
+    padding: 1.6rem;
+}
+
+.depto-modal > p {
+    padding: 0 1.6rem;
+}
+
+.depto-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.depto-form-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 0.45rem;
+    letter-spacing: 0.02em;
+}
+
+.depto-form-input {
+    width: 100%;
+    padding: 0.68rem 0.95rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #f1f5f9;
+    font-size: 0.88rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.depto-form-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    background: rgba(15, 23, 42, 0.98);
+}
+
+.depto-form-input option {
+    background: #0f172a;
+    color: #f1f5f9;
+}
+
+.depto-modal__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.8rem;
+    padding: 1.1rem 1.6rem;
+    background: rgba(30, 41, 59, 0.25);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.depto-modal form .depto-modal__footer {
+    padding: 1.1rem 0 0;
+    background: transparent;
+    margin-top: 0.5rem;
+}
+
+/* ── Responsive Media Queries ── */
+@media (max-width: 768px) {
+    .depto-page {
+        padding: 1.25rem;
+    }
+
+    .depto-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .depto-header__actions {
+        justify-content: flex-start;
+    }
+
+    .depto-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .depto-toolbar__search-box {
+        min-width: 100%;
+    }
+
+    .depto-view-switch {
+        justify-content: center;
+    }
+
+    .depto-company-group {
+        padding: 1.15rem;
+    }
+
+    .depto-company-group__grid {
+        grid-template-columns: 1fr;
+    }
+}

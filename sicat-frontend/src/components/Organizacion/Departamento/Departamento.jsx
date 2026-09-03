@@ -247,9 +247,7 @@ function Departamento() {
                     <span className="depto-metric-pill">
                         Departamentos: <strong>{totalCount}</strong>
                     </span>
-                    <span className="depto-metric-pill depto-metric-pill--purple">
-                        Empresas con áreas: <strong>{empresasConDeptosCount} / {empresas.length}</strong>
-                    </span>
+
                 </div>
 
                 {/* ── Alerts ── */}

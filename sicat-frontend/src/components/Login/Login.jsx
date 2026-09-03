@@ -26,10 +26,8 @@ function Login() {
     try {
       const usuario = await login(correo, contrasena);
       // Redirigir según el rol del usuario
-      if (usuario.rol === 'admin' || usuario.rol === 'gerente') {
-        navigate('/dashboardAdmin');
-      } else {
-        navigate('/dashboardUser');
+      if (usuario.rol === 'admin' || usuario.rol === 'gerente' || usuario.rol === 'usuario') {
+        navigate('/inicio');
       }
     } catch (err) {
       const status = err.response?.status;

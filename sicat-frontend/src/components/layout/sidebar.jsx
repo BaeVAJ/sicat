@@ -267,11 +267,11 @@ function Sidebar() {
     // Obtener iniciales del usuario
     const iniciales = usuario?.nombre
         ? usuario.nombre
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase()
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()
         : '?';
 
     const handleLogout = () => {
@@ -294,7 +294,8 @@ function Sidebar() {
             <aside className="sidebar desktop-sidebar">
                 {/* Brand */}
                 <div className="sidebar__brand">
-<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M8 16L3.54223 12.3383C1.93278 11.0162 1 9.04287 1 6.96005C1 3.11612 4.15607 0 8 0C11.8439 0 15 3.11612 15 6.96005C15 9.04287 14.0672 11.0162 12.4578 12.3383L8 16ZM3 6H5C6.10457 6 7 6.89543 7 8V9L3 7.5V6ZM11 6C9.89543 6 9 6.89543 9 8V9L13 7.5V6H11Z" fill="#ffffff"></path> </g></svg>                    <div className="sidebar__brand-text">
+                    <div className="sidebar__brand-icon" />
+                    <div className="sidebar__brand-text">
                         <span className="sidebar__brand-name">SICAT</span>
                         <span className="sidebar__brand-sub">Control de Activos</span>
                     </div>
@@ -372,9 +373,8 @@ function Sidebar() {
                 {/* 5. Botón Menú Completo (Despliega panel inferior) */}
                 <button
                     type="button"
-                    className={`mobile-bottom-bar__item mobile-bottom-bar__menu-btn ${
-                        mobileMenuOpen ? 'active' : ''
-                    }`}
+                    className={`mobile-bottom-bar__item mobile-bottom-bar__menu-btn ${mobileMenuOpen ? 'active' : ''
+                        }`}
                     onClick={() => setMobileMenuOpen((v) => !v)}
                     aria-label="Abrir menú completo"
                 >

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
-import './DashboardAdmin.css';
+import './inicio.css';
 
 
 function DashboardAdmin() {
