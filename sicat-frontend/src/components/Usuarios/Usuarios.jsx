@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth, usuarios } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
 
@@ -50,17 +50,20 @@ function Usuarios() {
         setLoading(true);
         setError('');
         try {
-            const [userRes, depRes, empRes] = await Promise.all([
+            const [usersRes, depRes, empRes] = await Promise.all([
                 client.get('/usuarios'),
-                client.get('/departamentos'),
-                client.get('/empresas')
+                client.get('/departamentos').catch(() => ({ data: [] })),
+                client.get('/empresas').catch(() => ({ data: [] }))
             ]);
 
+            setUsuarios(Array.isArray(usersRes.data) ? usersRes.data : []);
+            setDepartamentos(Array.isArray(depRes.data) ? depRes.data : []);
+            setEmpresas(Array.isArray(empRes.data) ? empRes.data : []);
 
 
         } catch (err) {
-
-        }
+            setError(err.response?.data?.error || 'Error al obtener la lista de usuarios');
+        } finally { setLoading(false) }
     }
 
 
