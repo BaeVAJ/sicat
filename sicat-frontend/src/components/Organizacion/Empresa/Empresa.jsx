@@ -528,7 +528,7 @@ function VerEmpresa() {
 
                             <form onSubmit={handleSubmit}>
                                 <div className="empresa-form-group">
-                                    <label className="empresa-form-label">Nombre de la Empresa *</label>
+                                    <label className="empresa-form-label">Nombre de la Empresa</label>
                                     <input
                                         type="text"
                                         className="empresa-form-input"
@@ -541,7 +541,7 @@ function VerEmpresa() {
                                 </div>
 
                                 <div className="empresa-form-group">
-                                    <label className="empresa-form-label">RFC (Opcional)</label>
+                                    <label className="empresa-form-label">RFC</label>
                                     <input
                                         type="text"
                                         className="empresa-form-input"
@@ -549,6 +549,7 @@ function VerEmpresa() {
                                         value={rfc}
                                         onChange={(e) => setRfc(e.target.value.toUpperCase())}
                                         maxLength={13}
+                                        required
                                     />
                                 </div>
 
@@ -559,9 +560,9 @@ function VerEmpresa() {
                                         placeholder="Calle, Número, Colonia, Ciudad..."
                                         value={direccion}
                                         onChange={(e) => setDireccion(e.target.value)}
+                                        required
                                     />
                                 </div>
-
                                 <div className="empresa-form-group">
                                     <label className="empresa-form-checkbox-label">
                                         <input
@@ -571,6 +572,7 @@ function VerEmpresa() {
                                             onChange={(e) => setActiva(e.target.checked)}
                                         />
                                         <span>Empresa Activa</span>
+                                        <span>Se requieren todos los campos llenos</span>
                                     </label>
                                 </div>
 
