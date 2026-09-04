@@ -386,60 +386,6 @@ function Usuarios() {
                     </div>
                 </header>
 
-                {/* ── Métricas / Estadísticas ── */}
-                <div className="usr-stats-grid">
-                    <div className="usr-stat-card">
-                        <div className="usr-stat-card__icon usr-stat-card__icon--primary">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                <circle cx="9" cy="7" r="4" />
-                            </svg>
-                        </div>
-                        <div className="usr-stat-card__content">
-                            <span className="usr-stat-card__label">Total Usuarios</span>
-                            <span className="usr-stat-card__value">{stats.total}</span>
-                        </div>
-                    </div>
-
-                    <div className="usr-stat-card">
-                        <div className="usr-stat-card__icon usr-stat-card__icon--admin">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                            </svg>
-                        </div>
-                        <div className="usr-stat-card__content">
-                            <span className="usr-stat-card__label">Administradores</span>
-                            <span className="usr-stat-card__value">{stats.admins}</span>
-                        </div>
-                    </div>
-
-                    <div className="usr-stat-card">
-                        <div className="usr-stat-card__icon usr-stat-card__icon--gerente">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                            </svg>
-                        </div>
-                        <div className="usr-stat-card__content">
-                            <span className="usr-stat-card__label">Gerentes</span>
-                            <span className="usr-stat-card__value">{stats.gerentes}</span>
-                        </div>
-                    </div>
-
-                    <div className="usr-stat-card">
-                        <div className="usr-stat-card__icon usr-stat-card__icon--dept">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                <polyline points="9 22 9 12 15 12 15 22" />
-                            </svg>
-                        </div>
-                        <div className="usr-stat-card__content">
-                            <span className="usr-stat-card__label">Con Depto. Asignado</span>
-                            <span className="usr-stat-card__value">{stats.conDepto}</span>
-                        </div>
-                    </div>
-                </div>
-
                 {/* ── Alertas Globales ── */}
                 {error && (
                     <div className="usr-alert usr-alert--danger">
