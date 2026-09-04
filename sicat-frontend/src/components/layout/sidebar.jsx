@@ -283,7 +283,7 @@ function Sidebar() {
     };
 
     // Determinar la ruta de inicio según el rol
-    const homeRoute = usuario?.rol === 'usuario' ? '/dashboardUser' : '/dashboardAdmin';
+    const homeRoute = usuario?.rol === 'usuario' ? '/dashboardUser' : '/Inicio';
 
     return (
         <>
