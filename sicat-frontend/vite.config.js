@@ -8,6 +8,11 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000'
     }
+  },
+  preview: {
+    proxy: {
+      '/api': 'http://localhost:3000'
+    }
   }
 })
 

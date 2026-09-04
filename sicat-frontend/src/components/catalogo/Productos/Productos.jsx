@@ -857,7 +857,6 @@ function Productos() {
                     </div>
                 )}
             </div>
-
         </Layout>
     );
 }

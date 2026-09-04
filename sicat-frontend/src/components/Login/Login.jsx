@@ -51,6 +51,9 @@ function Login() {
       } else if (status === 401) {
         setIsServerStarting(false);
         setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+      } else if (status === 405) {
+        setIsServerStarting(false);
+        setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST. Asegúrate de tener el backend de Node.js encendido o de configurar VITE_API_URL con la URL del backend.');
       } else {
         setIsServerStarting(false);
         setError(errorMsg || 'Error al conectar con el servidor.');

@@ -122,7 +122,6 @@ const grupos = [
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
             { to: '/Inicio', label: 'Inicio', icon: 'dashboard', roles: ['admin', 'gerente', 'usuario'] },
-
         ],
     },
     {
