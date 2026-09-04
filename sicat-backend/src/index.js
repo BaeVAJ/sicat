@@ -14,7 +14,8 @@ import inventarioRoutes from './routes/inventario.routes.js';
 import pedidoRoutes from './routes/pedido.routes.js';
 import productoRoutes from './routes/producto.routes.js';
 import proveedorRoutes from './routes/proveedor.routes.js';
-import ticketRoutes from './routes/ticket.routes.js'
+import ticketRoutes from './routes/ticket.routes.js';
+import usuarioRoutes from './routes/usuario.routes.js';
 
 const app = express();
 const PORT = process.env.PORT;
@@ -38,6 +39,7 @@ app.use('/api/pedidos', pedidoRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/proveedores', proveedorRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
