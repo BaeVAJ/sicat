@@ -11,6 +11,7 @@ import VerEmpresa from './components/Organizacion/Empresa/Empresa.jsx';
 import Departamento from './components/Organizacion/Departamento/Departamento.jsx';
 import Facturas from './components/Facturas/facturas.jsx';
 import Productos from './components/catalogo/Productos/Productos.jsx';
+import Usuarios from './components/Usuarios/Usuarios.jsx';
 
 function App() {
   return (
@@ -65,6 +66,22 @@ function App() {
             element={
               <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
                 <Productos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/usuarios"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Usuarios />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/Usuarios"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Usuarios />
               </RutaProtegida>
             }
           />
