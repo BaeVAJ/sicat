@@ -24,7 +24,13 @@ export async function login(req, res) {
             return res.status(401).json({ error: 'Credenciales incorrectas' })
         }
         const token = jwt.sign(
-            { id_usuario: usuario.id_usuario, rol: usuario.rol, nombre: usuario.nombre },
+            {
+                id_usuario: usuario.id_usuario,
+                rol: usuario.rol,
+                nombre: usuario.nombre,
+                id_departamento: usuario.id_departamento,
+                departamento: usuario.departamento
+            },
             process.env.JWT_SECRET,
             { expiresIn: '8h' }
         );
@@ -37,7 +43,7 @@ export async function login(req, res) {
 export async function me(req, res) {
     try {
         const { rows } = await pool.query(
-            `SELECT u.id_usuario, u.nombre, u.correo, u.rol, d.nombre as departamento
+            `SELECT u.id_usuario, u.nombre, u.correo, u.rol, u.id_departamento, d.nombre as departamento
                 from USUARIOS u
                 LEFT JOIN DEPARTAMENTO d on u.id_departamento = d.id_departamento
                 WHERE u.id_usuario = $1`,

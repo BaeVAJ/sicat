@@ -2,13 +2,26 @@ import pool from '../db/pool.js';
 
 export async function getAll(req, res) {
   try {
-    const { rows } = await pool.query(`
-      SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa
+    const { sin_factura } = req.query;
+    let query = `
+      SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa,
+             (f.id_compra IS NOT NULL) AS tiene_factura
       FROM COMPRA c
       JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
       JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
-      ORDER BY c.fecha_compra DESC
-    `);
+      LEFT JOIN (
+        SELECT DISTINCT id_compra FROM FACTURA WHERE id_compra IS NOT NULL
+      ) f ON c.id_compra = f.id_compra
+    `;
+    const params = [];
+
+    if (sin_factura === 'true' || sin_factura === '1') {
+      query += ` WHERE f.id_compra IS NULL`;
+    }
+
+    query += ` ORDER BY c.fecha_compra DESC`;
+
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 }
@@ -56,13 +69,30 @@ export async function create(req, res) {
          VALUES ($1, $2, $3, $4)`,
         [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario]
       );
-      await client.query(
-        `INSERT INTO INVENTARIO (id_producto, id_departamento, cantidad_disponible, cantidad_minima)
-         VALUES ($1, $2, $3, 1)
-         ON CONFLICT (id_producto, id_departamento)
-         DO UPDATE SET cantidad_disponible = INVENTARIO.cantidad_disponible + $3`,
-        [d.id_producto, d.id_departamento, d.cantidad]
+      // Verificar si ya existe en inventario para ese producto y departamento
+      const { rows: invExistente } = await client.query(
+        `SELECT id_inventario, cantidad_disponible 
+         FROM INVENTARIO 
+         WHERE id_producto = $1 AND (
+           (id_departamento = $2) OR ($2::int IS NULL AND id_departamento IS NULL)
+         )`,
+        [d.id_producto, d.id_departamento || null]
       );
+
+      if (invExistente.length > 0) {
+        await client.query(
+          `UPDATE INVENTARIO 
+           SET cantidad_disponible = cantidad_disponible + $1 
+           WHERE id_inventario = $2`,
+          [d.cantidad, invExistente[0].id_inventario]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO INVENTARIO (id_producto, id_departamento, cantidad_disponible, cantidad_minima)
+           VALUES ($1, $2, $3, 1)`,
+          [d.id_producto, d.id_departamento || null, d.cantidad]
+        );
+      }
     }
 
     await client.query('COMMIT');

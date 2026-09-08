@@ -3,7 +3,13 @@ import pool from '../db/pool.js';
 // GET /api/categorias
 export async function getAll(req, res) {
   try {
-    const { rows } = await pool.query('SELECT * FROM CATEGORIA ORDER BY id_categoria');
+    const { rows } = await pool.query(`
+      SELECT c.*, COUNT(p.id_producto)::int AS total_productos
+      FROM CATEGORIA c
+      LEFT JOIN PRODUCTO p ON c.id_categoria = p.id_categoria
+      GROUP BY c.id_categoria
+      ORDER BY c.id_categoria
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -13,7 +19,14 @@ export async function getAll(req, res) {
 // GET /api/categorias/:id
 export async function getById(req, res) {
   try {
-    const { rows } = await pool.query('SELECT * FROM CATEGORIA WHERE id_categoria = $1', [req.params.id]);
+    const { rows } = await pool.query(`
+      SELECT c.*, COUNT(p.id_producto)::int AS total_productos
+      FROM CATEGORIA c
+      LEFT JOIN PRODUCTO p ON c.id_categoria = p.id_categoria
+      WHERE c.id_categoria = $1
+      GROUP BY c.id_categoria
+    `, [req.params.id]);
+
     if (!rows[0]) {
       return res.status(404).json({ error: 'Categoría no encontrada' });
     }
@@ -26,9 +39,12 @@ export async function getById(req, res) {
 // POST /api/categorias
 export async function create(req, res) {
   const { nombre, descripcion, tipo } = req.body;
-  if (!nombre) {
+  if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
   }
+
+  const tiposValidos = ['equipo', 'insumo', 'accesorio'];
+  const tipoFinal = tipo && tiposValidos.includes(tipo.toLowerCase()) ? tipo.toLowerCase() : 'equipo';
 
   try {
     const { rows } = await pool.query(`
@@ -38,7 +54,7 @@ export async function create(req, res) {
     `, [
       nombre.trim(),
       descripcion ? descripcion.trim() : null,
-      tipo || 'GENERAL'
+      tipoFinal
     ]);
     res.status(201).json(rows[0]);
   } catch (error) {
@@ -51,9 +67,12 @@ export async function update(req, res) {
   const { nombre, descripcion, tipo } = req.body;
   const { id } = req.params;
 
-  if (!nombre) {
+  if (!nombre || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
   }
+
+  const tiposValidos = ['equipo', 'insumo', 'accesorio'];
+  const tipoFinal = tipo && tiposValidos.includes(tipo.toLowerCase()) ? tipo.toLowerCase() : 'equipo';
 
   try {
     const { rows } = await pool.query(`
@@ -64,7 +83,7 @@ export async function update(req, res) {
     `, [
       nombre.trim(),
       descripcion ? descripcion.trim() : null,
-      tipo || 'GENERAL',
+      tipoFinal,
       id
     ]);
 
@@ -86,6 +105,9 @@ export async function remove(req, res) {
     }
     res.json({ mensaje: 'Categoría eliminada correctamente', id_categoria: req.params.id });
   } catch (err) {
+    if (err.code === '23503') {
+      return res.status(400).json({ error: 'No se puede eliminar la categoría porque contiene productos asociados' });
+    }
     res.status(500).json({ error: err.message });
   }
 }

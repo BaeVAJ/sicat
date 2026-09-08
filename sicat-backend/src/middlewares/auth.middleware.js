@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
 
 export function verificarToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
+    const authorization = req.headers.authorization;
+    const bearerToken = authorization?.startsWith('Bearer ')
+        ? authorization.slice(7)
+        : null;
+    const token = bearerToken || req.query.token;
     if (!token) {
         return res.status(401).json({ error: 'Token requerido' });
     }
