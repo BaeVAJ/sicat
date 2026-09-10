@@ -44,6 +44,7 @@ pool.connect(async (err, client, release) => {
     } finally {
       release(); // libera el cliente de vuelta al pool
     }
+    
   }
 });
 

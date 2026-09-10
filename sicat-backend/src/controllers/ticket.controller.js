@@ -18,9 +18,7 @@ async function esUsuarioSistemas(id_usuario) {
   }
 }
 
-// GET /api/tickets
-// Solo gerente, admin y usuarios pertenecientes a sistemas pueden ver todos los tickets.
-// Los demás usuarios solo ven los tickets que ellos mismos crearon.
+
 export async function getAll(req, res) {
   try {
     const rol = req.usuario?.rol;
@@ -105,8 +103,7 @@ export async function create(req, res) {
   } catch (err) { res.status(500).json({ error: err.message }); }
 }
 
-// PATCH /api/tickets/:id/estado
-// Solo admin, gerente y usuarios pertenecientes a sistemas pueden modificar el estado del ticket
+
 export async function actualizarEstado(req, res) {
   const rol = req.usuario?.rol;
   const id_usuario = req.usuario?.id_usuario;

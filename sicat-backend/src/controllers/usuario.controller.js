@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import pool from '../db/pool.js';
 
+const ESTATUS_VALIDOS = ['activo', 'inactivo', 'suspendido'];
+
 export async function getAll(req, res) {
     try {
         const { rows } = await pool.query(`
@@ -10,6 +12,7 @@ export async function getAll(req, res) {
                 u.correo,
                 u.rol,
                 u.id_departamento,
+                u.estatus_empleado,
                 d.nombre AS departamento_nombre,
                 d.id_empresa,
                 e.nombre AS empresa_nombre
@@ -33,6 +36,7 @@ export async function getById(req, res) {
                 u.correo,
                 u.rol,
                 u.id_departamento,
+                u.estatus_empleado,
                 d.nombre AS departamento_nombre,
                 d.id_empresa,
                 e.nombre AS empresa_nombre
@@ -52,28 +56,35 @@ export async function getById(req, res) {
 }
 
 export async function create(req, res) {
-    const { nombre, correo, contrasena, rol, id_departamento } = req.body;
+    const { nombre, correo, contrasena, rol, id_departamento, estatus_empleado } = req.body;
 
     if (!nombre || !correo || !contrasena) {
         return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios' });
     }
 
+    if (estatus_empleado !== undefined && !ESTATUS_VALIDOS.includes(estatus_empleado)) {
+        return res.status(400).json({ error: 'Estatus de empleado inválido' });
+    }
+
+    // Por defecto se crea como 'activo'
+    const estatusFinal = estatus_empleado || 'activo';
+
     try {
         const hash = await bcrypt.hash(contrasena, 10);
         const { rows } = await pool.query(`
-            INSERT INTO USUARIOS (nombre, correo, contrasena, rol, id_departamento)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id_usuario, nombre, correo, rol, id_departamento
+            INSERT INTO USUARIOS (nombre, correo, contrasena, rol, id_departamento, estatus_empleado)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id_usuario
         `, [
             nombre.trim(),
             correo.trim().toLowerCase(),
             hash,
             rol || 'usuario',
-            id_departamento ? Number(id_departamento) : null
+            id_departamento ? Number(id_departamento) : null,
+            estatusFinal
         ]);
 
-        // Retornar con datos de departamento / empresa si aplican
-        const nuevo = rows[0];
+        const nuevoId = rows[0].id_usuario;
         const resQuery = await pool.query(`
             SELECT 
                 u.id_usuario,
@@ -81,6 +92,7 @@ export async function create(req, res) {
                 u.correo,
                 u.rol,
                 u.id_departamento,
+                u.estatus_empleado,
                 d.nombre AS departamento_nombre,
                 d.id_empresa,
                 e.nombre AS empresa_nombre
@@ -88,7 +100,7 @@ export async function create(req, res) {
             LEFT JOIN DEPARTAMENTO d ON u.id_departamento = d.id_departamento
             LEFT JOIN EMPRESA e ON d.id_empresa = e.id_empresa
             WHERE u.id_usuario = $1
-        `, [nuevo.id_usuario]);
+        `, [nuevoId]);
 
         res.status(201).json(resQuery.rows[0]);
     } catch (err) {
@@ -101,47 +113,51 @@ export async function create(req, res) {
 
 export async function update(req, res) {
     const { id } = req.params;
-    const { nombre, correo, contrasena, rol, id_departamento } = req.body;
+    const { nombre, correo, contrasena, rol, id_departamento, estatus_empleado } = req.body;
 
     if (!nombre || !correo) {
         return res.status(400).json({ error: 'Nombre y correo son requeridos' });
     }
 
+    if (estatus_empleado !== undefined && estatus_empleado !== null && !ESTATUS_VALIDOS.includes(estatus_empleado)) {
+        return res.status(400).json({ error: 'Estatus de empleado inválido. Debe ser activo, inactivo o suspendido.' });
+    }
+
     try {
-        let query = '';
-        let params = [];
+        // Construimos el SET dinámicamente para no romper con/sin contraseña y con/sin estatus
+        const campos = [];
+        const params = [];
+
+        campos.push(`nombre = $${params.length + 1}`);
+        params.push(nombre.trim());
+
+        campos.push(`correo = $${params.length + 1}`);
+        params.push(correo.trim().toLowerCase());
+
+        campos.push(`rol = $${params.length + 1}`);
+        params.push(rol || 'usuario');
+
+        campos.push(`id_departamento = $${params.length + 1}`);
+        params.push(id_departamento ? Number(id_departamento) : null);
 
         if (contrasena && contrasena.trim() !== '') {
             const hash = await bcrypt.hash(contrasena, 10);
-            query = `
-                UPDATE USUARIOS 
-                SET nombre = $1, correo = $2, contrasena = $3, rol = $4, id_departamento = $5
-                WHERE id_usuario = $6
-                RETURNING id_usuario, nombre, correo, rol, id_departamento
-            `;
-            params = [
-                nombre.trim(),
-                correo.trim().toLowerCase(),
-                hash,
-                rol || 'usuario',
-                id_departamento ? Number(id_departamento) : null,
-                id
-            ];
-        } else {
-            query = `
-                UPDATE USUARIOS 
-                SET nombre = $1, correo = $2, rol = $3, id_departamento = $4
-                WHERE id_usuario = $5
-                RETURNING id_usuario, nombre, correo, rol, id_departamento
-            `;
-            params = [
-                nombre.trim(),
-                correo.trim().toLowerCase(),
-                rol || 'usuario',
-                id_departamento ? Number(id_departamento) : null,
-                id
-            ];
+            campos.push(`contrasena = $${params.length + 1}`);
+            params.push(hash);
         }
+
+        if (estatus_empleado !== undefined && estatus_empleado !== null) {
+            campos.push(`estatus_empleado = $${params.length + 1}`);
+            params.push(estatus_empleado);
+        }
+
+        const query = `
+            UPDATE USUARIOS
+            SET ${campos.join(', ')}
+            WHERE id_usuario = $${params.length + 1}
+            RETURNING id_usuario
+        `;
+        params.push(id);
 
         const { rows } = await pool.query(query, params);
         if (!rows[0]) {
@@ -155,6 +171,7 @@ export async function update(req, res) {
                 u.correo,
                 u.rol,
                 u.id_departamento,
+                u.estatus_empleado,
                 d.nombre AS departamento_nombre,
                 d.id_empresa,
                 e.nombre AS empresa_nombre
