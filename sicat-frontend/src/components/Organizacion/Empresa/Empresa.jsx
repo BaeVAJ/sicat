@@ -155,7 +155,7 @@ function VerEmpresa() {
             setDeleteModalOpen(false);
             setEmpresaToDelete(null);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al eliminar la empresa. Podría tener departamentos asignados.');
+            setError('Error al eliminar la empresa. Revisa si no tiene departamentos asignados.' || err.response?.data?.error);
         } finally {
             setActionLoading(false);
         }

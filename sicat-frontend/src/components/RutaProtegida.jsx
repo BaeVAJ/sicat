@@ -12,9 +12,9 @@ function RutaProtegida({ children, rolesPermitidos }) {
 
   if (!usuario) return <Navigate to="/Login" replace />;
 
-  if (rolesPermitidos && !rolesPermitidos.includes(usuario.rol))
+  if (rolesPermitidos && !rolesPermitidos.includes(usuario.rol)){
     return <Navigate to="/404" replace />;
-
+  }
   return children;
 }
 

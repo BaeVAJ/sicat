@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './sidebar.css';
 
+
 // ── SVG Icons (Lucide-style) ──
 const icons = {
     dashboard: (
@@ -117,7 +118,7 @@ const icons = {
 // ── Grupos con submenús ──
 const grupos = [
     {
-        label: 'General',
+        label: 'Inicio',
         icon: 'dashboard',
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
@@ -150,6 +151,7 @@ const grupos = [
         enlaces: [
             { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'] },
             { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/solicitar-material', label: 'Solicitar material', icon: 'plus', roles: ['admin', 'gerente', 'usuario'], excluirDepartamentos: [1] },
             { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'] },
         ],
     },
@@ -181,15 +183,20 @@ const grupos = [
 ];
 
 function GrupoMenu({ grupo, rol, onNavigate }) {
+    const { usuario } = useAuth();
     const [abierto, setAbierto] = useState(false);
     const location = useLocation();
 
-    // Filtra enlaces visibles para este rol
-    const visibles = grupo.enlaces.filter((e) => e.roles.includes(rol));
+    const visibles = grupo.enlaces.filter((e) => {
+        if (!e.roles.includes(rol)) return false;
+        if (e.excluirDepartamentos?.includes(usuario?.id_departamento)) return false;
+        return true;
+    });
 
+    // Si no hay ningún enlace visible, no renderiza nada
     if (visibles.length === 0) return null;
 
-    // Si solo tiene 1 enlace, muestra directo
+    // Si solo hay un enlace visible, lo muestra directo sin grupo
     if (visibles.length === 1) {
         const { to, label, icon } = visibles[0];
         return (
@@ -203,6 +210,7 @@ function GrupoMenu({ grupo, rol, onNavigate }) {
             </NavLink>
         );
     }
+
 
     const hasActiveChild = visibles.some((e) => location.pathname.toLowerCase() === e.to.toLowerCase());
 
@@ -305,7 +313,7 @@ function Sidebar() {
                     {grupos
                         .filter((g) => g.roles.includes(usuario?.rol))
                         .map((grupo) => (
-                            <GrupoMenu key={grupo.label} grupo={grupo} rol={usuario?.rol} />
+                            <GrupoMenu key={grupo.label} grupo={grupo} rol={usuario?.rol} departamento={usuario?.id_departamento} />
                         ))}
                 </nav>
 
@@ -438,6 +446,7 @@ function Sidebar() {
                                 key={grupo.label}
                                 grupo={grupo}
                                 rol={usuario?.rol}
+                                departamento={usuario?.id_departamento}
                                 onNavigate={handleCloseMobile}
                             />
                         ))}

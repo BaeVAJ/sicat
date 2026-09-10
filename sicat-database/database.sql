@@ -19,6 +19,7 @@ CREATE TYPE uso_cfdi_t       AS ENUM (
 CREATE TYPE estatus_asig_t   AS ENUM ('ACTIVO', 'DEVUELTO');
 CREATE TYPE estatus_pedido_t AS ENUM ('PENDIENTE', 'ENTREGADO', 'CANCELADO');
 CREATE TYPE rol_t            AS ENUM ('admin', 'gerente', 'usuario');
+CREATE TYPE estatus_empleado as ENUM ('activo', 'inactivo', 'suspendido');
 
 -- ============================
 -- TABLAS
@@ -72,6 +73,7 @@ CREATE TABLE USUARIOS (
     correo          VARCHAR(254) UNIQUE NOT NULL,
     contrasena      VARCHAR(255) NOT NULL,
     rol             rol_t DEFAULT 'usuario',
+    estatus         estatus_empleado DEFAULT 'activo',
     CONSTRAINT fk_departamentoU FOREIGN KEY (id_departamento) 
         REFERENCES DEPARTAMENTO(id_departamento)
 );
@@ -126,7 +128,8 @@ CREATE TABLE INVENTARIO (
     CONSTRAINT fk_productoIN FOREIGN KEY (id_producto)     
         REFERENCES PRODUCTO(id_producto),
     CONSTRAINT fk_departamentoIN FOREIGN KEY (id_departamento) 
-        REFERENCES DEPARTAMENTO(id_departamento)
+        REFERENCES DEPARTAMENTO(id_departamento),
+    CONSTRAINT uq_inventario_producto_departamento UNIQUE (id_producto, id_departamento)
 );
 
 CREATE TABLE ASIGNACION (
@@ -160,11 +163,14 @@ CREATE TABLE PEDIDO_MATERIAL (
 
 CREATE TABLE TICKETS (
     id_ticket       SERIAL PRIMARY KEY,
+    id_usuario      INT,
     id_departamento INT,
     fecha_creacion  DATE NOT NULL DEFAULT CURRENT_DATE,
     fecha_solucion  DATE,
     descripcion     TEXT,
     estado          estado_ticket_t DEFAULT 'PENDIENTE',
+    urgente         BOOLEAN DEFAULT FALSE,
+    CONSTRAINT fk_usuarioT FOREIGN KEY (id_usuario) REFERENCES USUARIOS(id_usuario),
     CONSTRAINT fk_departamentoT FOREIGN KEY (id_departamento) 
         REFERENCES DEPARTAMENTO(id_departamento)
 );

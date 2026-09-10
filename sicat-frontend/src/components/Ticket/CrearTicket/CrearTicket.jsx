@@ -8,9 +8,11 @@ import './CrearTicket.css';
 function CrearTicket() {
     const navigate = useNavigate();
     const { usuario } = useAuth();
+    const isAdmin = usuario?.rol === 'admin';
 
     const [departamentos, setDepartamentos] = useState([]);
     const [idDepartamento, setIdDepartamento] = useState('');
+    const [miDepartamentoNombre, setMiDepartamentoNombre] = useState(usuario?.departamento || '');
     const [descripcion, setDescripcion] = useState('');
     const [urgente, setUrgente] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -20,28 +22,57 @@ function CrearTicket() {
 
     const MAX_DESC = 500;
 
-    // Cargar departamentos al montar el componente
+    // Cargar departamentos y perfil del usuario
     useEffect(() => {
-        async function fetchDepartamentos() {
-            try {
-                const { data } = await client.get('/departamentos');
-                setDepartamentos(data);
+        let mounted = true;
 
-                // Pre-seleccionar el departamento del usuario si tiene uno
-                if (usuario?.id_departamento) {
-                    setIdDepartamento(String(usuario.id_departamento));
+        async function init() {
+            setLoadingDeps(true);
+            try {
+                // Cargar lista de departamentos
+                const { data: deps } = await client.get('/departamentos');
+                if (!mounted) return;
+                setDepartamentos(Array.isArray(deps) ? deps : []);
+
+                // Si no es admin, obtener el departamento asignado del usuario
+                let depId = usuario?.id_departamento;
+                let depNombre = usuario?.departamento;
+
+                // Si falta en la sesión local, consultar /auth/me
+                if (!depId || !depNombre) {
+                    try {
+                        const { data: me } = await client.get('/auth/me');
+                        if (me?.id_departamento) depId = me.id_departamento;
+                        if (me?.departamento) depNombre = me.departamento;
+                    } catch {
+                        // ignore error
+                    }
+                }
+
+                if (!depNombre && depId && Array.isArray(deps)) {
+                    const match = deps.find((d) => String(d.id_departamento) === String(depId));
+                    if (match) depNombre = match.nombre;
+                }
+
+                if (mounted) {
+                    if (depId) setIdDepartamento(String(depId));
+                    if (depNombre) setMiDepartamentoNombre(depNombre);
                 }
             } catch {
-                setError('No se pudieron cargar los departamentos');
+                if (mounted) setError('No se pudieron cargar los datos de departamentos');
             } finally {
-                setLoadingDeps(false);
+                if (mounted) setLoadingDeps(false);
             }
         }
-        fetchDepartamentos();
+
+        init();
+        return () => {
+            mounted = false;
+        };
     }, [usuario]);
 
     const isValid =
-        idDepartamento !== '' &&
+        (isAdmin ? idDepartamento !== '' : (idDepartamento !== '' || miDepartamentoNombre !== '')) &&
         descripcion.trim().length >= 10 &&
         descripcion.length <= MAX_DESC;
 
@@ -52,8 +83,12 @@ function CrearTicket() {
         setLoading(true);
 
         try {
+            const depAEnviar = isAdmin
+                ? Number(idDepartamento)
+                : Number(idDepartamento || usuario?.id_departamento);
+
             await client.post('/tickets', {
-                id_departamento: Number(idDepartamento),
+                id_departamento: depAEnviar,
                 descripcion: descripcion.trim(),
                 id_usuario: usuario?.id_usuario || null,
                 urgente: Boolean(urgente),
@@ -62,9 +97,11 @@ function CrearTicket() {
             setSuccess('Ticket creado exitosamente');
             setDescripcion('');
             setUrgente(false);
-            setIdDepartamento(
-                usuario?.id_departamento ? String(usuario.id_departamento) : ''
-            );
+
+            if (isAdmin) {
+                // Mantener o resetear departamento para admin
+                setIdDepartamento(usuario?.id_departamento ? String(usuario.id_departamento) : '');
+            }
         } catch (err) {
             const mensaje =
                 err.response?.data?.error ||
@@ -90,7 +127,7 @@ function CrearTicket() {
                         </svg>
                     </div>
                     <h1 className="ticket-header__title">Crear Ticket</h1>
-                    <p className="ticket-header__subtitle">Reporta un problema o solicitud de soporte</p>
+                    <p className="ticket-header__subtitle">Solicitud de soporte</p>
                 </div>
 
                 {/* ── Alerts ── */}
@@ -132,7 +169,7 @@ function CrearTicket() {
                                     whiteSpace: 'nowrap',
                                 }}
                             >
-                                Ver Mis Tickets
+                                Ver Tickets
                             </button>
                         </div>
                     </div>
@@ -141,10 +178,10 @@ function CrearTicket() {
                 {/* ── Form ── */}
                 <form onSubmit={handleSubmit} noValidate>
 
-                    {/* Departamento */}
+                    {/* Departamento: Si es administrador puede elegirlo, si no, se fija automáticamente al suyo */}
                     <div className="ticket-field">
                         <label htmlFor="ticket-dep" className="ticket-field__label">
-                            Departamento
+                            {isAdmin ? 'Departamento de Destino' : 'Departamento Asignado'}
                         </label>
                         <div className="ticket-field__wrapper">
                             <span className="ticket-field__icon" aria-hidden="true">
@@ -153,29 +190,53 @@ function CrearTicket() {
                                     <polyline points="9 22 9 12 15 12 15 22" />
                                 </svg>
                             </span>
-                            <select
-                                id="ticket-dep"
-                                className="ticket-field__select"
-                                value={idDepartamento}
-                                onChange={(e) => setIdDepartamento(e.target.value)}
-                                disabled={loadingDeps}
-                                required
-                            >
-                                <option value="">
-                                    {loadingDeps ? 'Cargando departamentos…' : 'Selecciona un departamento'}
-                                </option>
-                                {departamentos.map((dep) => (
-                                    <option key={dep.id_departamento} value={dep.id_departamento}>
-                                        {dep.nombre}
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="ticket-field__arrow" aria-hidden="true">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                            </span>
+
+                            {isAdmin ? (
+                                <>
+                                    <select
+                                        id="ticket-dep"
+                                        className="ticket-field__select"
+                                        value={idDepartamento}
+                                        onChange={(e) => setIdDepartamento(e.target.value)}
+                                        disabled={loadingDeps}
+                                        required
+                                    >
+                                        <option value="">
+                                            {loadingDeps ? 'Cargando departamentos…' : '-- Selecciona un departamento --'}
+                                        </option>
+                                        {departamentos.map((dep) => (
+                                            <option key={dep.id_departamento} value={dep.id_departamento}>
+                                                {dep.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <span className="ticket-field__arrow" aria-hidden="true">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
+                                    </span>
+                                </>
+                            ) : (
+                                <input
+                                    type="text"
+                                    className="ticket-field__select"
+                                    value={miDepartamentoNombre || (loadingDeps ? 'Cargando departamento…' : 'Sin departamento asignado')}
+                                    readOnly
+                                    disabled
+                                    style={{
+                                        cursor: 'not-allowed',
+                                        opacity: 0.9,
+                                        background: 'rgba(255, 255, 255, 0.04)',
+                                        borderColor: 'rgba(255, 255, 255, 0.08)'
+                                    }}
+                                />
+                            )}
                         </div>
+                        <span style={{ fontSize: '0.74rem', color: 'rgba(148, 163, 184, 0.7)', marginTop: '4px', display: 'block' }}>
+                            {isAdmin
+                                ? ''
+                                : 'Tu ticket se asociará automáticamente al departamento de tu cuenta.'}
+                        </span>
                     </div>
 
                     {/* Descripción del problema */}
@@ -229,8 +290,8 @@ function CrearTicket() {
                                     <span className="ticket-urgente-title">Prioridad Urgente</span>
                                     <span className="ticket-urgente-desc">
                                         {urgente
-                                            ? 'Atención inmediata requerida por falla crítica o bloqueo'
-                                            : 'Marcar si el problema detiene completamente tus operaciones'}
+                                            ? 'Atención inmediata requerida'
+                                            : 'Marcar el ticket como urgente para que sea atendido con prioridad'}
                                     </span>
                                 </div>
                                 <div className={`ticket-urgente-badge ${urgente ? 'ticket-urgente-badge--active' : ''}`}>
