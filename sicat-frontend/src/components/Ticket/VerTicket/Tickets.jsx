@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
+import { subscribeToEvents } from '../../../api/events';
 import Layout from '../../layout/Layout';
 import './Tickets.css';
 
@@ -14,21 +15,70 @@ const ESTADOS = {
 
 function Tickets() {
     const { usuario } = useAuth();
-    const isUsuario = usuario?.rol === 'usuario';
+    const [userProfile, setUserProfile] = useState(null);
+
+    // Cargar perfil completo si departamento no está en el token inicial
+    useEffect(() => {
+        let mounted = true;
+        async function fetchProfile() {
+            try {
+                const { data } = await client.get('/auth/me');
+                if (mounted && data) setUserProfile(data);
+            } catch {
+                // ignore
+            }
+        }
+        fetchProfile();
+        return () => { mounted = false; };
+    }, []);
+
+    // Solo admin, gerente y usuarios pertenecientes a Sistemas pueden gestionar y ver todos los tickets
+    const esSistemas = useMemo(() => {
+        const dep = (usuario?.departamento || userProfile?.departamento || '').toLowerCase();
+        return dep.includes('sistema');
+    }, [usuario, userProfile]);
+
+    const puedeGestionar = usuario?.rol === 'admin' || usuario?.rol === 'gerente' || esSistemas;
+    const isUsuario = !puedeGestionar;
 
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [updatingId, setUpdatingId] = useState(null);
+    const [activeTab, setActiveTab] = useState('tickets');
+    const [pedidos, setPedidos] = useState([]);
+    const [loadingPedidos, setLoadingPedidos] = useState(false);
 
     // Modal de Detalles
     const [ticketDetalle, setTicketDetalle] = useState(null);
 
     // Cargar tickets
     useEffect(() => {
+        if (!usuario) return undefined;
+
         fetchTickets();
-    }, []);
+        return subscribeToEvents((type) => {
+            if (type.startsWith('ticket.')) fetchTickets();
+            if (type.startsWith('material-request.')) fetchPedidos();
+        });
+    }, [usuario]);
+
+    async function fetchPedidos() {
+        setLoadingPedidos(true);
+        try {
+            const { data } = await client.get('/pedidos');
+            setPedidos(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setError(err.response?.data?.error || 'Error al cargar las solicitudes de material');
+        } finally {
+            setLoadingPedidos(false);
+        }
+    }
+
+    useEffect(() => {
+        if (activeTab === 'pedidos') fetchPedidos();
+    }, [activeTab]);
 
     async function fetchTickets() {
         setLoading(true);
@@ -43,17 +93,17 @@ function Tickets() {
         }
     }
 
-    // Filtrar los tickets si es rol 'usuario': solo mostrar los que él mandó
+    // Filtrar los tickets si no puede gestionar: solo mostrar los que él mandó
     const ticketsMostrados = useMemo(() => {
-        if (isUsuario && usuario?.id_usuario) {
+        if (!puedeGestionar && usuario?.id_usuario) {
             return tickets.filter((t) => t.id_usuario === usuario.id_usuario);
         }
         return tickets;
-    }, [tickets, isUsuario, usuario]);
+    }, [tickets, puedeGestionar, usuario]);
 
-    // Cambiar estado de un ticket (solo para admin / gerente)
+    // Cambiar estado de un ticket (solo para admin, gerente o sistemas)
     async function cambiarEstado(id, nuevoEstado) {
-        if (isUsuario) return;
+        if (!puedeGestionar) return;
         setUpdatingId(id);
         setError('');
         try {
@@ -98,7 +148,7 @@ function Tickets() {
                         <p className="dash-header__subtitle">
                             {isUsuario
                                 ? 'Consulta el estado y seguimiento de los tickets que has enviado'
-                                : `Bienvenido, ${usuario?.nombre || 'Administrador'}`}
+                                : `Gestión de Tickets — ${usuario?.rol === 'admin' ? 'Administrador' : usuario?.rol === 'gerente' ? 'Gerente' : 'Área de Sistemas'}`}
                         </p>
                     </div>
 
@@ -141,12 +191,19 @@ function Tickets() {
                                 <span className="dash-stat__count" style={{ color }}>{count}</span>
                                 <span className="dash-stat__label">{label}</span>
                             </div>
+
                         );
                     })}
-                    <div className="dash-stat" style={{ borderColor: '#94a3b8' }}>
-                        <span className="dash-stat__count" style={{ color: '#f1f5f9' }}>{ticketsMostrados.length}</span>
-                        <span className="dash-stat__label">Total</span>
-                    </div>
+                    
+                </div>
+
+                <div role="tablist" style={{ display: 'flex', gap: '0.5rem', margin: '1.25rem 0' }}>
+                    <button type="button" className={activeTab === 'tickets' ? 'dash-btn-primary' : 'dash-refresh'} onClick={() => setActiveTab('tickets')}>
+                        Tickets de soporte
+                    </button>
+                    <button type="button" className={activeTab === 'pedidos' ? 'dash-btn-primary' : 'dash-refresh'} onClick={() => setActiveTab('pedidos')}>
+                        Solicitudes de material {pedidos.filter((p) => p.estatus === 'PENDIENTE').length > 0 && `(${pedidos.filter((p) => p.estatus === 'PENDIENTE').length})`}
+                    </button>
                 </div>
 
                 {/* Alerts */}
@@ -185,7 +242,31 @@ function Tickets() {
                     </div>
                 )}
 
-                {/* Table */}
+                {activeTab === 'pedidos' ? (
+                    <div className="dash-table-wrap">
+                        <table className="dash-table">
+                            <thead><tr><th>ID</th><th>Material</th><th>Departamento</th><th>Stock</th><th>Solicitado</th><th>Estado</th><th>Acción</th></tr></thead>
+                            <tbody>
+                                {loadingPedidos ? <tr><td colSpan="7" className="dash-table__empty">Cargando solicitudes...</td></tr> : pedidos.length === 0 ? <tr><td colSpan="7" className="dash-table__empty">No hay solicitudes de material</td></tr> :
+                                    pedidos.map((pedido) => (
+                                        <tr key={pedido.id_pedido}>
+                                            <td>#{pedido.id_pedido}{pedido.urgente && <span className="dash-badge-urgente"> URGENTE</span>}</td>
+                                            <td><strong>{pedido.producto}</strong></td>
+                                            <td>{pedido.departamento}<small style={{ display: 'block', opacity: 0.7 }}>{pedido.empresa}</small></td>
+                                            <td>{pedido.stock_actual}</td><td>{pedido.stock_deseado}</td>
+                                            <td>{pedido.estatus}</td>
+                                            <td>
+                                                {puedeGestionar && pedido.estatus === 'PENDIENTE' && (
+                                                    <Link className="dash-btn-primary" to="/asignaciones" state={{ pedido }}>Asignar</Link>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                /* Table */
                 <div className="dash-table-wrap">
                     <table className="dash-table">
                         <thead>
@@ -218,7 +299,7 @@ function Tickets() {
                                                     Crear mi primer ticket
                                                 </Link>
                                             </div>
-                                        ) : (
+                                            ) : (
                                             'No hay tickets registrados'
                                         )}
                                     </td>
@@ -332,6 +413,7 @@ function Tickets() {
                         </tbody>
                     </table>
                 </div>
+                )}
 
                 {/* ── Modal de Detalles de Ticket ── */}
                 {ticketDetalle && (
