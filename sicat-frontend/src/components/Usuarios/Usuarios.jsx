@@ -8,54 +8,65 @@ import './Usuarios.css';
 function Usuarios() {
     const { usuario: currentUser } = useAuth();
 
-    // Estados principales de datos
     const [usuarios, setUsuarios] = useState([]);
     const [departamentos, setDepartamentos] = useState([]);
     const [empresas, setEmpresas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Notificaciones / Mensajes
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Filtros y Visualización
     const [search, setSearch] = useState('');
     const [filterRol, setFilterRol] = useState('ALL');
     const [filterDepartamento, setFilterDepartamento] = useState('ALL');
+    const [filterEstatus, setFilterEstatus] = useState('ALL'); // NUEVO
     const [viewMode, setViewMode] = useState('TABLE'); // 'TABLE' | 'GRID'
 
-    // Modal Crear / Editar
     const [modalOpen, setModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' | 'EDIT'
     const [selectedUser, setSelectedUser] = useState(null);
 
-    // Campos del formulario
     const [nombre, setNombre] = useState('');
     const [correo, setCorreo] = useState('');
     const [rol, setRol] = useState('usuario');
     const [idDepartamento, setIdDepartamento] = useState('');
+    const [estatusEmpleado, setEstatusEmpleado] = useState('activo');
     const [contrasena, setContrasena] = useState('');
     const [confirmarContrasena, setConfirmarContrasena] = useState('');
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
     const [formError, setFormError] = useState('');
 
-    // Modal Eliminar
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
 
-    // Cargar datos al montar
+    const [detailUser, setDetailUser] = useState(null);
+    const [isMobile, setIsMobile] = useState(false);
+
+    // ¿El usuario que estoy editando soy yo mismo?
+    const isEditingSelf =
+        modalMode === 'EDIT' &&
+        selectedUser &&
+        currentUser &&
+        selectedUser.id_usuario === currentUser.id_usuario;
+
     useEffect(() => {
         fetchData();
     }, []);
 
-    // Limpiar alertas de éxito después de 4 segundos
     useEffect(() => {
         if (success) {
-            const timer = setTimeout(() => setSuccess(''), 4000);
+            const timer = setTimeout(() => setSuccess(''), 5000);
             return () => clearTimeout(timer);
         }
     }, [success]);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const fetchData = async () => {
         setLoading(true);
@@ -77,7 +88,6 @@ function Usuarios() {
         }
     };
 
-    // Mapa auxiliar: id_empresa -> Nombre Empresa
     const empresaMap = useMemo(() => {
         const map = {};
         empresas.forEach(e => {
@@ -86,7 +96,6 @@ function Usuarios() {
         return map;
     }, [empresas]);
 
-    // Mapa auxiliar: id_departamento -> Objeto Departamento
     const departamentoMap = useMemo(() => {
         const map = {};
         departamentos.forEach(d => {
@@ -98,7 +107,6 @@ function Usuarios() {
         return map;
     }, [departamentos, empresaMap]);
 
-    // Abrir modal de creación
     const handleOpenCreate = () => {
         setModalMode('CREATE');
         setSelectedUser(null);
@@ -106,6 +114,7 @@ function Usuarios() {
         setCorreo('');
         setRol('usuario');
         setIdDepartamento('');
+        setEstatusEmpleado('activo');
         setContrasena('');
         setConfirmarContrasena('');
         setMostrarContrasena(false);
@@ -113,14 +122,19 @@ function Usuarios() {
         setModalOpen(true);
     };
 
-    // Abrir modal de edición
     const handleOpenEdit = (user) => {
+        // Guarda extra: no permitir editar suspendidos
+        if (user.estatus_empleado === 'suspendido') {
+            setError(`El usuario "${user.nombre}" está suspendido y no puede editarse.`);
+            return;
+        }
         setModalMode('EDIT');
         setSelectedUser(user);
         setNombre(user.nombre || '');
         setCorreo(user.correo || '');
         setRol(user.rol || 'usuario');
         setIdDepartamento(user.id_departamento ? String(user.id_departamento) : '');
+        setEstatusEmpleado(user.estatus_empleado || 'activo');
         setContrasena('');
         setConfirmarContrasena('');
         setMostrarContrasena(false);
@@ -128,12 +142,10 @@ function Usuarios() {
         setModalOpen(true);
     };
 
-    // Guardar Usuario (Crear o Modificar)
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
 
-        // Validaciones básicas
         if (!nombre.trim()) {
             setFormError('El nombre completo es obligatorio.');
             return;
@@ -183,6 +195,11 @@ function Usuarios() {
             id_departamento: idDepartamento ? Number(idDepartamento) : null,
         };
 
+        // Solo enviar estatus en EDIT y NUNCA si me estoy editando a mí mismo
+        if (modalMode === 'EDIT' && !isEditingSelf) {
+            payload.estatus_empleado = estatusEmpleado;
+        }
+
         if (contrasena) {
             payload.contrasena = contrasena;
         }
@@ -207,17 +224,21 @@ function Usuarios() {
         }
     };
 
-    // Abrir modal eliminar
     const handleOpenDelete = (user) => {
         setUserToDelete(user);
         setDeleteModalOpen(true);
     };
 
-    // Confirmar eliminación
+    const handleOpenDetail = (user) => {
+        if (!isMobile) return;
+        setDetailUser(user);
+    };
+
     const handleConfirmDelete = async () => {
         if (!userToDelete) return;
         setActionLoading(true);
         setError('');
+
         try {
             await client.delete(`/usuarios/${userToDelete.id_usuario}`);
             setUsuarios((prev) => prev.filter((u) => u.id_usuario !== userToDelete.id_usuario));
@@ -225,14 +246,51 @@ function Usuarios() {
             setDeleteModalOpen(false);
             setUserToDelete(null);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al eliminar el usuario.');
-            setDeleteModalOpen(false);
+            const status = err.response?.status;
+            const msg = err.response?.data?.error || '';
+
+            // Si la BD protegió la integridad (tiene tickets/asignaciones),
+            // no eliminamos: lo pasamos a "suspendido"
+            const bloqueoPorIntegridad =
+                status === 409 &&
+                /tickets|asignaciones|registros|integridad|asociad/i.test(msg);
+
+            if (bloqueoPorIntegridad) {
+                try {
+                    const { data } = await client.put(
+                        `/usuarios/${userToDelete.id_usuario}`,
+                        {
+                            nombre: userToDelete.nombre,
+                            correo: userToDelete.correo,
+                            rol: userToDelete.rol,
+                            id_departamento: userToDelete.id_departamento,
+                            estatus_empleado: 'suspendido',
+                        }
+                    );
+                    setUsuarios((prev) =>
+                        prev.map((u) => (u.id_usuario === data.id_usuario ? data : u))
+                    );
+                    setSuccess(
+                        `El usuario "${data.nombre}" tiene registros asociados y no puede eliminarse. Se cambió su estatus a "Suspendido".`
+                    );
+                    setDeleteModalOpen(false);
+                    setUserToDelete(null);
+                } catch (putErr) {
+                    setError(
+                        putErr.response?.data?.error ||
+                        'No se pudo eliminar ni suspender el usuario.'
+                    );
+                    setDeleteModalOpen(false);
+                }
+            } else {
+                setError(msg || 'Error al eliminar el usuario.');
+                setDeleteModalOpen(false);
+            }
         } finally {
             setActionLoading(false);
         }
     };
 
-    // Filtrado de usuarios
     const usuariosFiltrados = useMemo(() => {
         return usuarios.filter((u) => {
             const matchSearch =
@@ -248,6 +306,12 @@ function Usuarios() {
                 return false;
             }
 
+            // NUEVO: filtro por estatus
+            if (filterEstatus !== 'ALL') {
+                const estatus = u.estatus_empleado || 'activo';
+                if (estatus !== filterEstatus) return false;
+            }
+
             if (filterDepartamento !== 'ALL') {
                 if (filterDepartamento === 'NONE') {
                     if (u.id_departamento) return false;
@@ -258,19 +322,8 @@ function Usuarios() {
 
             return true;
         });
-    }, [usuarios, search, filterRol, filterDepartamento]);
+    }, [usuarios, search, filterRol, filterDepartamento, filterEstatus]);
 
-    // Métricas
-    const stats = useMemo(() => {
-        const total = usuarios.length;
-        const admins = usuarios.filter((u) => u.rol === 'admin').length;
-        const gerentes = usuarios.filter((u) => u.rol === 'gerente').length;
-        const estandar = usuarios.filter((u) => u.rol === 'usuario').length;
-        const conDepto = usuarios.filter((u) => u.id_departamento).length;
-        return { total, admins, gerentes, estandar, conDepto };
-    }, [usuarios]);
-
-    // Iniciales para el avatar
     const getInitials = (name) => {
         if (!name) return 'U';
         const parts = name.trim().split(' ');
@@ -280,7 +333,6 @@ function Usuarios() {
         return name.slice(0, 2).toUpperCase();
     };
 
-    // Color del badge del rol
     const getRoleBadge = (rolName) => {
         switch (rolName) {
             case 'admin':
@@ -320,12 +372,16 @@ function Usuarios() {
         }
     };
 
+    const getEstatusLabel = (est) => {
+        const v = est || 'activo';
+        return v.charAt(0).toUpperCase() + v.slice(1);
+    };
+
     const isAdmin = currentUser?.rol === 'admin';
 
     return (
         <Layout>
             <div className="usr-page">
-                {/* ── Encabezado ── */}
                 <header className="usr-header">
                     <div className="usr-header__info">
                         <div className="usr-header__icon-wrapper">
@@ -339,7 +395,7 @@ function Usuarios() {
                         <div>
                             <h1 className="usr-header__title">Administración de Usuarios</h1>
                             <p className="usr-header__subtitle">
-                                Control de accesos, roles de seguridad y asignación de departamentos
+                                Control de accesos y asignación de departamentos
                             </p>
                         </div>
                     </div>
@@ -385,8 +441,6 @@ function Usuarios() {
                         )}
                     </div>
                 </header>
-
-                {/* ── Alertas Globales ── */}
                 {error && (
                     <div className="usr-alert usr-alert--danger">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -410,7 +464,6 @@ function Usuarios() {
                     </div>
                 )}
 
-                {/* ── Barra de Control: Búsqueda, Filtros y Modo de Vista ── */}
                 <div className="usr-toolbar">
                     <div className="usr-search-box">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="usr-search-icon">
@@ -437,7 +490,6 @@ function Usuarios() {
                     </div>
 
                     <div className="usr-filters">
-                        {/* Filtro por Rol */}
                         <div className="usr-select-wrapper">
                             <select
                                 value={filterRol}
@@ -451,7 +503,20 @@ function Usuarios() {
                             </select>
                         </div>
 
-                        {/* Filtro por Departamento */}
+                        {/* NUEVO: filtro por estatus */}
+                        <div className="usr-select-wrapper">
+                            <select
+                                value={filterEstatus}
+                                onChange={(e) => setFilterEstatus(e.target.value)}
+                                className="usr-select"
+                            >
+                                <option value="ALL">Todos los estatus</option>
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                                <option value="suspendido">Suspendido</option>
+                            </select>
+                        </div>
+
                         <div className="usr-select-wrapper">
                             <select
                                 value={filterDepartamento}
@@ -468,7 +533,6 @@ function Usuarios() {
                             </select>
                         </div>
 
-                        {/* Switch de Vistas */}
                         <div className="usr-view-switcher">
                             <button
                                 type="button"
@@ -502,7 +566,6 @@ function Usuarios() {
                     </div>
                 </div>
 
-                {/* ── Contenido Principal ── */}
                 {loading ? (
                     <div className="usr-loading-state">
                         <div className="usr-spinner"></div>
@@ -520,11 +583,11 @@ function Usuarios() {
                         </div>
                         <h3>No se encontraron usuarios</h3>
                         <p>
-                            {search || filterRol !== 'ALL' || filterDepartamento !== 'ALL'
+                            {search || filterRol !== 'ALL' || filterDepartamento !== 'ALL' || filterEstatus !== 'ALL'
                                 ? 'No hay resultados que coincidan con los filtros aplicados.'
                                 : 'Actualmente no hay usuarios registrados en el sistema.'}
                         </p>
-                        {(search || filterRol !== 'ALL' || filterDepartamento !== 'ALL') && (
+                        {(search || filterRol !== 'ALL' || filterDepartamento !== 'ALL' || filterEstatus !== 'ALL') && (
                             <button
                                 type="button"
                                 className="usr-btn usr-btn--secondary"
@@ -532,6 +595,7 @@ function Usuarios() {
                                     setSearch('');
                                     setFilterRol('ALL');
                                     setFilterDepartamento('ALL');
+                                    setFilterEstatus('ALL');
                                 }}
                             >
                                 Restablecer Filtros
@@ -539,15 +603,15 @@ function Usuarios() {
                         )}
                     </div>
                 ) : viewMode === 'TABLE' ? (
-                    /* ── VISTA EN TABLA ── */
                     <div className="usr-table-container">
                         <table className="usr-table">
                             <thead>
                                 <tr>
                                     <th>Usuario</th>
                                     <th>Rol</th>
-                                    <th>Departamento / Empresa</th>
-                                    <th>ID</th>
+                                    <th>Estatus</th>
+                                    {!isMobile && <th>Departamento / Empresa</th>}
+                                    {!isMobile && <th>ID</th>}
                                     <th className="usr-table__text-right">Acciones</th>
                                 </tr>
                             </thead>
@@ -555,9 +619,11 @@ function Usuarios() {
                                 {usuariosFiltrados.map((u) => {
                                     const badge = getRoleBadge(u.rol);
                                     const isSelf = currentUser?.id_usuario === u.id_usuario;
+                                    const isSuspended = u.estatus_empleado === 'suspendido';
                                     const deptoInfo = u.id_departamento ? departamentoMap[u.id_departamento] : null;
                                     const deptoNombre = u.departamento_nombre || deptoInfo?.nombre;
                                     const empresaNombre = u.empresa_nombre || deptoInfo?.empresa_nombre;
+                                    const estatus = u.estatus_empleado || 'activo';
 
                                     return (
                                         <tr key={u.id_usuario} className={isSelf ? 'usr-table__row--self' : ''}>
@@ -582,6 +648,11 @@ function Usuarios() {
                                                 </span>
                                             </td>
                                             <td>
+                                                <span className={`usr-status usr-status--${estatus}`}>
+                                                    {getEstatusLabel(estatus)}
+                                                </span>
+                                            </td>
+                                            {!isMobile && <td>
                                                 {deptoNombre ? (
                                                     <div className="usr-depto-tag">
                                                         <span className="usr-depto-tag__name">{deptoNombre}</span>
@@ -594,31 +665,49 @@ function Usuarios() {
                                                 ) : (
                                                     <span className="usr-depto-empty">Sin departamento</span>
                                                 )}
-                                            </td>
-                                            <td>
+                                            </td>}
+
+                                           {!isMobile && <td>
                                                 <span className="usr-id-code">#{u.id_usuario}</span>
-                                            </td>
+                                            </td>}
                                             <td className="usr-table__text-right">
                                                 <div className="usr-row-actions">
+                                                    {isMobile && (
+                                                        <button
+                                                            type="button"
+                                                            className="usr-action-btn usr-action-btn--view"
+                                                            onClick={() => handleOpenDetail(u)}
+                                                            title="Ver detalles"
+                                                        >
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                            <circle cx="12" cy="12" r="3" />
+                                                        </svg>
+                                                    </button>)}
                                                     {isAdmin ? (
                                                         <>
                                                             <button
                                                                 type="button"
                                                                 className="usr-action-btn usr-action-btn--edit"
                                                                 onClick={() => handleOpenEdit(u)}
-                                                                title="Editar usuario"
+                                                                disabled={isSuspended}
+                                                                title={
+                                                                    isSuspended
+                                                                        ? 'El usuario está suspendido y no puede editarse'
+                                                                        : 'Editar usuario'
+                                                                }
                                                             >
                                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                                                 </svg>
                                                             </button>
-                                                            <button
+                                                            {<button
                                                                 type="button"
                                                                 className="usr-action-btn usr-action-btn--delete"
                                                                 onClick={() => handleOpenDelete(u)}
-                                                                disabled={isSelf}
-                                                                title={isSelf ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}
+                                                                disabled={isSelf || isSuspended}
+                                                                title={isSelf ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario' || isSuspended ? 'El usuario está suspendido y no puede eliminarse' : 'Eliminar usuario'}
                                                             >
                                                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                                     <polyline points="3 6 5 6 21 6" />
@@ -626,7 +715,7 @@ function Usuarios() {
                                                                     <line x1="10" y1="11" x2="10" y2="17" />
                                                                     <line x1="14" y1="11" x2="14" y2="17" />
                                                                 </svg>
-                                                            </button>
+                                                            </button>}
                                                         </>
                                                     ) : (
                                                         <span className="usr-no-actions">Solo lectura</span>
@@ -640,14 +729,15 @@ function Usuarios() {
                         </table>
                     </div>
                 ) : (
-                    /* ── VISTA EN MOSAICO / CARDS ── */
                     <div className="usr-cards-grid">
                         {usuariosFiltrados.map((u) => {
                             const badge = getRoleBadge(u.rol);
                             const isSelf = currentUser?.id_usuario === u.id_usuario;
+                            const isSuspended = u.estatus_empleado === 'suspendido';
                             const deptoInfo = u.id_departamento ? departamentoMap[u.id_departamento] : null;
                             const deptoNombre = u.departamento_nombre || deptoInfo?.nombre;
                             const empresaNombre = u.empresa_nombre || deptoInfo?.empresa_nombre;
+                            const estatus = u.estatus_empleado || 'activo';
 
                             return (
                                 <div key={u.id_usuario} className={`usr-card ${isSelf ? 'usr-card--self' : ''}`}>
@@ -655,10 +745,15 @@ function Usuarios() {
                                         <div className={`usr-avatar usr-avatar--lg usr-avatar--${u.rol}`}>
                                             {getInitials(u.nombre)}
                                         </div>
-                                        <span className={`usr-badge ${badge.className}`}>
-                                            {badge.icon}
-                                            <span>{badge.label}</span>
-                                        </span>
+                                        <div className="usr-card__badges">
+                                            <span className={`usr-badge ${badge.className}`}>
+                                                {badge.icon}
+                                                <span>{badge.label}</span>
+                                            </span>
+                                            <span className={`usr-status usr-status--${estatus}`}>
+                                                {getEstatusLabel(estatus)}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div className="usr-card__body">
@@ -688,11 +783,27 @@ function Usuarios() {
                                         <span className="usr-id-code">ID #{u.id_usuario}</span>
                                         {isAdmin && (
                                             <div className="usr-card__actions">
+                                                {!viewMode === 'GRID' &&(<button
+                                                    type="button"
+                                                    className="usr-card-btn usr-card-btn--view"
+                                                    onClick={() => handleOpenDetail(u)}
+                                                    title="Ver detalles"
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                        <circle cx="12" cy="12" r="3" />
+                                                    </svg>
+                                                </button>)}
                                                 <button
                                                     type="button"
                                                     className="usr-card-btn usr-card-btn--edit"
                                                     onClick={() => handleOpenEdit(u)}
-                                                    title="Editar usuario"
+                                                    disabled={isSuspended}
+                                                    title={
+                                                        isSuspended
+                                                            ? 'El usuario está suspendido y no puede editarse'
+                                                            : 'Editar usuario'
+                                                    }
                                                 >
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -721,7 +832,6 @@ function Usuarios() {
                     </div>
                 )}
 
-                {/* ── Modal: Crear / Editar Usuario ── */}
                 {modalOpen && (
                     <div className="usr-modal-backdrop" onClick={() => !actionLoading && setModalOpen(false)}>
                         <div className="usr-modal" onClick={(e) => e.stopPropagation()}>
@@ -774,7 +884,6 @@ function Usuarios() {
                                 )}
 
                                 <div className="usr-form__grid">
-                                    {/* Nombre Completo */}
                                     <div className="usr-form__group usr-form__group--full">
                                         <label htmlFor="usr-name">Nombre Completo *</label>
                                         <input
@@ -788,7 +897,6 @@ function Usuarios() {
                                         />
                                     </div>
 
-                                    {/* Correo Electrónico */}
                                     <div className="usr-form__group">
                                         <label htmlFor="usr-email">Correo Electrónico *</label>
                                         <input
@@ -801,7 +909,6 @@ function Usuarios() {
                                         />
                                     </div>
 
-                                    {/* Rol */}
                                     <div className="usr-form__group">
                                         <label htmlFor="usr-role">Rol de Seguridad *</label>
                                         <select
@@ -816,7 +923,6 @@ function Usuarios() {
                                         </select>
                                     </div>
 
-                                    {/* Departamento */}
                                     <div className="usr-form__group usr-form__group--full">
                                         <label htmlFor="usr-dept">Departamento Asignado</label>
                                         <select
@@ -833,7 +939,34 @@ function Usuarios() {
                                         </select>
                                     </div>
 
-                                    {/* Contraseña */}
+                                    {modalMode === 'EDIT' && (
+                                        <div className="usr-form__group usr-form__group--full">
+                                            <label htmlFor="usr-estatus">
+                                                Estatus del Empleado *
+                                                {isEditingSelf && (
+                                                    <span className="usr-form__hint">
+                                                        {' '}(no puedes cambiar tu propio estatus)
+                                                    </span>
+                                                )}
+                                            </label>
+                                            <select
+                                                id="usr-estatus"
+                                                value={estatusEmpleado}
+                                                onChange={(e) => setEstatusEmpleado(e.target.value)}
+                                                disabled={isEditingSelf}
+                                                title={
+                                                    isEditingSelf
+                                                        ? 'No puedes cambiar tu propio estatus'
+                                                        : ''
+                                                }
+                                                required
+                                            >
+                                                <option value="activo">Activo</option>
+                                                <option value="inactivo">Inactivo</option>
+                                            </select>
+                                        </div>
+                                    )}
+
                                     <div className="usr-form__group">
                                         <label htmlFor="usr-pass">
                                             {modalMode === 'CREATE' ? 'Contraseña Inicial *' : 'Nueva Contraseña (Opcional)'}
@@ -872,7 +1005,6 @@ function Usuarios() {
                                         </div>
                                     </div>
 
-                                    {/* Confirmar Contraseña */}
                                     <div className="usr-form__group">
                                         <label htmlFor="usr-pass-confirm">Confirmar Contraseña</label>
                                         <div className="usr-pass-wrapper">
@@ -916,7 +1048,75 @@ function Usuarios() {
                     </div>
                 )}
 
-                {/* ── Modal: Confirmar Eliminación ── */}
+                {detailUser && (() => {
+                    const dBadge = getRoleBadge(detailUser.rol);
+                    const dDeptoInfo = detailUser.id_departamento ? departamentoMap[detailUser.id_departamento] : null;
+                    const dDeptoNombre = detailUser.departamento_nombre || dDeptoInfo?.nombre;
+                    const dEmpresaNombre = detailUser.empresa_nombre || dDeptoInfo?.empresa_nombre;
+                    const dEstatus = detailUser.estatus_empleado || 'activo';
+                    return (
+                        <div className="usr-modal-backdrop" onClick={() => setDetailUser(null)}>
+                            <div className="usr-modal usr-modal--sm usr-detail" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                    type="button"
+                                    className="usr-modal__close-btn"
+                                    onClick={() => setDetailUser(null)}
+                                >
+                                    &times;
+                                </button>
+
+                                <div className="usr-detail__top">
+                                    <div className={`usr-avatar usr-avatar--lg usr-avatar--${detailUser.rol}`}>
+                                        {getInitials(detailUser.nombre)}
+                                    </div>
+                                    <div className="usr-detail__identity">
+                                        <h3 className="usr-modal__title">{detailUser.nombre}</h3>
+                                        <span className={`usr-badge ${dBadge.className}`}>
+                                            {dBadge.icon}
+                                            <span>{dBadge.label}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="usr-detail__list">
+                                    <div className="usr-detail__item">
+                                        <span className="usr-detail__label">Correo electrónico: </span>
+                                        <span className="usr-detail__value">{detailUser.correo}</span>
+                                    </div>
+                                    <div className="usr-detail__item">
+                                        <span className="usr-detail__label">Estatus: </span>
+                                        <span className={`usr-status usr-status--${dEstatus}`}>
+                                            {getEstatusLabel(dEstatus)}
+                                        </span>
+                                    </div>
+                                    <div className="usr-detail__item">
+                                        <span className="usr-detail__label">Departamento: </span>
+                                        <span className="usr-detail__value">{dDeptoNombre || 'No asignado'}</span>
+                                    </div>
+                                    <div className="usr-detail__item">
+                                        <span className="usr-detail__label">Empresa: </span>
+                                        <span className="usr-detail__value">{dEmpresaNombre || 'No asignada'}</span>
+                                    </div>
+                                    <div className="usr-detail__item">
+                                        <span className="usr-detail__label">ID de usuario: </span>
+                                        <span className="usr-detail__value">#{detailUser.id_usuario}</span>
+                                    </div>
+                                </div>
+
+                                <div className="usr-modal__footer usr-modal__footer--center">
+                                    <button
+                                        type="button"
+                                        className="usr-btn usr-btn--primary"
+                                        onClick={() => setDetailUser(null)}
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {deleteModalOpen && userToDelete && (
                     <div className="usr-modal-backdrop" onClick={() => !actionLoading && setDeleteModalOpen(false)}>
                         <div className="usr-modal usr-modal--sm" onClick={(e) => e.stopPropagation()}>
@@ -936,7 +1136,7 @@ function Usuarios() {
                                     <strong className="usr-highlight">{userToDelete.nombre}</strong> ({userToDelete.correo}).
                                 </p>
                                 <p className="usr-modal__danger-hint">
-                                    Si el usuario tiene tickets o asignaciones asociadas, la base de datos protegerá la integridad y no permitirá la eliminación.
+                                    Si el usuario tiene tickets o asignaciones asociadas, la base de datos protegerá la integridad y <strong>no permitirá la eliminación</strong>. En ese caso, el usuario se <strong>suspenderá automáticamente</strong> en su lugar.
                                 </p>
                             </div>
 
@@ -958,7 +1158,7 @@ function Usuarios() {
                                     {actionLoading ? (
                                         <>
                                             <div className="usr-spin-dot"></div>
-                                            <span>Eliminando...</span>
+                                            <span>Procesando...</span>
                                         </>
                                     ) : (
                                         <span>Sí, Eliminar</span>
