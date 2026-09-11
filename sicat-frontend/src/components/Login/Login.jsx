@@ -8,6 +8,7 @@ function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +17,12 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
+  const token = localStorage.getItem('token');
 
+  if(token){
+    navigate('/inicio');
+  }
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -25,15 +31,13 @@ function Login() {
 
     try {
       const usuario = await login(correo, contrasena);
-      // Redirigir según el rol del usuario
-      if (usuario.rol === 'admin' || usuario.rol === 'gerente' || usuario.rol === 'usuario') {
+      if (usuario) {
         navigate('/inicio');
       }
     } catch (err) {
       const status = err.response?.status;
       const errorMsg = err.response?.data?.error || err.message || '';
 
-      // Detección de error 502 / 503 / 504 / caída de red / cold start del backend
       const is502Error =
         status === 502 ||
         status === 503 ||
@@ -67,7 +71,6 @@ function Login() {
     <div className="login-page">
       <div className="login-card">
 
-        {/* ── Brand header ── */}
         <div className="login-brand">
           <div className="login-brand__icon" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -80,7 +83,6 @@ function Login() {
           <p className="login-brand__subtitle">Sistema Integral de Control</p>
         </div>
 
-        {/* ── Error message ── */}
         {error && (
           <div
             className={`login-error ${isServerStarting ? 'login-error--warning' : ''}`}
@@ -199,7 +201,6 @@ function Login() {
             </div>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             className="login-btn"

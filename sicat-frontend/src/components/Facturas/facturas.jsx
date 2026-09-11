@@ -5,7 +5,6 @@ import client from '../../api/client';
 import Layout from '../layout/Layout';
 import './facturas.css';
 
-// Helper: Formatea texto XML con sangrías para visualización limpia
 function formatXml(xmlStr) {
     if (!xmlStr) return '';
     try {
@@ -112,6 +111,9 @@ function Facturas() {
 
     const pdfInputRef = useRef(null);
     const xmlInputRef = useRef(null);
+    const [isMobile, setIsMobile] = useState(false);
+
+
 
     useEffect(() => {
         fetchFacturas();
@@ -133,15 +135,21 @@ function Facturas() {
 
     const fetchCompras = async () => {
         try {
-            const { data } = await client.get('/compras');
+            const { data } = await client.get('/compras?sin_factura=true');
             setCompras(Array.isArray(data) ? data : []);
         } catch {
             console.warn('No se pudieron precargar las compras para el formulario');
         }
     };
-
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
     // Open create modal
     const handleOpenCreate = () => {
+        fetchCompras();
         setIdCompra('');
         setUuidFiscal(crypto.randomUUID ? crypto.randomUUID() : '');
         setRfcEmisor('');
@@ -351,6 +359,7 @@ function Facturas() {
 
             setSuccess(mensaje);
             setModalOpen(false);
+            fetchCompras();
         } catch (err) {
             setError(err.response?.data?.error || 'Error al registrar la factura');
         } finally {
@@ -447,12 +456,26 @@ function Facturas() {
             setSuccess(`Factura con UUID ${facturaToDelete.uuid_fiscal} eliminada correctamente`);
             setDeleteModalOpen(false);
             setFacturaToDelete(null);
+            fetchCompras();
         } catch (err) {
             setError(err.response?.data?.error || 'Error al eliminar la factura');
         } finally {
             setActionLoading(false);
         }
     };
+
+    // Compras disponibles (sin factura registrada)
+    const comprasSinFactura = useMemo(() => {
+        const comprasConFactura = new Set(
+            facturas
+                .map((f) => f.id_compra)
+                .filter(Boolean)
+                .map(Number)
+        );
+        return compras.filter(
+            (c) => !comprasConFactura.has(Number(c.id_compra)) && !c.tiene_factura
+        );
+    }, [compras, facturas]);
 
     // Filter and search
     const facturasFiltradas = useMemo(() => {
@@ -661,7 +684,7 @@ function Facturas() {
                                 <th className="facturas-hide-mobile">Subtotal / IVA</th>
                                 <th>Total</th>
                                 <th className="facturas-hide-mobile">Método / CFDI</th>
-                                <th>Documentos & Acciones</th>
+                                {isMobile ? <th>Acciones</th> : <th>Documentos & Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -764,7 +787,7 @@ function Facturas() {
                                                     </button>
 
                                                     {/* Botón Ver PDF */}
-                                                    {factura.archivo_url && (
+                                                    {factura.archivo_url && !isMobile && (
                                                         <button
                                                             type="button"
                                                             className="facturas-btn facturas-btn--pdf"
@@ -782,7 +805,7 @@ function Facturas() {
                                                     )}
 
                                                     {/* Botón Ver/Descargar XML */}
-                                                    {factura.archivo_xml_url && (
+                                                    {factura.archivo_xml_url && !isMobile && (
                                                         <button
                                                             type="button"
                                                             className="facturas-btn facturas-btn--xml"
@@ -879,13 +902,22 @@ function Facturas() {
                                         onChange={(e) => setIdCompra(e.target.value)}
                                         required
                                     >
-                                        <option value="">-- Seleccionar Compra --</option>
-                                        {compras.map((c) => (
+                                        <option value="">
+                                            {comprasSinFactura.length === 0
+                                                ? '-- No hay compras pendientes de facturar --'
+                                                : '-- Seleccionar Compra --'}
+                                        </option>
+                                        {comprasSinFactura.map((c) => (
                                             <option key={c.id_compra} value={c.id_compra}>
                                                 Compra #{c.id_compra} — {c.empresa || 'Empresa'} ({c.proveedor || 'Proveedor'}) - {c.fecha_compra ? new Date(c.fecha_compra).toLocaleDateString('es-MX') : ''}
                                             </option>
                                         ))}
                                     </select>
+                                    {comprasSinFactura.length === 0 && (
+                                        <span style={{ color: '#fbbf24', fontSize: '0.78rem', marginTop: '0.35rem', display: 'block' }}>
+                                            Todas las compras registradas ya cuentan con factura asociada.
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* UUID Fiscal */}

@@ -24,7 +24,6 @@ export async function login(req, res) {
             return res.status(401).json({ error: 'Credenciales incorrectas' })
         }
 
-        // 🔒 Bloqueo por estatus: si no está activo, no puede iniciar sesión
         if (usuario.estatus_empleado && usuario.estatus_empleado !== 'activo') {
             return res.status(403).json({
                 error: `Tu cuenta está ${usuario.estatus_empleado}. Contacta al administrador.`

@@ -15,8 +15,7 @@ function Productos() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Vistas: 'GROUPED' (Por Categoría) | 'GRID' (Mosaico) | 'TABLE' (Tabla)
-    const [viewMode, setViewMode] = useState('GROUPED');
+    const [viewMode, setViewMode] = useState('TABLE');
 
     // Búsqueda y Filtro por Categoría
     const [search, setSearch] = useState('');
