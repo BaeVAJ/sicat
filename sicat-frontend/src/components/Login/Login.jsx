@@ -5,10 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
 function Login() {
+  const segundosBloqueo = 10; // Tiempo de bloqueo en segundos
   const navigate = useNavigate();
   const { login } = useAuth();
-
-
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,11 +17,41 @@ function Login() {
 
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
   const token = localStorage.getItem('token');
-
+  const [intentosLogin, setIntentosLogin] = useState(0);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [totalBloqueos, setTotalBloqueos] = useState(0);
+  
   if(token){
     navigate('/inicio');
   }
+  try{
+    if(!isBlocked && Number(localStorage.getItem('intentos')) > 2){
+      setIsBlocked(true);
+      let totalBloqueos = localStorage.getItem('totalBloqueos') || 0;
+      let segundos = segundosBloqueo;
+      if(totalBloqueos > 2){
+        segundos = (segundos * totalBloqueos);
+      }
+      setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos.`); 
+      const id = setInterval(() => {
+          segundos -= 1;
+
+          if (segundos <= 0) {
+            clearInterval(id);
+            setIsBlocked(false);
+            setIntentosLogin(0);
+            setError('');
+            localStorage.removeItem('intentos');
+          } else {
+            setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos. Contacta con el administrador si el problema persiste.`);
+          }
+        }, 1000);
+    }
+} catch (err){
   
+}
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -32,9 +61,14 @@ function Login() {
     try {
       const usuario = await login(correo, contrasena);
       if (usuario) {
-        navigate('/inicio');
+        navigate('/inicio')
+        localStorage.removeItem('intentos');
+        localStorage.removeItem('totalBloqueos');
       }
-    } catch (err) {
+      
+      
+    }catch (err) {
+
       const status = err.response?.status;
       const errorMsg = err.response?.data?.error || err.message || '';
 
@@ -52,17 +86,58 @@ function Login() {
         setError(
           'El servidor se está iniciando o estableciendo conexión con la base de datos. Por favor, espera unos segundos e intenta nuevamente.'
         );
-      } else if (status === 401) {
-        setIsServerStarting(false);
+        } else if (status === 401) {
+    setIsServerStarting(false);
+    setIntentosLogin((prev) => {
+      const nuevosIntentos = prev + 1;
+
+      localStorage.setItem('intentos', nuevosIntentos);
+      
+      if (nuevosIntentos >= 3) {
+        setIsBlocked(true);
+        setTotalBloqueos((prevBloqueos) => prevBloqueos + 1);
+        let segundos = segundosBloqueo;
+        setSegundosRestantes(segundos);
+        if(totalBloqueos >= 7){
+          setTotalBloqueos(7);
+        }
+        localStorage.setItem('totalBloqueos', totalBloqueos);
+
+        if(totalBloqueos > 1){
+          segundos = (segundos * totalBloqueos);
+        }
+        setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos.`);
+
+        const id = setInterval(() => {
+          segundos -= 1;
+          setSegundosRestantes(segundos);
+          //si se termina el temporizador, se desbloquea el boton, se reinicia el contador de intentos y se limpia el error
+          if (segundos <= 0) {
+            clearInterval(id);
+            setIsBlocked(false);
+            setIntentosLogin(0);
+            setSegundosRestantes(0);
+            setError('');
+            localStorage.removeItem('intentos');
+          } else {
+            setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos. contavcta con el administrador si el problema persiste.`);
+          }
+        }, 1000);
+      } else {
         setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+      }
+      return nuevosIntentos;
+    });
+  
       } else if (status === 405) {
         setIsServerStarting(false);
-        setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST. Asegúrate de tener el backend de Node.js encendido o de configurar VITE_API_URL con la URL del backend.');
+        setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST.');
       } else {
         setIsServerStarting(false);
         setError(errorMsg || 'Error al conectar con el servidor.');
       }
-    } finally {
+    
+    }finally {
       setLoading(false);
     }
   };
@@ -70,7 +145,6 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-
         <div className="login-brand">
           <div className="login-brand__icon" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -155,8 +229,6 @@ function Login() {
               />
             </div>
           </div>
-
-          {/* Contraseña */}
           <div className="login-field">
             <label htmlFor="login-password" className="login-field__label">
               Contraseña
@@ -204,11 +276,11 @@ function Login() {
           <button
             type="submit"
             className="login-btn"
-            disabled={!isValid || loading}
+            disabled={!isValid || loading || isBlocked}
           >
             <span className="login-btn__content">
               {loading && <span className="login-spinner" aria-hidden="true" />}
-              {loading ? (isServerStarting ? 'Conectando…' : 'Ingresando…') : 'Iniciar sesión'}
+              {loading ? (isServerStarting ? 'Conectando…' : 'Ingresando…') : (isBlocked ? 'Bloqueado' : 'Iniciar sesión')}
             </span>
           </button>
         </form>
