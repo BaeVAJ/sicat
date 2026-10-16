@@ -1,28 +1,83 @@
 // src/components/Login/Login.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
 function Login() {
+  const segundosBloqueo = 10; // Tiempo de bloqueo en segundos
   const navigate = useNavigate();
   const { login } = useAuth();
-
-
+  const {cargarUsuario} = useAuth();
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isServerStarting, setIsServerStarting] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const { usuario } = useAuth();
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
-  const token = localStorage.getItem('token');
+  const [intentosLogin, setIntentosLogin] = useState(0);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [totalBloqueos, setTotalBloqueos] = useState(0);
+  const [loadingPage, setLoadingPage] = useState(true);
+  
+  useEffect(() => {
+      setLoadingPage(true)
+      try{
+        usuario ? navigate('/inicio') : setLoadingPage(false)
+      } catch (error) {
+        console.error('Error al cargar el usuario:', error);
+        setLoadingPage(false)
+      }
+      
+    }, [usuario, navigate]);
+  
 
-  if(token){
-    navigate('/inicio');
+  const BLOQUEO_KEY = 'bloqueadoHasta'; // timestamp en ms
+
+  function calcularSegundos(totalBloqueos) {
+    return totalBloqueos > 2 ? segundosBloqueo * totalBloqueos : segundosBloqueo;
+  }
+
+  function iniciarBloqueo(nuevoTotalBloqueos) {
+    const total = Math.min(nuevoTotalBloqueos, 7);
+    const segundos = calcularSegundos(total);
+    const hasta = Date.now() + segundos * 1000;
+
+    localStorage.setItem('totalBloqueos', total);
+    localStorage.setItem(BLOQUEO_KEY, hasta);
+    setTotalBloqueos(total);
+    setIsBlocked(true);
   }
   
+  
+
+  useEffect(() => {
+    const hasta = Number(localStorage.getItem(BLOQUEO_KEY));
+    if (!hasta || hasta <= Date.now()) return;
+
+    setIsBlocked(true);
+
+    const id = setInterval(() => {
+      const restantes = Math.ceil((hasta - Date.now()) / 1000);
+      if (restantes <= 0) {
+        clearInterval(id);
+        setIsBlocked(false);
+        setIntentosLogin(0);
+        setError('');
+        localStorage.removeItem('intentos');
+        localStorage.removeItem(BLOQUEO_KEY);
+      } else {
+        setSegundosRestantes(restantes);
+        setError(`Has excedido el número de intentos. Intenta nuevamente en ${restantes} segundos.`);
+      }
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isBlocked]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -32,9 +87,13 @@ function Login() {
     try {
       const usuario = await login(correo, contrasena);
       if (usuario) {
-        navigate('/inicio');
+        navigate('/inicio')
+        localStorage.removeItem('intentos');
+        localStorage.removeItem('totalBloqueos');
+        cargarUsuario();
       }
     } catch (err) {
+
       const status = err.response?.status;
       const errorMsg = err.response?.data?.error || err.message || '';
 
@@ -53,24 +112,39 @@ function Login() {
           'El servidor se está iniciando o estableciendo conexión con la base de datos. Por favor, espera unos segundos e intenta nuevamente.'
         );
       } else if (status === 401) {
-        setIsServerStarting(false);
-        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+
+        setIntentosLogin((prev) => {
+          const nuevosIntentos = prev + 1;
+          localStorage.setItem('intentos', nuevosIntentos);
+          if (nuevosIntentos >= 3) {
+            iniciarBloqueo(totalBloqueos + 1);
+          } else {
+            setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
+          }
+          return nuevosIntentos;
+        });
       } else if (status === 405) {
         setIsServerStarting(false);
-        setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST. Asegúrate de tener el backend de Node.js encendido o de configurar VITE_API_URL con la URL del backend.');
+        setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST.');
       } else {
         setIsServerStarting(false);
         setError(errorMsg || 'Error al conectar con el servidor.');
       }
+
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
+  <div>
+    {loadingPage ?
+      (<div>
+        Loading
+      </div>)
+       :
+      (<div className="login-page">
       <div className="login-card">
-
         <div className="login-brand">
           <div className="login-brand__icon" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -151,12 +225,11 @@ function Login() {
                 onChange={(e) => setCorreo(e.target.value)}
                 placeholder="usuario@empresa.com"
                 autoComplete="email"
+                disabled={isBlocked}
                 required
               />
             </div>
           </div>
-
-          {/* Contraseña */}
           <div className="login-field">
             <label htmlFor="login-password" className="login-field__label">
               Contraseña
@@ -178,6 +251,7 @@ function Login() {
                 autoComplete="current-password"
                 required
                 style={{ paddingRight: '2.75rem' }}
+                disabled={isBlocked}
               />
               <button
                 type="button"
@@ -200,21 +274,23 @@ function Login() {
               </button>
             </div>
           </div>
-
           <button
             type="submit"
             className="login-btn"
-            disabled={!isValid || loading}
+            disabled={!isValid || loading || isBlocked}
           >
             <span className="login-btn__content">
               {loading && <span className="login-spinner" aria-hidden="true" />}
-              {loading ? (isServerStarting ? 'Conectando…' : 'Ingresando…') : 'Iniciar sesión'}
+              {loading ? (isServerStarting ? 'Conectando…' : 'Ingresando…') : (isBlocked ? 'Bloqueado' : 'Iniciar sesión')}
             </span>
           </button>
         </form>
       </div>
-    </div>
-  );
+    </div>)}
+  </div>
+  //return
+  )
 }
+
 
 export default Login;

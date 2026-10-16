@@ -15,6 +15,9 @@ function CrearTicket() {
     const [miDepartamentoNombre, setMiDepartamentoNombre] = useState(usuario?.departamento || '');
     const [descripcion, setDescripcion] = useState('');
     const [urgente, setUrgente] = useState(false);
+    const fechaInicial = new Date();
+    fechaInicial.setDate(fechaInicial.getDate() + 3);
+    const [fechaLimite, setFechaLimite] = useState(fechaInicial.toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [loadingDeps, setLoadingDeps] = useState(true);
     const [error, setError] = useState('');
@@ -74,7 +77,8 @@ function CrearTicket() {
     const isValid =
         (isAdmin ? idDepartamento !== '' : (idDepartamento !== '' || miDepartamentoNombre !== '')) &&
         descripcion.trim().length >= 10 &&
-        descripcion.length <= MAX_DESC;
+        descripcion.length <= MAX_DESC &&
+        fechaLimite !== '';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -92,6 +96,7 @@ function CrearTicket() {
                 descripcion: descripcion.trim(),
                 id_usuario: usuario?.id_usuario || null,
                 urgente: Boolean(urgente),
+                fecha_limite: fechaLimite,
             });
 
             setSuccess('Ticket creado exitosamente');
@@ -269,6 +274,24 @@ function CrearTicket() {
                         <div className="ticket-field__counter">
                             {descripcion.length} / {MAX_DESC}
                         </div>
+                    </div>
+
+                    <div className="ticket-field">
+                        <label htmlFor="ticket-fecha-limite" className="ticket-field__label">
+                            Fecha límite de solución
+                        </label>
+                        <input
+                            id="ticket-fecha-limite"
+                            type="date"
+                            className="ticket-field__select"
+                            value={fechaLimite}
+                            min={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setFechaLimite(e.target.value)}
+                            required
+                        />
+                        <span style={{ fontSize: '0.74rem', color: 'rgba(148, 163, 184, 0.7)', marginTop: '4px', display: 'block' }}>
+                            El ticket se marcará como vencido si no se soluciona antes de esta fecha.
+                        </span>
                     </div>
 
                     {/* ── Botón / Selector de Urgente ── */}

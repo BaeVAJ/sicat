@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { getAll, create, buscar, eliminar, getUrlPdf } from '../controllers/factura.controller.js';
+import {
+  getAll, create, buscar, eliminar, getUrlPdf,
+  getComplementos, getComplementosByFactura, createComplementoPago,
+  updateComplementoPago, getUrlComplemento, deleteComplementoPago, getFormasPago,
+  getEstadoCuentaPpd, getSiguientePago,
+} from '../controllers/factura.controller.js';
 import { verificarToken, verificarRol } from '../middlewares/auth.middleware.js';
 
 // Configurar multer para almacenar archivos en memoria (máx 25MB por archivo)
@@ -30,6 +35,12 @@ const upload = multer({
 const router = Router();
 
 router.get('/buscar', verificarToken, buscar);
+router.get('/ppd/estado-cuenta', verificarToken, getEstadoCuentaPpd);
+router.get('/formas-pago', verificarToken, getFormasPago);
+router.get('/complementos', verificarToken, getComplementos);
+router.get('/complementos/:id/url', verificarToken, getUrlComplemento);
+router.get('/:id/complementos/siguiente', verificarToken, getSiguientePago);
+router.get('/:id/complementos', verificarToken, getComplementosByFactura);
 router.get('/:id/url', verificarToken, getUrlPdf);
 router.get('/', verificarToken, getAll);
 
@@ -46,6 +57,31 @@ router.post(
   create
 );
 
+router.post(
+  '/:id/complementos',
+  verificarToken,
+  verificarRol('admin'),
+  upload.fields([
+    { name: 'archivo_pdf', maxCount: 1 },
+    { name: 'archivo_xml', maxCount: 1 },
+    { name: 'archivo', maxCount: 1 },
+  ]),
+  createComplementoPago
+);
+
+router.put(
+  '/complementos/:id',
+  verificarToken,
+  verificarRol('admin'),
+  upload.fields([
+    { name: 'archivo_pdf', maxCount: 1 },
+    { name: 'archivo_xml', maxCount: 1 },
+    { name: 'archivo', maxCount: 1 },
+  ]),
+  updateComplementoPago
+);
+
+router.delete('/complementos/:id', verificarToken, verificarRol('admin'), deleteComplementoPago);
 router.delete('/:id', verificarToken, verificarRol('admin'), eliminar);
 
 export default router;

@@ -151,7 +151,12 @@ function Departamento() {
             setDeleteModalOpen(false);
             setDeptoToDelete(null);
         } catch (err) {
-            setError(err.response?.data?.error || 'No se puede eliminar. Podría tener usuarios o inventario vinculado.');
+            const errorMsg = err.response?.data?.error;
+            if (errorMsg && errorMsg.includes('foreign key')) {
+                setError('No se puede eliminar el departamento. Podría tener usuarios o inventario vinculado.');
+            } else {
+                setError('Error al eliminar el departamento.');
+            }
         } finally {
             setActionLoading(false);
         }
@@ -193,7 +198,7 @@ function Departamento() {
     return (
         <Layout>
             <div className="depto-page">
-                {/* ── Header ── */}
+                
                 <div className="depto-header">
                     <div>
                         <h1 className="depto-header__title">
@@ -242,15 +247,35 @@ function Departamento() {
                     </div>
                 </div>
 
-                {/* ── Compact Non-Invasive Metrics ── */}
-                <div className="depto-metrics-bar">
-                    <span className="depto-metric-pill">
-                        Departamentos: <strong>{totalCount}</strong>
-                    </span>
+                
+                <div className="depto-kpis">
+                    <div className="depto-kpi">
+                        <div className="depto-kpi__icon-box depto-kpi__icon-box--cyan">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                            </svg>
+                        </div>
+                        <div className="depto-kpi__content">
+                            <div className="depto-kpi__label">Departamentos</div>
+                            <div className="depto-kpi__value">{totalCount}</div>
+                        </div>
+                    </div>
 
+                    <div className="depto-kpi">
+                        <div className="depto-kpi__icon-box depto-kpi__icon-box--emerald">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                            </svg>
+                        </div>
+                        <div className="depto-kpi__content">
+                            <div className="depto-kpi__label">Empresas con Departamentos</div>
+                            <div className="depto-kpi__value">{empresasConDeptosCount}</div>
+                        </div>
+                    </div>
                 </div>
-
-                {/* ── Alerts ── */}
+                
                 {error && (
                     <div className="depto-alert depto-alert--error" role="alert">
                         <div className="depto-alert__content">
@@ -286,7 +311,7 @@ function Departamento() {
                     </div>
                 )}
 
-                {/* ── Controls Toolbar ── */}
+                
                 <div className="depto-toolbar">
                     <div className="depto-toolbar__search-box">
                         <span className="depto-toolbar__search-icon">
@@ -304,7 +329,7 @@ function Departamento() {
                         />
                     </div>
 
-                    {/* View Switcher */}
+                    
                     <div className="depto-view-switch">
                         <button
                             type="button"
@@ -354,7 +379,7 @@ function Departamento() {
                     </div>
                 </div>
 
-                {/* ── Company Filter Pills Strip ── */}
+                
                 <div className="depto-pills">
                     <button
                         type="button"
@@ -381,7 +406,7 @@ function Departamento() {
                     })}
                 </div>
 
-                {/* ── CONTENT VIEWS ── */}
+                
                 {loading ? (
                     <div className="depto-empty-state">
                         <div className="depto-empty-state__icon">
@@ -737,7 +762,27 @@ function Departamento() {
                                     </svg>
                                 </button>
                             </div>
-
+                            {error && (
+                                    <div className="empresa-alert empresa-alert--error" role="alert" style={{ marginTop: '0.5rem' }}>
+                                        <div className="empresa-alert__content">
+                                            <svg
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <circle cx="12" cy="12" r="10" />
+                                                <line x1="12" y1="8" x2="12" y2="12" />
+                                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                                            </svg>
+                                            <span>{error}</span>
+                                        </div>
+                                    </div>
+                                )}
                             <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: '1.5', margin: '0.4rem 0 1.25rem' }}>
                                 ¿Deseas eliminar el departamento{' '}
                                 <strong style={{ color: '#f1f5f9' }}>{deptoToDelete.nombre}</strong> de{' '}

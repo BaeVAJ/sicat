@@ -177,19 +177,19 @@ function VerEmpresa() {
     }, [empresas, search, filterEstado]);
 
     // metricas
-    const totalCount = empresas.length;
-    const activasCount = empresas.filter((e) => e.activa).length;
-    const inactivasCount = totalCount - activasCount;
+    const empresasTotal = empresas.length;
+    const activasTotal = empresas.filter((e)=> e.activa).length;
+    const inactivasTotal = empresas.filter((e)=> !e.activas).length;
+    
 
     return (
         <Layout>
             <div className="empresa-container">
-                {/* ── Header ── */}
                 <div className="empresa-header">
                     <div>
                         <h1 className="empresa-header__title">Gestión de Empresas</h1>
                         <p className="empresa-header__subtitle">
-                            Administra las empresas y razones sociales registradas en SICAT
+                            Administra las empresas registradas o registra nuevas.
                         </p>
                     </div>
                     <div className="empresa-header__actions">
@@ -238,30 +238,62 @@ function VerEmpresa() {
                         )}
                     </div>
                 </div>
-
-                {/* ── Stats ── */}
-                <div className="empresa-stats">
-                    <div className="empresa-stat" style={{ borderColor: '#7c3aed' }}>
-                        <span className="empresa-stat__count" style={{ color: '#c4b5fd' }}>
-                            {totalCount}
-                        </span>
-                        <span className="empresa-stat__label">Total Empresas</span>
+                
+                <div className="empresa-kpis">
+                    <div className="empresa-kpi" onClick={()=> setFilterEstado('ALL')}>
+                        <div className="prov-kpi__icon-box prov-kpi__icon-box--cyan">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                <g id="SVGRepo_iconCarrier">
+                                    <path d="M18 21V22C18.5523 22 19 21.5523 19 21H18ZM6 21H5C5 21.5523 5.44772 22 6 22V21ZM17.454 3.10899L17 4L17.454 3.10899ZM17.891 3.54601L17 4L17.891 3.54601ZM6.54601 3.10899L7 4L6.54601 3.10899ZM6.10899 3.54601L7 4L6.10899 3.54601ZM9 6C8.44772 6 8 6.44772 8 7C8 7.55228 8.44772 8 9 8V6ZM10 8C10.5523 8 11 7.55228 11 7C11 6.44772 10.5523 6 10 6V8ZM9 9C8.44772 9 8 9.44772 8 10C8 10.5523 8.44772 11 9 11V9ZM10 11C10.5523 11 11 10.5523 11 10C11 9.44772 10.5523 9 10 9V11ZM14 9C13.4477 9 13 9.44772 13 10C13 10.5523 13.4477 11 14 11V9ZM15 11C15.5523 11 16 10.5523 16 10C16 9.44772 15.5523 9 15 9V11ZM14 12C13.4477 12 13 12.4477 13 13C13 13.5523 13.4477 14 14 14V12ZM15 14C15.5523 14 16 13.5523 16 13C16 12.4477 15.5523 12 15 12V14ZM9 12C8.44772 12 8 12.4477 8 13C8 13.5523 8.44772 14 9 14V12ZM10 14C10.5523 14 11 13.5523 11 13C11 12.4477 10.5523 12 10 12V14ZM14 6C13.4477 6 13 6.44772 13 7C13 7.55228 13.4477 8 14 8V6ZM15 8C15.5523 8 16 7.55228 16 7C16 6.44772 15.5523 6 15 6V8ZM7.6 4H16.4V2H7.6V4ZM17 4.6V21H19V4.6H17ZM18 20H6V22H18V20ZM7 21V4.6H5V21H7ZM16.4 4C16.6965 4 16.8588 4.00078 16.9754 4.0103C17.0803 4.01887 17.0575 4.0293 17 4L17.908 2.21799C17.6366 2.07969 17.3668 2.03562 17.1382 2.01695C16.9213 1.99922 16.6635 2 16.4 2V4ZM19 4.6C19 4.33647 19.0008 4.07869 18.9831 3.86177C18.9644 3.63318 18.9203 3.36344 18.782 3.09202L17 4C16.9707 3.94249 16.9811 3.91972 16.9897 4.02463C16.9992 4.14122 17 4.30347 17 4.6H19ZM17 4L18.782 3.09202C18.5903 2.7157 18.2843 2.40973 17.908 2.21799L17 4ZM7.6 2C7.33647 2 7.07869 1.99922 6.86177 2.01695C6.63318 2.03562 6.36344 2.07969 6.09202 2.21799L7 4C6.94249 4.0293 6.91972 4.01887 7.02463 4.0103C7.14122 4.00078 7.30347 4 7.6 4V2ZM7 4.6C7 4.30347 7.00078 4.14122 7.0103 4.02463C7.01887 3.91972 7.0293 3.94249 7 4L5.21799 3.09202C5.07969 3.36344 5.03562 3.63318 5.01695 3.86177C4.99922 4.07869 5 4.33647 5 4.6H7ZM6.09202 2.21799C5.71569 2.40973 5.40973 2.71569 5.21799 3.09202L7 4L6.09202 2.21799ZM9 8H10V6H9V8ZM9 11H10V9H9V11ZM14 11H15V9H14V11ZM14 14H15V12H14V14ZM9 14H10V12H9V14ZM14 8H15V6H14V8ZM13 18V21H15V18H13ZM11 21V18H9V21H11ZM12 17C12.5523 17 13 17.4477 13 18H15C15 16.3431 13.6569 15 12 15V17ZM12 15C10.3431 15 9 16.3431 9 18H11C11 17.4477 11.4477 17 12 17V15Z" fill="currentColor"></path>
+                                </g>
+                            </svg>
+                        </div>
+                        <div className="prov-kpi__content">
+                            <div className="prov-kpi__label">Total de empresas</div>
+                            <div className="prov-kpi__value">
+                                {empresasTotal}
+                            </div>
+                        </div>
                     </div>
-                    <div className="empresa-stat" style={{ borderColor: '#10b981' }}>
-                        <span className="empresa-stat__count" style={{ color: '#10b981' }}>
-                            {activasCount}
-                        </span>
-                        <span className="empresa-stat__label">Activas</span>
+                    
+                    <div className="empresa-kpi" onClick={()=> setFilterEstado('ACTIVE')}>
+                        <div className="prov-kpi__icon-box prov-kpi__icon-box--emerald">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                                <g id="SVGRepo_iconCarrier">
+                                    <path d="M7 7H8M7 10H8M12 10H13M12 13H13M7 13H8M12 7H13M8 21V18C8 16.8954 8.89543 16 10 16C10.5973 16 11.1335 16.2619 11.5 16.6771M16 15V4.6C16 4.03995 16 3.75992 15.891 3.54601C15.7951 3.35785 15.6422 3.20487 15.454 3.10899C15.2401 3 14.9601 3 14.4 3H5.6C5.03995 3 4.75992 3 4.54601 3.10899C4.35785 3.20487 4.20487 3.35785 4.10899 3.54601C4 3.75992 4 4.03995 4 4.6V21H11.5M15 19L17 21L21 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                                </g>
+                            </svg>
+                        </div>
+                        <div className="prov-kpi__content">
+                            <div className="prov-kpi__label">Empresas Activas</div>
+                            <div className="prov-kpi__value">
+                                {activasTotal}
+                            </div>
+                        </div>
                     </div>
-                    <div className="empresa-stat" style={{ borderColor: '#f59e0b' }}>
-                        <span className="empresa-stat__count" style={{ color: '#f59e0b' }}>
-                            {inactivasCount}
-                        </span>
-                        <span className="empresa-stat__label">Inactivas</span>
+                    <div className="empresa-kpi" onClick={()=> setFilterEstado('INACTIVE')}>
+                        <div className="prov-kpi__icon-box prov-kpi__icon-box--amber">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                <g id="SVGRepo_iconCarrier">
+                                    <path d="M12 21H11M11 21H7M11 21V18C11 16.8954 10.1046 16 9 16C7.89543 16 7 16.8954 7 18V21M7 21H3V4.6C3 4.03995 3 3.75992 3.10899 3.54601C3.20487 3.35785 3.35785 3.20487 3.54601 3.10899C3.75992 3 4.03995 3 4.6 3H13.4C13.9601 3 14.2401 3 14.454 3.10899C14.6422 3.20487 14.7951 3.35785 14.891 3.54601C15 3.75992 15 4.03995 15 4.6V12M6 7H7M6 10H7M11 10H12M11 13H12M6 13H7M11 7H12M16 16L18.5 18.5M18.5 18.5L21 21M18.5 18.5L21 16M18.5 18.5L16 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                                </g>
+                            </svg>
+                        </div>
+                        <div className="prov-kpi__content">
+                            <div className="prov-kpi__label">Empresas Inactivas</div>
+                            <div className="prov-kpi__value">
+                                {inactivasTotal}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* ── Alerts ── */}
                 {error && (
                     <div className="empresa-alert empresa-alert--error" role="alert">
                         <div className="empresa-alert__content">
@@ -439,8 +471,9 @@ function VerEmpresa() {
                                             <span
                                                 className={`empresa-badge ${empresa.activa ? 'empresa-badge--active' : 'empresa-badge--inactive'
                                                     }`}
+                                                    onClick={()=> setFilterEstado(empresa.activa ? 'ACTIVE' : 'INACTIVE')}
                                             >
-                                                <span className="empresa-badge__dot" />
+                                                <span className="empresa-badge__dot"/>
                                                 {empresa.activa ? 'Activa' : 'Inactiva'}
                                             </span>
                                         </td>
@@ -638,6 +671,27 @@ function VerEmpresa() {
                                     </svg>
                                 </button>
                             </div>
+                            {error && (
+                                    <div className="empresa-alert empresa-alert--error" role="alert" style={{ marginTop: '0.5rem' }}>
+                                        <div className="empresa-alert__content">
+                                            <svg
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <circle cx="12" cy="12" r="10" />
+                                                <line x1="12" y1="8" x2="12" y2="12" />
+                                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                                            </svg>
+                                            <span>{error}</span>
+                                        </div>
+                                    </div>
+                                )}
                             <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: '1.5', margin: '0.5rem 0 1.5rem' }}>
                                 ¿Estás seguro de que deseas eliminar la empresa{' '}
                                 <strong style={{ color: '#f1f5f9' }}>{empresaToDelete.nombre}</strong>? Esta acción no se puede deshacer.

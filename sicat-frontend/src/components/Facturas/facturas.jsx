@@ -1,5 +1,6 @@
 // src/components/Facturas/facturas.jsx
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
@@ -35,7 +36,6 @@ function formatXml(xmlStr) {
     }
 }
 
-// Helper: Descarga de archivo segura con nombre y extensión garantizada
 async function downloadFile(url, filename) {
     try {
         const response = await fetch(url);
@@ -60,8 +60,14 @@ async function downloadFile(url, filename) {
     }
 }
 
+function formatoMoneda(valor) {
+    const n = Number(valor) || 0;
+    return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function Facturas() {
     const { usuario } = useAuth();
+    const navigate = useNavigate();
 
     const [facturas, setFacturas] = useState([]);
     const [compras, setCompras] = useState([]);
@@ -84,11 +90,12 @@ function Facturas() {
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [montoSubtotal, setMontoSubtotal] = useState('');
     const [montoIva, setMontoIva] = useState('');
-    const [metodoPago, setMetodoPago] = useState('PUE');
+    const [metodoPago, setMetodoPago] = useState('PPD');
     const [usoCfdi, setUsoCfdi] = useState('G01');
     const [archivoPdf, setArchivoPdf] = useState(null);
     const [archivoXml, setArchivoXml] = useState(null);
     const [xmlParseNotice, setXmlParseNotice] = useState('');
+    const [createdPpdId, setCreatedPpdId] = useState(null);
 
     // PDF Viewer Modal state
     const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
@@ -112,8 +119,6 @@ function Facturas() {
     const pdfInputRef = useRef(null);
     const xmlInputRef = useRef(null);
     const [isMobile, setIsMobile] = useState(false);
-
-
 
     useEffect(() => {
         fetchFacturas();
@@ -147,6 +152,12 @@ function Facturas() {
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+    const subtotalNum = Number(montoSubtotal) || 0;
+    const ivaNum = Number(montoIva) || 0;
+    const totalFactura = subtotalNum + ivaNum;
+    const montosValidos = subtotalNum >= 0 && ivaNum >= 0 && totalFactura > 0;
+    const puedeGuardar = Boolean(idCompra) && Boolean(uuidFiscal.trim()) && montosValidos;
+
     // Open create modal
     const handleOpenCreate = () => {
         fetchCompras();
@@ -157,25 +168,15 @@ function Facturas() {
         setFechaEmision(new Date().toISOString().split('T')[0]);
         setMontoSubtotal('');
         setMontoIva('');
-        setMetodoPago('PUE');
+        setMetodoPago('PPD');
         setUsoCfdi('G01');
         setArchivoPdf(null);
         setArchivoXml(null);
         setXmlParseNotice('');
+        setCreatedPpdId(null);
         setError('');
         setModalOpen(true);
-    };
-
-    // Calculate IVA automatically when subtotal changes (16%)
-    const handleSubtotalChange = (val) => {
-        setMontoSubtotal(val);
-        const num = parseFloat(val);
-        if (!isNaN(num) && num > 0) {
-            setMontoIva((num * 0.16).toFixed(2));
-        } else {
-            setMontoIva('');
-        }
-    };
+    };    
 
     // Handle PDF File selection
     const handlePdfChange = (e) => {
@@ -319,10 +320,15 @@ function Facturas() {
             setError('El UUID fiscal es obligatorio');
             return;
         }
+        if (!montosValidos) {
+            setError('Los montos deben ser números mayores o iguales a cero y el total mayor a cero');
+            return;
+        }
 
         setActionLoading(true);
         setError('');
         setSuccess('');
+        
 
         const formData = new FormData();
         formData.append('id_compra', idCompra);
@@ -334,7 +340,6 @@ function Facturas() {
         formData.append('monto_iva', montoIva || '0');
         formData.append('metodo_pago', metodoPago);
         formData.append('uso_cfdi', usoCfdi);
-
         if (archivoPdf) {
             formData.append('archivo_pdf', archivoPdf);
         }
@@ -359,6 +364,9 @@ function Facturas() {
 
             setSuccess(mensaje);
             setModalOpen(false);
+            if (metodoPago === 'PPD' && data?.id_factura) {
+                setCreatedPpdId(data.id_factura);
+            }
             fetchCompras();
         } catch (err) {
             setError(err.response?.data?.error || 'Error al registrar la factura');
@@ -615,6 +623,16 @@ function Facturas() {
                                 <polyline points="22 4 12 14.01 9 11.01" />
                             </svg>
                             <span>{success}</span>
+                            {createdPpdId && (
+                                <button
+                                    type="button"
+                                    className="facturas-btn facturas-btn--primary"
+                                    style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem', marginLeft: '0.5rem' }}
+                                    onClick={() => navigate('/complementos-pago', { state: { idFactura: createdPpdId } })}
+                                >
+                                    Registrar primer pago
+                                </button>
+                            )}
                         </div>
                         <button type="button" className="facturas-alert__close" onClick={() => setSuccess('')} aria-label="Cerrar alerta">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1053,9 +1071,38 @@ function Facturas() {
                                         </select>
                                     </div>
                                 </div>
+                                
 
-                                {/* ── Sección de Archivos Adjuntos (PDF + XML) ── */}
                                 <div className="facturas-upload-section">
+                                    <div className="facturas-resumen">
+                                        <div className="facturas-resumen__row">
+                                            <span>Subtotal</span>
+                                            <span>{formatoMoneda(subtotalNum)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row">
+                                            <span>IVA</span>
+                                            <span>{formatoMoneda(ivaNum)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row facturas-resumen__row--total">
+                                            <span>Total facturado</span>
+                                            <span>{formatoMoneda(totalFactura)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row">
+                                            <span>Saldo esperado</span>
+                                            <span>{metodoPago === 'PPD' ? formatoMoneda(totalFactura) : '—'}</span>
+                                        </div>
+                                        {metodoPago === 'PPD' ? (
+                                            <p className="facturas-resumen__hint">
+                                                Estado inicial: <strong>PENDIENTE</strong>. Se actualizará automáticamente conforme se registren pagos en “Complementos de pago”.
+                                            </p>
+                                        ) : (
+                                            <p className="facturas-resumen__hint">
+                                                Con método PUE la factura se registra como <strong>PAGADO</strong>.
+                                            </p>
+                                        )}
+                                    </div>
+                                    {/* ── Sección de Archivos Adjuntos (PDF + XML) ── */}
+ 
                                     <span className="facturas-label" style={{ marginBottom: '8px', display: 'block' }}>
                                         Comprobantes Fiscales Digitales (PDF, XML o Ambos)
                                     </span>
@@ -1162,7 +1209,8 @@ function Facturas() {
                                     <button
                                         type="submit"
                                         className="facturas-btn facturas-btn--primary"
-                                        disabled={actionLoading}
+                                        disabled={actionLoading || !puedeGuardar}
+                                        title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                     >
                                         {actionLoading ? 'Guardando en Supabase...' : 'Guardar Factura'}
                                     </button>

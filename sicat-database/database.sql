@@ -6,6 +6,7 @@
 -- ============================
 -- TIPOS ENUM
 -- ============================
+CREATE type estado_pago_t    AS ENUM ('PENDIENTE', 'PAGADO', 'VENCIDO', 'CANCELADO', 'PAGO INCOMPLETO');
 CREATE TYPE tipo_pago_t      AS ENUM ('Contado', 'Credito', 'Transferencia', 'Cheque');
 CREATE TYPE tipo_categoria_t AS ENUM ('equipo', 'insumo', 'accesorio');
 CREATE TYPE estado_ticket_t  AS ENUM ('PENDIENTE', 'EN_PROCESO', 'SOLUCIONADO');
@@ -73,7 +74,7 @@ CREATE TABLE USUARIOS (
     correo          VARCHAR(254) UNIQUE NOT NULL,
     contrasena      VARCHAR(255) NOT NULL,
     rol             rol_t DEFAULT 'usuario',
-    estatus         estatus_empleado DEFAULT 'activo',
+    estatus_empleado estatus_empleado DEFAULT 'activo',
     CONSTRAINT fk_departamentoU FOREIGN KEY (id_departamento) 
         REFERENCES DEPARTAMENTO(id_departamento)
 );
@@ -115,8 +116,28 @@ CREATE TABLE FACTURA (
     uso_cfdi       uso_cfdi_t NOT NULL,
     archivo_url    TEXT,
     archivo_xml_url TEXT,
+    estado         estado_pago_t DEFAULT 'PENDIENTE',
     CONSTRAINT fk_compraF FOREIGN KEY (id_compra) 
         REFERENCES COMPRA(id_compra)
+);
+CREATE TABLE DETALLES_FACTURA (
+    id_detalle_factura SERIAL PRIMARY KEY,
+    id_factura      INT NOT NULL,
+    num_pago        INT,
+    codigo_pago     VARCHAR(50),
+    fecha_pago      DATE NOT NULL,
+    saldo_anterior  NUMERIC(10,2),
+    monto_pago      NUMERIC(10,2) NOT NULL,
+    forma_pago      VARCHAR(100),
+    falta_pagar     NUMERIC(10,2),
+    url_pdf         TEXT,
+    url_xml         TEXT,
+    CONSTRAINT fk_facturaDF FOREIGN KEY (id_factura)
+        REFERENCES FACTURA(id_factura) ON DELETE CASCADE
+);
+CREATE TABLE CODIGO_PAGO (
+    codigo_pago VARCHAR(50) PRIMARY KEY,
+    descripcion  VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE INVENTARIO (
@@ -136,6 +157,9 @@ CREATE TABLE ASIGNACION (
     id_asignacion    SERIAL PRIMARY KEY,
     id_inventario    INT,
     id_departamento  INT,
+    id_pedido        INT,
+    cantidad         INT NOT NULL DEFAULT 1,
+    es_devolvible   BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_asignacion DATE NOT NULL DEFAULT CURRENT_DATE,
     fecha_devolucion DATE,
     condicion        VARCHAR(40),
@@ -150,8 +174,10 @@ CREATE TABLE PEDIDO_MATERIAL (
     id_pedido       SERIAL PRIMARY KEY,
     id_departamento INT,
     id_producto     INT,
-    stock_actual    INT NOT NULL,
-    stock_deseado   INT NOT NULL,
+    descripcion_material TEXT,
+    cantidad_solicitada INT NOT NULL DEFAULT 1,
+    stock_actual    INT NOT NULL DEFAULT 0,
+    stock_deseado   INT NOT NULL DEFAULT 1,
     urgente         BOOLEAN DEFAULT FALSE,
     fecha_solicitud DATE DEFAULT CURRENT_DATE,
     estatus         estatus_pedido_t DEFAULT 'PENDIENTE',
@@ -161,11 +187,16 @@ CREATE TABLE PEDIDO_MATERIAL (
         REFERENCES PRODUCTO(id_producto)
 );
 
+ALTER TABLE ASIGNACION
+    ADD CONSTRAINT fk_pedidoAS FOREIGN KEY (id_pedido)
+    REFERENCES PEDIDO_MATERIAL(id_pedido);
+
 CREATE TABLE TICKETS (
     id_ticket       SERIAL PRIMARY KEY,
     id_usuario      INT,
     id_departamento INT,
     fecha_creacion  DATE NOT NULL DEFAULT CURRENT_DATE,
+    fecha_limite    DATE NOT NULL DEFAULT (CURRENT_DATE + 3),
     fecha_solucion  DATE,
     descripcion     TEXT,
     estado          estado_ticket_t DEFAULT 'PENDIENTE',

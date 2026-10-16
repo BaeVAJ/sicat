@@ -10,7 +10,7 @@ const BUCKET_NAME = (process.env.SUPABASE_BUCKET || 'facturas').trim().toLowerCa
  * Obtiene el cliente de Supabase asegurando que la clave esté configurada
  */
 export function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://rnogrlhbocwccopfvyqx.supabase.co';
+  const supabaseUrl = process.env.SUPABASE_URL;
   const key = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_KEY ||

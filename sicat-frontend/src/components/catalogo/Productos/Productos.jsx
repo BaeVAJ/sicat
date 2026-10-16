@@ -20,6 +20,7 @@ function Productos() {
     // Búsqueda y Filtro por Categoría
     const [search, setSearch] = useState('');
     const [filterCategoria, setFilterCategoria] = useState('ALL');
+    const [filterMM, setFilterMM] = useState('ALL');
 
     // Modal Crear / Editar
     const [modalOpen, setModalOpen] = useState(false);
@@ -65,6 +66,14 @@ function Productos() {
         });
         return map;
     }, [categorias]);
+    const marcasOpts = useMemo(
+        () => [...new Set(productos.map((p) => p.marca?.trim()).filter(Boolean))].sort(),
+        [productos]
+    );
+    const modelosOpts = useMemo(
+        () => [...new Set(productos.map((p) => p.modelo?.trim()).filter(Boolean))].sort(),
+        [productos]
+    );
 
     // Abrir modal de creación
     const handleOpenCreate = (preselectedCatId = null) => {
@@ -155,50 +164,56 @@ function Productos() {
             await client.delete(`/productos/${productoToDelete.id_producto}`);
             setProductos((prev) => prev.filter((p) => p.id_producto !== productoToDelete.id_producto));
             setSuccess('Producto eliminado exitosamente.');
-            setDeleteModalOpen(false);
-            setProductoToDelete(null);
         } catch (err) {
             setError(err.response?.data?.error || 'No se puede eliminar. Podría estar vinculado a compras o inventario.');
         } finally {
             setActionLoading(false);
+            setDeleteModalOpen(false);
+            setProductoToDelete(null);
         }
     };
 
     // Productos filtrados
+    
     const productosFiltrados = useMemo(() => {
-        return productos.filter((p) => {
-            const catNombre = p.categoria || categoriaMap[p.id_categoria]?.nombre || '';
-            const matchSearch =
-                (p.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
-                (p.marca || '').toLowerCase().includes(search.toLowerCase()) ||
-                (p.modelo || '').toLowerCase().includes(search.toLowerCase()) ||
-                catNombre.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    return productos.filter((p) => {
+        const catNombre = p.categoria || categoriaMap[p.id_categoria]?.nombre || '';
+        const matchSearch =
+            (p.nombre || '').toLowerCase().includes(q) ||
+            (p.marca || '').toLowerCase().includes(q) ||
+            (p.modelo || '').toLowerCase().includes(q) ||
+            catNombre.toLowerCase().includes(q);
+        if (!matchSearch) return false;
 
-            if (!matchSearch) return false;
-            if (filterCategoria !== 'ALL') return String(p.id_categoria) === filterCategoria;
-            return true;
-        });
-    }, [productos, search, filterCategoria, categoriaMap]);
+        if (filterCategoria !== 'ALL' && String(p.id_categoria) !== filterCategoria) return false;
+
+        if (filterMM === 'SIN_DATOS') return !p.marca?.trim() || !p.modelo?.trim();
+        if (filterMM.startsWith('M:')) return p.marca?.trim() === filterMM.slice(2);
+        if (filterMM.startsWith('MO:')) return p.modelo?.trim() === filterMM.slice(3);
+        return true;
+    });
+}, [productos, search, filterCategoria, filterMM, categoriaMap]);
 
     // Métricas y estadísticas
-    const totalProductos = productos.length;
-    const categoriasConProductosCount = new Set(productos.map((p) => p.id_categoria)).size;
-    const marcasUnicas = new Set(productos.map((p) => p.marca).filter(Boolean)).size;
+    const totalProductos = new Set(productosFiltrados.map((p)=>p.id_producto)).size;
+    const categoriasConProductosCount = new Set(productosFiltrados.map((p) => p.id_categoria)).size;
+    const marcasUnicas = new Set(productosFiltrados.map((p) => p.marca).filter(Boolean)).size;
+    const modelosUnicos = new Set(productosFiltrados.map((p) => p.modelo).filter(Boolean)).size;
+    
+    const productosSinMarca = productosFiltrados.filter((p) => (!p.marca || p.marca.trim() === '' || !p.modelo || p.modelo.trim() === '')).length;
 
     // Agrupación de productos por categoría
     const groupedData = useMemo(() => {
-        const list = filterCategoria === 'ALL'
-            ? categorias
-            : categorias.filter((c) => String(c.id_categoria) === filterCategoria);
+    const list = filterCategoria === 'ALL'
+        ? categorias
+        : categorias.filter((c) => String(c.id_categoria) === filterCategoria);
 
-        return list.map((cat) => {
-            const prods = productosFiltrados.filter((p) => p.id_categoria === cat.id_categoria);
-            return {
-                categoria: cat,
-                productos: prods,
-            };
-        });
-    }, [categorias, productosFiltrados, filterCategoria]);
+    return list.map((cat) => ({
+        categoria: cat,
+        productos: productosFiltrados.filter((p) => p.id_categoria === cat.id_categoria),
+    }));
+}, [categorias, productosFiltrados, filterCategoria]);
 
     return (
         <Layout>
@@ -292,7 +307,37 @@ function Productos() {
                     </div>
                 )}
 
-                {/* ── Toolbar: Search & Views ── */}
+                <div className="productos-kpis">
+                    <div className="productos-kpi" onClick={()=> (setFilterMM("ALL"), setFilterCategoria("ALL"))}>
+                        <div className="productos-kpi__icon-box productos-kpi__icon-box--cyan">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" strokeL    inecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 21L12 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> <rect x="3" y="4" width="18" height="13" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"></rect> <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+                        </div>
+                        <div className="productos-kpi__content">
+                            <div className="productos-kpi__label">Total de Productos</div>
+                            <div className="productos-kpi__value">{totalProductos}</div>
+                        </div>
+                    </div>
+                    
+                    <div className="productos-kpi" onClick={()=> (setFilterCategoria("ALL"))}>
+                        <div className="productos-kpi__icon-box productos-kpi__icon-box--blue">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M7.0498 7.0498H7.0598M10.5118 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V10.5118C3 11.2455 3 11.6124 3.08289 11.9577C3.15638 12.2638 3.27759 12.5564 3.44208 12.8249C3.6276 13.1276 3.88703 13.387 4.40589 13.9059L9.10589 18.6059C10.2939 19.7939 10.888 20.388 11.5729 20.6105C12.1755 20.8063 12.8245 20.8063 13.4271 20.6105C14.112 20.388 14.7061 19.7939 15.8941 18.6059L18.6059 15.8941C19.7939 14.7061 20.388 14.112 20.6105 13.4271C20.8063 12.8245 20.8063 12.1755 20.6105 11.5729C20.388 10.888 19.7939 10.2939 18.6059 9.10589L13.9059 4.40589C13.387 3.88703 13.1276 3.6276 12.8249 3.44208C12.5564 3.27759 12.2638 3.15638 11.9577 3.08289C11.6124 3 11.2455 3 10.5118 3ZM7.5498 7.0498C7.5498 7.32595 7.32595 7.5498 7.0498 7.5498C6.77366 7.5498 6.5498 7.32595 6.5498 7.0498C6.5498 6.77366 6.77366 6.5498 7.0498 6.5498C7.32595 6.5498 7.5498 6.77366 7.5498 7.0498Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+                        </div>
+                        <div className="productivos-kpi__content">
+                            <div className="productos-kpi__label">Categorias</div>
+                            <div className="productos-kpi__value">{categoriasConProductosCount}</div> 
+                        </div>
+                        
+                    </div>
+                    <div className="productos-kpi" onClick={()=> setFilterMM("SIN_DATOS")}>
+                        <div className="productos-kpi__icon-box productos-kpi__icon-box--amber">
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M10.2801 20.25H17.0001C19.7601 20.25 22.0001 18.01 22.0001 15.25V8.75C22.0001 5.99 19.7601 3.75 17.0001 3.75H10.2801C8.87005 3.75 7.53005 4.34 6.58005 5.39L3.05005 9.27C1.64005 10.82 1.64005 13.18 3.05005 14.73L6.58005 18.61C7.53005 19.66 8.87005 20.25 10.2801 20.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> <path d="M16.0001 14.47L11.0601 9.53003" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> <path d="M11.0601 14.47L16.0001 9.53003" stroke="CurrentColor" strokeWidth="1.5" strokeLinecap="round"></path> </g></svg>
+                        </div>
+                        <div className="productos-kpi__content">
+                            <span className="productos-kpi__label">Productos Sin Marcas / modelo</span>
+                            <span className="productos-kpi__count">{productosSinMarca}</span>
+                        </div>
+                    </div>
+                </div>
                 <div className="productos-toolbar">
                     <div className="productos-search-wrap">
                         <span className="productos-search-icon">
@@ -322,6 +367,21 @@ function Productos() {
                                     {cat.nombre} {cat.tipo ? `(${cat.tipo})` : ''}
                                 </option>
                             ))}
+                        </select>
+
+                        <select
+                            className="productos-filter-select"
+                            value={filterMM}
+                            onChange={(e) => setFilterMM(e.target.value)}
+                        >
+                            <option value="ALL">Todas las marcas / modelos</option>
+                            <option value="SIN_DATOS">Sin marca o modelo</option>
+                            <optgroup label="Marca">
+                                {marcasOpts.map((m) => <option key={`m-${m}`} value={`M:${m}`}>{m}</option>)}
+                            </optgroup>
+                            <optgroup label="Modelo">
+                                {modelosOpts.map((m) => <option key={`mo-${m}`} value={`MO:${m}`}>{m}</option>)}
+                            </optgroup>
                         </select>
 
                         {/* Switch de Vistas */}
@@ -376,33 +436,8 @@ function Productos() {
                 </div>
 
                 {/* ── Category Quick Filter Pills ── */}
-                <div className="productos-pills">
-                    <button
-                        type="button"
-                        className={`productos-pill ${filterCategoria === 'ALL' ? 'productos-pill--active' : ''}`}
-                        onClick={() => setFilterCategoria('ALL')}
-                    >
-                        <span>Todas</span>
-                        <span className="productos-pill__count">{productos.length}</span>
-                    </button>
-
-                    {categorias.map((cat) => {
-                        const count = productos.filter((p) => p.id_categoria === cat.id_categoria).length;
-                        return (
-                            <button
-                                key={cat.id_categoria}
-                                type="button"
-                                className={`productos-pill ${filterCategoria === String(cat.id_categoria) ? 'productos-pill--active' : ''}`}
-                                onClick={() => setFilterCategoria(String(cat.id_categoria))}
-                            >
-                                <span>{cat.nombre}</span>
-                                <span className="productos-pill__count">{count}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* ── Content Views ── */}
+                
+                
                 {loading ? (
                     <div className="productos-empty">
                         <div className="productos-empty__icon">
@@ -495,16 +530,16 @@ function Productos() {
                                     <div className="productos-group-card__grid">
                                         {prods.map((prod) => (
                                             <div key={prod.id_producto} className="productos-mini-card">
-                                                <div>
+                                                <div >
                                                     <h4 className="productos-mini-card__title">{prod.nombre}</h4>
                                                     <div className="productos-mini-card__tags">
                                                         {prod.marca && (
-                                                            <span className="productos-badge productos-badge--marca">
+                                                            <span className="productos-badge productos-badge--marca" onClick={() => setFilterMM(prod.marca ? `M:${prod.marca}` : 'SIN_DATOS')} style={{ cursor: 'pointer' }}>
                                                                 {prod.marca}
                                                             </span>
                                                         )}
                                                         {prod.modelo && (
-                                                            <span className="productos-badge productos-badge--modelo">
+                                                            <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : 'SIN_DATOS')} style={{ cursor: 'pointer' }}>
                                                                 {prod.modelo}
                                                             </span>
                                                         )}
@@ -551,6 +586,7 @@ function Productos() {
                     <div className="productos-grid">
                         {productosFiltrados.map((prod) => {
                             const cat = categoriaMap[prod.id_categoria];
+                            
                             return (
                                 <div key={prod.id_producto} className="productos-card">
                                     <div className="productos-card__header">
@@ -564,17 +600,17 @@ function Productos() {
                                                 <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
                                                 <path d="M7 7h.01" />
                                             </svg>
-                                            <span>{prod.categoria || cat?.nombre || `Categoría #${prod.id_categoria}`}</span>
+                                            <span onClick={()=> setFilterCategoria(String(prod.id_categoria))} style={{cursor: 'pointer'}}>{prod.categoria || cat?.nombre || `Categoría #${prod.id_categoria}`}</span>
                                         </div>
 
                                         <div className="productos-card__details">
                                             {prod.marca && (
-                                                <span className="productos-badge productos-badge--marca">
+                                                <span className="productos-badge productos-badge--marca" onClick={() => setFilterMM(prod.marca ? `M:${prod.marca}` : 'SIN_DATOS')} style={{cursor:'pointer'}}>
                                                     Marca: {prod.marca}
                                                 </span>
                                             )}
                                             {prod.modelo && (
-                                                <span className="productos-badge productos-badge--modelo">
+                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : `SIN_DATOS`)} style={{cursor: 'pointer'}}>
                                                     Mod: {prod.modelo}
                                                 </span>
                                             )}
@@ -635,20 +671,20 @@ function Productos() {
                                         <td className="productos-table__id">#{prod.id_producto}</td>
                                         <td className="productos-table__name">{prod.nombre}</td>
                                         <td>
-                                            <span className="productos-badge productos-badge--cat">
+                                            <span style={{cursor:'pointer'}} className="productos-badge productos-badge--cat" onClick={() => setFilterCategoria(String(prod.id_categoria))}>
                                                 {prod.categoria || categoriaMap[prod.id_categoria]?.nombre || `Cat #${prod.id_categoria}`}
                                             </span>
                                         </td>
                                         <td>
                                             {prod.marca ? (
-                                                <span className="productos-badge productos-badge--marca">{prod.marca}</span>
+                                                <span className="productos-badge productos-badge--marca" onClick={()=> setFilterMM(prod.marca ? `M:${prod.marca}` : "SIN_DATOS")} style={{cursor: 'pointer'}}>{prod.marca}</span>
                                             ) : (
                                                 <span style={{ color: 'rgba(148, 163, 184, 0.4)' }}>—</span>
                                             )}
                                         </td>
                                         <td>
                                             {prod.modelo ? (
-                                                <span className="productos-badge productos-badge--modelo">{prod.modelo}</span>
+                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : 'SIN_DATOS')} style={{cursor:'pointer'}}>{prod.modelo}</span>
                                             ) : (
                                                 <span style={{ color: 'rgba(148, 163, 184, 0.4)' }}>—</span>
                                             )}
@@ -686,11 +722,13 @@ function Productos() {
                                     </tr>
                                 ))}
                             </tbody>
+ 
                         </table>
+                        <div className="productos-table__footer">
+                                <span className="productos-table__footer-text">Mostrando <strong>{productosFiltrados.length}</strong> de <strong>{productos.length}</strong> productos</span>
+                            </div>
                     </div>
                 )}
-
-                {/* ── Modal: Crear / Editar Producto ── */}
                 {modalOpen && (
                     <div className="productos-modal-overlay">
                         <div className="productos-modal">
@@ -713,7 +751,6 @@ function Productos() {
                             </div>
 
                             <form onSubmit={handleSubmit}>
-                                {/* Categoría */}
                                 <div className="productos-form-group">
                                     <label className="productos-form-label">Categoría *</label>
                                     <select
@@ -730,8 +767,7 @@ function Productos() {
                                         ))}
                                     </select>
                                 </div>
-
-                                {/* Nombre del Producto */}
+ 
                                 <div className="productos-form-group">
                                     <label className="productos-form-label">Nombre del Producto *</label>
                                     <input
@@ -745,7 +781,6 @@ function Productos() {
                                     />
                                 </div>
 
-                                {/* Marca y Modelo */}
                                 <div className="productos-grid-2">
                                     <div className="productos-form-group">
                                         <label className="productos-form-label">Marca (Opcional)</label>
@@ -803,15 +838,11 @@ function Productos() {
                         </div>
                     </div>
                 )}
-
-                {/* ── Modal: Confirmar Eliminación ── */}
-                {deleteModalOpen && productoToDelete && (
+                {deleteModalOpen && (
                     <div className="productos-modal-overlay">
-                        <div className="productos-modal" style={{ maxWidth: '420px' }}>
+                        <div className="productos-modal">
                             <div className="productos-modal__header">
-                                <h2 className="productos-modal__title" style={{ color: '#fca5a5' }}>
-                                    Confirmar Eliminación
-                                </h2>
+                                <h2 style={{color: '#fca5a5'}} className="productos-modal__title">Eliminar Producto</h2>
                                 <button
                                     type="button"
                                     className="productos-modal__close"
@@ -825,32 +856,33 @@ function Productos() {
                                     </svg>
                                 </button>
                             </div>
-
-                            <div style={{ padding: '1.25rem 1.5rem' }}>
-                                <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: '1.5', margin: '0 0 1.25rem' }}>
-                                    ¿Estás seguro de que deseas eliminar el producto{' '}
-                                    <strong style={{ color: '#f1f5f9' }}>{productoToDelete.nombre}</strong>
-                                    {productoToDelete.marca ? ` (${productoToDelete.marca})` : ''}?
+                            <div className="productos-modal-delete__content">
+                                <p className="productos-modal-delete__text">
+                                    ¿Estás seguro de eliminar el producto "<strong>{productoToDelete?.nombre}</strong> · <strong>{productoToDelete?.marca}</strong> · <strong>{productoToDelete?.modelo}</strong>"?
                                 </p>
 
-                                <div className="productos-modal__footer" style={{ padding: 0, border: 'none' }}>
-                                    <button
-                                        type="button"
-                                        className="productos-btn productos-btn--secondary"
-                                        onClick={() => setDeleteModalOpen(false)}
-                                        disabled={actionLoading}
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="productos-btn productos-btn--danger"
-                                        onClick={handleConfirmDelete}
-                                        disabled={actionLoading}
-                                    >
-                                        {actionLoading ? 'Eliminando...' : 'Eliminar Producto'}
-                                    </button>
+                                <div className="productos-modal-delete__warning">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fillRule="evenodd" clipRule="evenodd" d="M19.5 12C19.5 16.1421 16.1421 19.5 12 19.5C7.85786 19.5 4.5 16.1421 4.5 12C4.5 7.85786 7.85786 4.5 12 4.5C16.1421 4.5 19.5 7.85786 19.5 12ZM21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12ZM11.25 13.5V8.25H12.75V13.5H11.25ZM11.25 15.75V14.25H12.75V15.75H11.25Z" fill="currentColor"></path> </g></svg>
+                                    Si el producto está asociado a algún registro de inventario o compra, no se podrá eliminar.
                                 </div>
+                            </div>
+                            <div className="productos-modal-delete__footer">
+                                <button
+                                    type="button"
+                                    className="productos-btn productos-btn--secondary"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    disabled={actionLoading}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="productos-btn productos-btn--danger"
+                                    onClick={() => handleConfirmDelete(productoToDelete)}
+                                    disabled={actionLoading}
+                                >
+                                    Eliminar
+                                </button>
                             </div>
                         </div>
                     </div>

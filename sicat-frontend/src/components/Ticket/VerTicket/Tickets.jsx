@@ -1,4 +1,4 @@
-// src/components/Ticket/VerTicket/Tickets.jsx
+
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
@@ -11,6 +11,12 @@ const ESTADOS = {
     PENDIENTE: { label: 'Pendiente', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
     EN_PROCESO: { label: 'En proceso', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
     SOLUCIONADO: { label: 'Solucionado', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+};
+
+const ESTADOS_FECHA_LIMITE = {
+    HOY: { label: 'Vence hoy', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    VENCIDO: { label: 'Vencido', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    EN_PLAZO: { label: 'En plazo', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
 };
 
 function Tickets() {
@@ -136,6 +142,16 @@ function Tickets() {
         });
     }
 
+    function estadoFechaLimite(ticket) {
+        if (!ticket.fecha_limite || ticket.estado === 'SOLUCIONADO') return null;
+        const limite = new Date(`${ticket.fecha_limite}T00:00:00`);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        if (limite < hoy) return ESTADOS_FECHA_LIMITE.VENCIDO;
+        if (limite.getTime() === hoy.getTime()) return ESTADOS_FECHA_LIMITE.HOY;
+        return ESTADOS_FECHA_LIMITE.EN_PLAZO;
+    }
+
     return (
         <Layout>
             <div className="dash-container">
@@ -181,6 +197,7 @@ function Tickets() {
                         </Link>
                     </div>
                 </div>
+                
 
                 {/* Stats */}
                 <div className="dash-stats">
@@ -197,14 +214,7 @@ function Tickets() {
                     
                 </div>
 
-                <div role="tablist" style={{ display: 'flex', gap: '0.5rem', margin: '1.25rem 0' }}>
-                    <button type="button" className={activeTab === 'tickets' ? 'dash-btn-primary' : 'dash-refresh'} onClick={() => setActiveTab('tickets')}>
-                        Tickets de soporte
-                    </button>
-                    <button type="button" className={activeTab === 'pedidos' ? 'dash-btn-primary' : 'dash-refresh'} onClick={() => setActiveTab('pedidos')}>
-                        Solicitudes de material {pedidos.filter((p) => p.estatus === 'PENDIENTE').length > 0 && `(${pedidos.filter((p) => p.estatus === 'PENDIENTE').length})`}
-                    </button>
-                </div>
+                
 
                 {/* Alerts */}
                 {error && (
@@ -241,32 +251,7 @@ function Tickets() {
                         </button>
                     </div>
                 )}
-
-                {activeTab === 'pedidos' ? (
-                    <div className="dash-table-wrap">
-                        <table className="dash-table">
-                            <thead><tr><th>ID</th><th>Material</th><th>Departamento</th><th>Stock</th><th>Solicitado</th><th>Estado</th><th>Acción</th></tr></thead>
-                            <tbody>
-                                {loadingPedidos ? <tr><td colSpan="7" className="dash-table__empty">Cargando solicitudes...</td></tr> : pedidos.length === 0 ? <tr><td colSpan="7" className="dash-table__empty">No hay solicitudes de material</td></tr> :
-                                    pedidos.map((pedido) => (
-                                        <tr key={pedido.id_pedido}>
-                                            <td>#{pedido.id_pedido}{pedido.urgente && <span className="dash-badge-urgente"> URGENTE</span>}</td>
-                                            <td><strong>{pedido.producto}</strong></td>
-                                            <td>{pedido.departamento}<small style={{ display: 'block', opacity: 0.7 }}>{pedido.empresa}</small></td>
-                                            <td>{pedido.stock_actual}</td><td>{pedido.stock_deseado}</td>
-                                            <td>{pedido.estatus}</td>
-                                            <td>
-                                                {puedeGestionar && pedido.estatus === 'PENDIENTE' && (
-                                                    <Link className="dash-btn-primary" to="/asignaciones" state={{ pedido }}>Asignar</Link>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                /* Table */
+                {/* tabla de tickets*/}     
                 <div className="dash-table-wrap">
                     <table className="dash-table">
                         <thead>
@@ -277,6 +262,7 @@ function Tickets() {
                                 <th className="hide-on-mobile">Descripción</th>
                                 <th className="hide-on-mobile">Fecha creación</th>
                                 <th className="hide-on-mobile">Fecha solución</th>
+                                <th className="hide-on-mobile">Fecha límite</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -284,20 +270,17 @@ function Tickets() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={!isUsuario ? 8 : 7} className="dash-table__empty">
+                                    <td colSpan={!isUsuario ? 9 : 8} className="dash-table__empty">
                                         <span className="dash-table__spinner" />
                                         Cargando tickets…
                                     </td>
                                 </tr>
                             ) : ticketsMostrados.length === 0 ? (
                                 <tr>
-                                    <td colSpan={!isUsuario ? 8 : 7} className="dash-table__empty">
+                                    <td colSpan={!isUsuario ? 9 : 8} className="dash-table__empty">
                                         {isUsuario ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                                                 <span>Aún no has enviado ningún ticket de soporte.</span>
-                                                <Link to="/crear-ticket" className="dash-btn-primary" style={{ fontSize: '0.78rem' }}>
-                                                    Crear mi primer ticket
-                                                </Link>
                                             </div>
                                             ) : (
                                             'No hay tickets registrados'
@@ -307,6 +290,7 @@ function Tickets() {
                             ) : (
                                 ticketsMostrados.map((ticket) => {
                                     const est = ESTADOS[ticket.estado] || ESTADOS.PENDIENTE;
+                                    const fechaEstado = estadoFechaLimite(ticket);
                                     return (
                                         <tr key={ticket.id_ticket}>
                                             <td className="dash-table__id">
@@ -350,6 +334,17 @@ function Tickets() {
                                             <td className="dash-table__desc hide-on-mobile">{ticket.descripcion}</td>
                                             <td className="hide-on-mobile">{formatFecha(ticket.fecha_creacion)}</td>
                                             <td className="hide-on-mobile">{formatFecha(ticket.fecha_solucion)}</td>
+                                            <td className="hide-on-mobile">
+                                                <div>{formatFecha(ticket.fecha_limite)}</div>
+                                                {fechaEstado && (
+                                                    <span
+                                                        className="dash-badge"
+                                                        style={{ color: fechaEstado.color, background: fechaEstado.bg, marginTop: '0.25rem' }}
+                                                    >
+                                                        {fechaEstado.label}
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td>
                                                 <span
                                                     className="dash-badge"
@@ -413,7 +408,7 @@ function Tickets() {
                         </tbody>
                     </table>
                 </div>
-                )}
+                
 
                 {/* ── Modal de Detalles de Ticket ── */}
                 {ticketDetalle && (
@@ -434,6 +429,17 @@ function Tickets() {
                                     >
                                         {ESTADOS[ticketDetalle.estado]?.label || ticketDetalle.estado}
                                     </span>
+                                    {estadoFechaLimite(ticketDetalle) && (
+                                        <span
+                                            className="dash-badge"
+                                            style={{
+                                                color: estadoFechaLimite(ticketDetalle).color,
+                                                background: estadoFechaLimite(ticketDetalle).bg,
+                                            }}
+                                        >
+                                            {estadoFechaLimite(ticketDetalle).label}
+                                        </span>
+                                    )}
                                 </div>
                                 <button
                                     type="button"
@@ -471,6 +477,25 @@ function Tickets() {
                                 <div className="dash-detail-row">
                                     <span className="dash-detail-label">Fecha de Solución</span>
                                     <span className="dash-detail-value">{formatFecha(ticketDetalle.fecha_solucion)}</span>
+                                </div>
+
+                                <div className="dash-detail-row">
+                                    <span className="dash-detail-label">Fecha límite</span>
+                                    <span className="dash-detail-value">
+                                        {formatFecha(ticketDetalle.fecha_limite)}
+                                        {estadoFechaLimite(ticketDetalle) && (
+                                            <span
+                                                className="dash-badge"
+                                                style={{
+                                                    color: estadoFechaLimite(ticketDetalle).color,
+                                                    background: estadoFechaLimite(ticketDetalle).bg,
+                                                    marginLeft: '0.5rem',
+                                                }}
+                                            >
+                                                {estadoFechaLimite(ticketDetalle).label}
+                                            </span>
+                                        )}
+                                    </span>
                                 </div>
 
                                 <div className="dash-detail-group">

@@ -159,10 +159,14 @@ function Categorias() {
         }
     };
 
+    const totalCategorias = categorias.length;
+    const categoriaEquipos = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'equipo').length;
+    const categoriaInsumos = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'insumo').length;
+    const categoriaAccesorios = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'accesorio').length;
+
     return (
         <Layout>
             <div className="cat-container">
-                {/* Header */}
                 <div className="cat-header">
                     <div>
                         <h1 className="cat-header__title">
@@ -208,7 +212,48 @@ function Categorias() {
                     </div>
                 </div>
 
-                {/* Notifications */}
+                <div className="cat-kpis">
+                    <div className="cat-kpi" onClick={()=> setFilterTipo('ALL')}>
+                        <span className="cat-kpi__icon-box cat-kpi__icon-box--violet">
+                            <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M7.0498 7.0498H7.0598M10.5118 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V10.5118C3 11.2455 3 11.6124 3.08289 11.9577C3.15638 12.2638 3.27759 12.5564 3.44208 12.8249C3.6276 13.1276 3.88703 13.387 4.40589 13.9059L9.10589 18.6059C10.2939 19.7939 10.888 20.388 11.5729 20.6105C12.1755 20.8063 12.8245 20.8063 13.4271 20.6105C14.112 20.388 14.7061 19.7939 15.8941 18.6059L18.6059 15.8941C19.7939 14.7061 20.388 14.112 20.6105 13.4271C20.8063 12.8245 20.8063 12.1755 20.6105 11.5729C20.388 10.888 19.7939 10.2939 18.6059 9.10589L13.9059 4.40589C13.387 3.88703 13.1276 3.6276 12.8249 3.44208C12.5564 3.27759 12.2638 3.15638 11.9577 3.08289C11.6124 3 11.2455 3 10.5118 3ZM7.5498 7.0498C7.5498 7.32595 7.32595 7.5498 7.0498 7.5498C6.77366 7.5498 6.5498 7.32595 6.5498 7.0498C6.5498 6.77366 6.77366 6.5498 7.0498 6.5498C7.32595 6.5498 7.5498 6.77366 7.5498 7.0498Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+                        </span>
+                        <div className="cat-kpi__content">
+                            <span className="cat-kpi__label">Total de Categorías</span>
+                            <span className="cat-kpi__value">{totalCategorias}</span>  
+                        </div> 
+                    </div>
+
+                    <div className="cat-kpi" onClick={()=> setFilterTipo('equipo')}>
+                        <span className="cat-kpi__icon-box cat-kpi__icon-box--blue">
+                            <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" strokeL    inecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 21L12 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> <rect x="3" y="4" width="18" height="13" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"></rect> <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+                        </span>
+                        <div className="cat-kpi__content">
+                            <span className="cat-kpi__label">Categoria de Equipos</span>
+                            <span className="cat-kpi__value">{categoriaEquipos}</span>  
+                        </div> 
+                    </div>
+
+                    <div className="cat-kpi" onClick={()=> setFilterTipo('insumo')}>
+                        <span className="cat-kpi__icon-box cat-kpi__icon-box--emerald">
+                            <svg width="30px" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 15.1082V20.1498C12 21.2635 11.0955 22.1875 10.0128 21.9673C5.44193 21.0381 2 16.9659 2 12.0832C2 10.2294 2.49614 8.49247 3.36182 7M16.3641 21.1581C19.7003 19.5239 22 16.0743 22 12.0832C22 6.51441 17.5228 2 12 2C10.1786 2 8.47087 2.49102 7 3.34895" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> <path d="M9 11.8C9 11.3582 9.35817 11 9.8 11H14.2C14.6418 11 15 11.3582 15 11.8V12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12V11.8Z" stroke="currentColor" strokeWidth="1.5"></path> <path d="M13.5 11V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> <path d="M10.5 11V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> </g></svg>
+                        </span>
+                        <div className="cat-kpi__content">
+                            <span className="cat-kpi__label">Categoria de Insumos</span>
+                            <span className="cat-kpi__value">{categoriaInsumos}</span>  
+                        </div> 
+                    </div>
+                    
+                    <div className="cat-kpi" onClick={()=> setFilterTipo('accesorio')}>
+                        <span className="cat-kpi__icon-box cat-kpi__icon-box--amber">
+                            <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M19 15C19 18.866 15.866 22 12 22C8.13401 22 5 18.866 5 15V9C5 5.13401 8.13401 2 12 2C15.866 2 19 5.13401 19 9V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> <path d="M10.5 8.5C10.5 7.67157 11.1716 7 12 7C12.8284 7 13.5 7.67157 13.5 8.5V10.5C13.5 11.3284 12.8284 12 12 12C11.1716 12 10.5 11.3284 10.5 10.5V8.5Z" stroke="currentColor" strokeWidth="1.5"></path> <path d="M12 2V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> </g></svg>
+                        </span>
+                        <div className="cat-kpi__content">
+                            <span className="cat-kpi__label">Categoria de Accesorios</span>
+                            <span className="cat-kpi__value">{categoriaAccesorios}</span>  
+                        </div> 
+                    </div>
+                </div>
+
                 {error && (
                     <div className="cat-alert cat-alert--error">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -228,7 +273,7 @@ function Categorias() {
                     </div>
                 )}
 
-                {/* Controls Bar */}
+                
                 <div className="cat-controls">
                     <div className="cat-search">
                         <span className="cat-search__icon">
@@ -257,7 +302,7 @@ function Categorias() {
                     </select>
                 </div>
 
-                {/* Table */}
+                
                 <div className="cat-table-wrapper">
                     <div className="cat-table-scroll">
                         <table className="cat-table">
@@ -314,7 +359,7 @@ function Categorias() {
                                                     {cat.nombre}
                                                 </td>
                                                 <td>
-                                                    <span className={`cat-badge cat-badge--${tipoKey}`}>
+                                                    <span onClick={()=> setFilterTipo(tipoKey)} style={{cursor:'Pointer'}} className={`cat-badge cat-badge--${tipoKey}`}>
                                                         {tipoKey}
                                                     </span>
                                                 </td>

@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-dotenv.config();
 
 import authRoutes from './routes/auth.routes.js';
 import asignacionRoutes from './routes/asignacion.routes.js';
@@ -18,12 +17,21 @@ import ticketRoutes from './routes/ticket.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
 import { verificarToken } from './middlewares/auth.middleware.js';
 import { stream as eventStream } from './controllers/events.controller.js';
+import cookieParser from 'cookie-parser';
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
 
-app.use(cors());
+app.use(cors(
+  {origin: process.env.FRONTEND_URL, 
+  credentials: true}
+));
 app.use(express.json());
+app.use(cookieParser());
+
+const TWELVE_HOURS_MS = 8 * 60 * 60 * 1000 //12 hrs que dura la cookie de sesión, para que el usuario no tenga que loguearse cada vez que refresca la página
+
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', sistema: 'SICAT' });

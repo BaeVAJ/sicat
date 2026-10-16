@@ -4,11 +4,17 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "migrate:tickets": "node src/db/migrate_ticket_deadline.js",
+    "migrate:material": "node src/db/migrate_material_requests.js",
+    "migrate:complementos": "node src/db/migrate_complementos_pago.js",
+    "migrate:ppd": "node src/db/migrate_ppd_estado_cuenta.js",
+    "migrate:factura-estado": "node src/db/migrate_factura_estado_trigger.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

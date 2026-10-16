@@ -10,10 +10,19 @@ import Tickets from './components/Ticket/VerTicket/Tickets.jsx';
 import VerEmpresa from './components/Organizacion/Empresa/Empresa.jsx';
 import Departamento from './components/Organizacion/Departamento/Departamento.jsx';
 import Facturas from './components/Facturas/facturas.jsx';
+import ComplementosPago from './components/Facturas/ComplementosPago.jsx';
+import EstadoCuentaPpd from './components/Facturas/EstadoCuentaPpd.jsx';
 import Productos from './components/catalogo/Productos/Productos.jsx';
+import Categorias from './components/catalogo/Categorias/Categorias.jsx';
+import Proveedores from './components/catalogo/Proveedores/Proveedores.jsx';
 import Usuarios from './components/Usuarios/Usuarios.jsx';
+import Compras from './components/Operaciones/Compras/Compras.jsx';
+import Inventario from './components/Operaciones/Inventario/Inventario.jsx';
+import Asignaciones from './components/Operaciones/Asignaciones/Asignaciones.jsx';
+import SolicitarMaterial from './components/Operaciones/SolicitarMaterial/SolicitarMaterial.jsx';
 
 function App() {
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -62,10 +71,42 @@ function App() {
             }
           />
           <Route
+            path="/complementos-pago"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <ComplementosPago />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/estado-cuenta-ppd"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <EstadoCuentaPpd />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/categorias"
+            element={
+              <RutaProtegida rolesPermitidos={['admin']}>
+                <Categorias />
+              </RutaProtegida>
+            }
+          />
+          <Route
             path="/productos"
             element={
               <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
                 <Productos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/proveedores"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Proveedores />
               </RutaProtegida>
             }
           />
@@ -82,6 +123,46 @@ function App() {
             element={
               <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
                 <Usuarios />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/compras"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Compras />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/inventario"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente', 'usuario']}>
+                <Inventario />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/Inventario"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente', 'usuario']}>
+                <Inventario />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/solicitar-material"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente', 'usuario']}>
+                <SolicitarMaterial />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/asignaciones"
+            element={
+              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
+                <Asignaciones />
               </RutaProtegida>
             }
           />

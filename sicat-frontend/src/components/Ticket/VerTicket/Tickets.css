@@ -224,6 +224,10 @@
     white-space: nowrap;
 }
 
+.dash-badge--deadline {
+    margin-top: 0.25rem;
+}
+
 .dash-badge-urgente {
     display: inline-flex;
     align-items: center;

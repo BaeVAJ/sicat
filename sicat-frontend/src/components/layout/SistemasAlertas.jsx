@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import notificacionSonido from '../../assets/notification.wav';
 import './sistemas-alertas.css';
 
@@ -10,33 +11,13 @@ const eventTypes = [
     'material-request.updated',
 ];
 
-function esSistemas() {
-    try {
-        const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
-        return usuario?.departamento?.toLowerCase().includes('sistema') === true;
-    } catch {
-        return false;
-    }
-}
-
-function tokenExpirado(token) {
-    try {
-        const { exp } = JSON.parse(atob(token.split('.')[1]));
-        return Date.now() >= exp * 1000;
-    } catch {
-        return true;
-    }
-}
-
-function sesionValida() {
-    const token = localStorage.getItem('token');
-    return token && !tokenExpirado(token) && esSistemas() ? token : null;
-}
-
 function SistemasAlertas() {
+    const { usuario } = useAuth();
     const [alertas, setAlertas] = useState([]);
     const navigate = useNavigate();
     const audioRef = useRef(null);
+
+    const esSistemas = usuario?.departamento?.toLowerCase().includes('sistema') === true;
 
     useEffect(() => {
         audioRef.current = new Audio(notificacionSonido);
@@ -51,19 +32,19 @@ function SistemasAlertas() {
     };
 
     useEffect(() => {
+        // No hay usuario o no es de sistemas → ni intentamos conectar
+        if (!esSistemas) return;
+
         let source = null;
         let reconnectTimer = null;
         let stopped = false;
 
         const conectar = () => {
-            // ✅ Evita doble conexión (fix Problema 5)
             if (stopped || source) return;
 
-            const token = sesionValida();
-            if (!token) return;
-
             source = new EventSource(
-                `${import.meta.env.VITE_API_URL || '/api'}/events/stream?token=${encodeURIComponent(token)}`
+                `${import.meta.env.VITE_API_URL || '/api'}/events/stream`,
+                { withCredentials: true } 
             );
 
             eventTypes.forEach((type) => {
@@ -110,24 +91,13 @@ function SistemasAlertas() {
 
         conectar();
 
-        const revisarSesion = window.setInterval(() => {
-            const token = sesionValida();
-            if (!token && source) {
-                source.close();
-                source = null;
-            } else if (!source && token) {
-                conectar();
-            }
-        }, 1000);
-
         return () => {
             stopped = true;
-            window.clearInterval(revisarSesion);
             window.clearTimeout(reconnectTimer);
             source?.close();
             source = null;
         };
-    }, []);
+    }, [esSistemas]); // 👈 se reconecta si cambia el usuario (login/logout)
 
     const cerrar = (id) => {
         const elemento = document.querySelector(`.sistemas-alerta[data-alerta-id="${id}"]`);

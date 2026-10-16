@@ -118,6 +118,6 @@ export async function remove(req, res) {
     }
     res.json({ mensaje: 'Producto eliminado correctamente', id_producto: req.params.id });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Elementos asociados al producto. No se pudo eliminar el producto.' });
   }
 }

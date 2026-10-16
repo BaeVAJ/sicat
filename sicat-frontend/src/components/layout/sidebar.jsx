@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import  client  from '../../api/client';
 import './sidebar.css';
 
 
@@ -161,6 +162,8 @@ const grupos = [
         roles: ['admin', 'gerente'],
         enlaces: [
             { to: '/facturas', label: 'Facturas', icon: 'receipt', roles: ['admin', 'gerente'] },
+            { to: '/complementos-pago', label: 'Complementos de pago', icon: 'receipt', roles: ['admin', 'gerente'] },
+            { to: '/estado-cuenta-ppd', label: 'Estado de cuenta PPD', icon: 'dashboard', roles: ['admin', 'gerente'] },
         ],
     },
     {
@@ -169,7 +172,7 @@ const grupos = [
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
             { to: '/tickets', label: 'Tickets', icon: 'ticket', roles: ['admin', 'gerente', 'usuario'] },
-            { to: '/crear-ticket', label: 'Crear Ticket', icon: 'plus', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/crear-ticket', label: 'Crear Ticket', icon: 'plus', roles: [] },
         ],
     },
     {
@@ -190,6 +193,7 @@ function GrupoMenu({ grupo, rol, onNavigate }) {
     const visibles = grupo.enlaces.filter((e) => {
         if (!e.roles.includes(rol)) return false;
         if (e.excluirDepartamentos?.includes(usuario?.id_departamento)) return false;
+        if (e.incluirDepartamentos && !e.incluirDepartamentos.includes(usuario?.id_departamento)) return false;
         return true;
     });
 
@@ -259,7 +263,7 @@ function GrupoMenu({ grupo, rol, onNavigate }) {
 }
 
 function Sidebar() {
-    const { usuario, logout } = useAuth();
+    const { usuario } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -282,7 +286,7 @@ function Sidebar() {
         : '?';
 
     const handleLogout = () => {
-        logout();
+        client.post('/auth/logout');
         navigate('/Login');
     };
 
@@ -295,20 +299,16 @@ function Sidebar() {
 
     return (
         <>
-            {/* ══════════════════════════════════════════════════════════
-               1. DESKTOP SIDEBAR (Izquierda colapsable en pantallas > 768px)
-               ══════════════════════════════════════════════════════════ */}
             <aside className="sidebar desktop-sidebar">
                 {/* Brand */}
                 <div className="sidebar__brand">
                     <div className="sidebar__brand-icon" />
                     <div className="sidebar__brand-text">
                         <span className="sidebar__brand-name">SICAT</span>
-                        <span className="sidebar__brand-sub">Control de Activos</span>
+                        
                     </div>
                 </div>
 
-                {/* Navigation */}
                 <nav className="sidebar__nav">
                     {grupos
                         .filter((g) => g.roles.includes(usuario?.rol))
@@ -317,7 +317,6 @@ function Sidebar() {
                         ))}
                 </nav>
 
-                {/* Footer / User Profile */}
                 <div className="sidebar__footer">
                     <div className="sidebar__user">
                         <div className="sidebar__avatar">{iniciales}</div>
@@ -333,11 +332,7 @@ function Sidebar() {
                 </div>
             </aside>
 
-            {/* ══════════════════════════════════════════════════════════
-               2. MOBILE BOTTOM NAVIGATION (Barra inferior fija en teléfonos)
-               ══════════════════════════════════════════════════════════ */}
             <div className="mobile-bottom-bar">
-                {/* 1. Inicio */}
                 <NavLink
                     to={homeRoute}
                     className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
@@ -346,7 +341,6 @@ function Sidebar() {
                     <span className="mobile-bottom-bar__label">Inicio</span>
                 </NavLink>
 
-                {/* 2. Productos / Catálogo */}
                 {['admin', 'gerente'].includes(usuario?.rol) && (
                     <NavLink
                         to="/productos"
@@ -357,7 +351,6 @@ function Sidebar() {
                     </NavLink>
                 )}
 
-                {/* 3. Facturas */}
                 {['admin', 'gerente'].includes(usuario?.rol) && (
                     <NavLink
                         to="/facturas"
@@ -368,7 +361,6 @@ function Sidebar() {
                     </NavLink>
                 )}
 
-                {/* 4. Tickets */}
                 <NavLink
                     to="/tickets"
                     className={({ isActive }) => `mobile-bottom-bar__item ${isActive ? 'active' : ''}`}
@@ -377,7 +369,6 @@ function Sidebar() {
                     <span className="mobile-bottom-bar__label">Tickets</span>
                 </NavLink>
 
-                {/* 5. Botón Menú Completo (Despliega panel inferior) */}
                 <button
                     type="button"
                     className={`mobile-bottom-bar__item mobile-bottom-bar__menu-btn ${mobileMenuOpen ? 'active' : ''
@@ -399,23 +390,15 @@ function Sidebar() {
                 </button>
             </div>
 
-            {/* ══════════════════════════════════════════════════════════
-               3. MOBILE BOTTOM SHEET (Panel desplegable estático inferior)
-               ══════════════════════════════════════════════════════════ */}
-            {/* Overlay para cerrar al tocar afuera */}
             <div
                 className={`mobile-sheet-overlay ${mobileMenuOpen ? 'mobile-sheet-overlay--visible' : ''}`}
                 onClick={handleCloseMobile}
             />
 
-            {/* Drawer que emerge desde la parte inferior */}
             <div className={`mobile-bottom-sheet ${mobileMenuOpen ? 'mobile-bottom-sheet--open' : ''}`}>
-                {/* Tirador superior táctil */}
                 <div className="mobile-sheet__handle-wrap" onClick={handleCloseMobile}>
                     <div className="mobile-sheet__handle" />
                 </div>
-
-                {/* Cabecera del panel inferior */}
                 <div className="mobile-sheet__header">
                     <div className="mobile-sheet__brand">
                         <div className="sidebar__brand-icon" />
@@ -437,7 +420,6 @@ function Sidebar() {
                     </button>
                 </div>
 
-                {/* Lista de navegación completa */}
                 <div className="mobile-sheet__nav">
                     {grupos
                         .filter((g) => g.roles.includes(usuario?.rol))
@@ -452,7 +434,6 @@ function Sidebar() {
                         ))}
                 </div>
 
-                {/* Footer con información de usuario y cerrar sesión */}
                 <div className="mobile-sheet__footer">
                     <div className="sidebar__user" style={{ padding: '8px 12px', margin: 0 }}>
                         <div className="sidebar__avatar">{iniciales}</div>

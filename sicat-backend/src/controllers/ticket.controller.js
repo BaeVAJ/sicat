@@ -53,13 +53,22 @@ export async function getAll(req, res) {
 // A menos que sea administrador, el departamento se asigna automáticamente al de la cuenta creadora.
 // Si es administrador, puede crear tickets para otros departamentos.
 export async function create(req, res) {
-  const { id_departamento, descripcion, urgente } = req.body;
+  const { id_departamento, descripcion, urgente, fecha_limite } = req.body;
   const id_usuario = req.usuario?.id_usuario || req.body.id_usuario || null;
   const rol = req.usuario?.rol;
   const esUrgente = Boolean(urgente);
 
   if (!descripcion || descripcion.trim().length < 10) {
     return res.status(400).json({ error: 'La descripción debe tener al menos 10 caracteres' });
+  }
+  if (!fecha_limite || !/^\d{4}-\d{2}-\d{2}$/.test(fecha_limite)) {
+    return res.status(400).json({ error: 'La fecha límite es obligatoria y debe ser válida' });
+  }
+  const fechaLimite = new Date(`${fecha_limite}T00:00:00`);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  if (Number.isNaN(fechaLimite.getTime()) || fechaLimite < hoy) {
+    return res.status(400).json({ error: 'La fecha límite no puede ser anterior al día actual' });
   }
 
   try {
@@ -94,9 +103,9 @@ export async function create(req, res) {
     }
 
     const { rows } = await pool.query(`
-      INSERT INTO TICKETS (id_departamento, descripcion, id_usuario, urgente)
-      VALUES ($1, $2, $3, $4) RETURNING *
-    `, [depAsignado, descripcion.trim(), id_usuario, esUrgente]);
+      INSERT INTO TICKETS (id_departamento, descripcion, id_usuario, urgente, fecha_limite)
+      VALUES ($1, $2, $3, $4, $5) RETURNING *
+    `, [depAsignado, descripcion.trim(), id_usuario, esUrgente, fecha_limite]);
 
     publish('ticket.created', rows[0]);
     res.status(201).json(rows[0]);

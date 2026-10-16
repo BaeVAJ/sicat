@@ -1,15 +1,21 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
 
+
 export async function getAll(req, res) {
   try {
     const { rows } = await pool.query(`
       SELECT a.*, pr.nombre AS producto, pr.marca,
+             COALESCE(pm.descripcion_material, pr.nombre) AS material_solicitado,
+             pm.cantidad_solicitada, pm.estatus AS pedido_estatus,
+             a.es_devolvible,
              d.nombre AS departamento,
              dorig.nombre AS departamento_origen
       FROM ASIGNACION a
       JOIN INVENTARIO        i     ON a.id_inventario      = i.id_inventario
-      JOIN PRODUCTO          pr    ON i.id_producto         = pr.id_producto
+      LEFT JOIN PRODUCTO     pr    ON i.id_producto         = pr.id_producto
+      LEFT JOIN CATEGORIA    c     ON pr.id_categoria       = c.id_categoria
+      LEFT JOIN PEDIDO_MATERIAL pm ON a.id_pedido = pm.id_pedido
       JOIN DEPARTAMENTO      d     ON a.id_departamento     = d.id_departamento
       LEFT JOIN DEPARTAMENTO dorig ON i.id_departamento     = dorig.id_departamento
       ORDER BY a.fecha_asignacion DESC
@@ -19,49 +25,63 @@ export async function getAll(req, res) {
 }
 
 export async function create(req, res) {
-  const { id_inventario, id_departamento, condicion } = req.body;
+  const { id_inventario, id_departamento, id_pedido, condicion, es_devolvible = false } = req.body;
+  const cantidadSolicitada = req.body.cantidad == null ? 1 : Number(req.body.cantidad);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     // 1. Obtener registro del inventario de origen
     const { rows: [inv] } = await client.query(
-      'SELECT * FROM INVENTARIO WHERE id_inventario = $1', [id_inventario]
+      `SELECT i.*, c.tipo AS tipo_producto
+       FROM INVENTARIO i
+       JOIN PRODUCTO p ON p.id_producto = i.id_producto
+       LEFT JOIN CATEGORIA c ON c.id_categoria = p.id_categoria
+       WHERE i.id_inventario = $1 FOR UPDATE OF i`, [id_inventario]
     );
     if (!inv) throw new Error('Inventario de origen no encontrado');
-    if (inv.cantidad_disponible < 1) throw new Error('Sin stock disponible en el inventario de origen');
+    if (inv.id_departamento !== 1) throw new Error('Solo el inventario de Sistemas puede asignarse');
 
-    // 2. Descontar 1 del inventario de origen
-    await client.query(
-      'UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - 1 WHERE id_inventario = $1',
-      [id_inventario]
-    );
-
-    // 3. Sumar 1 al inventario del departamento que recibe la asignación (préstamo)
-    const destDeptoId = Number(id_departamento);
-    const { rows: destInv } = await client.query(
-      'SELECT id_inventario FROM INVENTARIO WHERE id_producto = $1 AND id_departamento = $2',
-      [inv.id_producto, destDeptoId]
-    );
-
-    if (destInv.length > 0) {
-      await client.query(
-        'UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible + 1 WHERE id_inventario = $1',
-        [destInv[0].id_inventario]
+    let cantidad = cantidadSolicitada;
+    let pedido = null;
+    if (id_pedido) {
+      const { rows } = await client.query(
+        'SELECT * FROM PEDIDO_MATERIAL WHERE id_pedido = $1 FOR UPDATE', [id_pedido]
       );
-    } else {
+      pedido = rows[0];
+      if (!pedido) throw new Error('Solicitud no encontrada');
+      if (pedido.estatus !== 'PENDIENTE') throw new Error('La solicitud ya fue atendida');
+      cantidad = Number(pedido.cantidad_solicitada);
+      if (pedido.id_departamento === 1) throw new Error('Sistemas no puede solicitar material a sí mismo');
+    }
+    if (!Number.isInteger(cantidad) || cantidad < 1) throw new Error('La cantidad debe ser un entero positivo');
+    if (inv.cantidad_disponible < cantidad && inv.cantidad_disponible > 0) throw new Error('Stock insuficiente para atender la solicitud');
+    if (inv.cantidad_disponible === 0) throw new Error('No hay stock disponible para asignar');
+
+    // 2. Descontar la cantidad asignada del inventario de Sistemas.
+    await client.query(
+      'UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_inventario = $2',
+      [cantidad, id_inventario]
+    );
+
+    const destDeptoId = Number(id_departamento);
+    if (!destDeptoId) throw new Error('El departamento destino es obligatorio');
+    if (destDeptoId === 1) throw new Error('Sistemas no puede ser el departamento destino');
+
+    // Ya no se actualiza destinatario de inventario,
+
+
+    const { rows: [asig] } = await client.query(`
+      INSERT INTO ASIGNACION (id_inventario, id_departamento, id_pedido, cantidad, condicion, es_devolvible, estatus)
+      VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVO') RETURNING *
+    `, [id_inventario, destDeptoId, id_pedido || null, cantidad, condicion || null, Boolean(es_devolvible)]);
+
+    if (pedido) {
       await client.query(
-        `INSERT INTO INVENTARIO (id_producto, id_departamento, cantidad_disponible, cantidad_minima)
-         VALUES ($1, $2, 1, 1)`,
-        [inv.id_producto, destDeptoId]
+        `UPDATE PEDIDO_MATERIAL SET estatus = 'ENTREGADO' WHERE id_pedido = $1`,
+        [pedido.id_pedido]
       );
     }
-
-    // 4. Registrar la asignación
-    const { rows: [asig] } = await client.query(`
-      INSERT INTO ASIGNACION (id_inventario, id_departamento, condicion, estatus)
-      VALUES ($1, $2, $3, 'ACTIVO') RETURNING *
-    `, [id_inventario, destDeptoId, condicion || null]);
 
     await client.query('COMMIT');
     publish('assignment.created', asig);
@@ -78,15 +98,25 @@ export async function devolver(req, res) {
   try {
     await client.query('BEGIN');
 
+
+    const { rows: [asig] } = await client.query(
+      'SELECT * FROM ASIGNACION WHERE id_asignacion = $1 FOR UPDATE',
+      [req.params.id]
+    );
+    /*
     const { rows: [asig] } = await client.query(`
-      SELECT a.*, i.id_producto, i.id_departamento AS id_departamento_origen
+      SELECT a.*, i.id_producto, i.id_departamento AS id_departamento_origen, c.tipo AS tipo_producto
       FROM ASIGNACION a
       JOIN INVENTARIO i ON a.id_inventario = i.id_inventario
+      JOIN PRODUCTO p ON p.id_producto = i.id_producto
+      LEFT JOIN CATEGORIA c ON c.id_categoria = p.id_categoria
       WHERE a.id_asignacion = $1
     `, [req.params.id]);
-
+*/
     if (!asig) throw new Error('Asignación no encontrada');
     if (asig.estatus === 'DEVUELTO') throw new Error('Ya fue devuelta');
+    if (!asig.es_devolvible) throw new Error('Esta asignación fue registrada como no devolvible');
+    const cantidad = Number(asig.cantidad) || 1;
 
     // 1. Marcar como devuelto
     await client.query(`
@@ -96,46 +126,11 @@ export async function devolver(req, res) {
       WHERE id_asignacion = $2
     `, [condicion, req.params.id]);
 
-    // 2. Descontar del departamento prestatario (y eliminar la fila si su stock llega a 0)
-    const { rows: destInv } = await client.query(
-      'SELECT id_inventario, cantidad_disponible FROM INVENTARIO WHERE id_producto = $1 AND id_departamento = $2',
-      [asig.id_producto, asig.id_departamento]
-    );
-
-    if (destInv.length > 0 && destInv[0].id_inventario !== asig.id_inventario) {
-      const remainingStock = (destInv[0].cantidad_disponible || 0) - 1;
-
-      if (remainingStock <= 0) {
-        // Verificar si está referenciado como origen en alguna otra asignación
-        const { rows: refs } = await client.query(
-          'SELECT 1 FROM ASIGNACION WHERE id_inventario = $1 LIMIT 1',
-          [destInv[0].id_inventario]
-        );
-
-        if (refs.length === 0) {
-          // Se elimina la fila del inventario del departamento prestatario
-          await client.query(
-            'DELETE FROM INVENTARIO WHERE id_inventario = $1',
-            [destInv[0].id_inventario]
-          );
-        } else {
-          await client.query(
-            'UPDATE INVENTARIO SET cantidad_disponible = 0 WHERE id_inventario = $1',
-            [destInv[0].id_inventario]
-          );
-        }
-      } else {
-        await client.query(
-          'UPDATE INVENTARIO SET cantidad_disponible = $1 WHERE id_inventario = $2',
-          [remainingStock, destInv[0].id_inventario]
-        );
-      }
-    }
-
-    // 3. Regresar 1 al inventario de origen
+    // 2. sumar la cantidad devuelta al inventario de origen
+    
     await client.query(
-      'UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible + 1 WHERE id_inventario = $1',
-      [asig.id_inventario]
+      'UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible + $1 WHERE id_inventario = $2',
+      [cantidad, asig.id_inventario]
     );
 
     await client.query('COMMIT');
