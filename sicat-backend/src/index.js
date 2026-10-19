@@ -23,16 +23,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const allowed = (process.env.FRONTEND_URL || '')
-  .split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
-app.set('trust proxy', 1);
+const allowedOrigins = [
+  'https://sicat.22670030.workers.dev',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+// Acepta también los subdominios de preview: https://<hash>-sicat.22670030.workers.dev
+const previewRegex = /^https:\/\/[a-z0-9-]+-sicat\.22670030\.workers\.dev$/;
 
 app.use(cors({
-  origin: (origin, cb) =>
-    (!origin || allowed.includes(origin)) ? cb(null, true) : cb(null, false),
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // Postman, curl, etc.
+    if (allowedOrigins.includes(origin) || previewRegex.test(origin)) {
+      return cb(null, true); // refleja el origen exacto
+    }
+    return cb(new Error('Origen no permitido por CORS'));
+  },
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
 }));
 app.use(express.json());
 app.use(cookieParser());
