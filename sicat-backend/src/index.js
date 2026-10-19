@@ -23,13 +23,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors(
-  {origin: process.env.FRONTEND_URL, 
+const allowed = (process.env.FRONTEND_URL || '')
+  .split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+app.set('trust proxy', 1);
+
+app.use(cors({
+  origin: (origin, cb) =>
+    (!origin || allowed.includes(origin)) ? cb(null, true) : cb(null, false),
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}
-));
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+}));
 app.use(express.json());
 app.use(cookieParser());
 
