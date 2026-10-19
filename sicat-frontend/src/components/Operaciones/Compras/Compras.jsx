@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import Layout from '../../layout/Layout';
-import './compras.css'
+import './Compras.css'
 import client from '../../../api/client';
 
 function Compras() {
