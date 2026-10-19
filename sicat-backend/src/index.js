@@ -21,7 +21,7 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors(
   {origin: process.env.FRONTEND_URL, 
@@ -32,9 +32,6 @@ app.use(cors(
 ));
 app.use(express.json());
 app.use(cookieParser());
-
-const TWELVE_HOURS_MS = 8 * 60 * 60 * 1000 //12 hrs que dura la cookie de sesión, para que el usuario no tenga que loguearse cada vez que refresca la página
-
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', sistema: 'SICAT' });
