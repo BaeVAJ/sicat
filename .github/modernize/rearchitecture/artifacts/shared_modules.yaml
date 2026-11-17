@@ -1,0 +1,45 @@
+modules:
+  - name: backend-db-pool
+    kind: config
+    source_loc: "sicat-backend/src/db/pool.js:1"
+    used_by_units: [auth-api, categorias-api, departamentos-api, compras-api, empresas-api, facturas-api, productos-api, proveedores-api, usuarios-api]
+    fields:
+      - {name: query, type: "pg.Pool.query"}
+      - {name: connect, type: "pg.Pool.connect"}
+    god_class: false
+    split_candidate: false
+    migration_strategy: wrap
+    notes: "Centraliza conexión PostgreSQL, SSL y comprobaciones de esquema."
+  - name: backend-auth-middleware
+    kind: utility
+    source_loc: "sicat-backend/src/middlewares/auth.middleware.js:1"
+    used_by_units: [auth-api, asignaciones-api, categorias-api, departamentos-api, compras-api, empresas-api, facturas-api, inventario-api, pedidos-api, productos-api, proveedores-api, tickets-api, usuarios-api, events-api]
+    fields:
+      - {name: verificarToken, type: "Express middleware"}
+      - {name: verificarRol, type: "Express middleware factory"}
+    god_class: false
+    split_candidate: false
+    migration_strategy: copy
+    notes: "Contrato transversal: cookie auth_token, JWT_SECRET y roles."
+  - name: backend-event-bus
+    kind: store
+    source_loc: "sicat-backend/src/services/eventBus.js:1"
+    used_by_units: [asignaciones-api, inventario-api, pedidos-api, tickets-api, events-api]
+    fields:
+      - {name: eventBus, type: "node:events.EventEmitter"}
+      - {name: publish, type: "(type, payload) -> void"}
+    god_class: false
+    split_candidate: false
+    migration_strategy: wrap
+    notes: "Bus en memoria; no es persistente ni distribuido."
+  - name: backend-storage
+    kind: utility
+    source_loc: "sicat-backend/src/services/supabaseStorage.js:1"
+    used_by_units: [facturas-api]
+    fields:
+      - {name: upload, type: "Supabase Storage upload"}
+      - {name: signedUrl, type: "Supabase Storage signed URL"}
+    god_class: false
+    split_candidate: false
+    migration_strategy: wrap
+    notes: "Almacena PDF/XML y genera URLs temporales."

@@ -1,0 +1,3 @@
+unit: pedidos-api
+commit: false
+candidate_splits: [{id: "sicat-backend/src/controllers/pedido.controller.js:1", drivers: [lifecycle_split], rationale: "Crear solicitud y atender solicitud representan fases distintas del ciclo de vida.", source_slice: {file: "sicat-backend/src/controllers/pedido.controller.js", lines: [1, 100]}}]

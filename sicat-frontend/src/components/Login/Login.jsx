@@ -1,5 +1,5 @@
 // src/components/Login/Login.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Login.css';
@@ -8,49 +8,75 @@ function Login() {
   const segundosBloqueo = 10; // Tiempo de bloqueo en segundos
   const navigate = useNavigate();
   const { login } = useAuth();
+  const {cargarUsuario} = useAuth();
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isServerStarting, setIsServerStarting] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const { usuario } = useAuth();
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
-  const token = localStorage.getItem('token');
   const [intentosLogin, setIntentosLogin] = useState(0);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [totalBloqueos, setTotalBloqueos] = useState(0);
+  const [loadingPage, setLoadingPage] = useState(true);
   
-  if(token){
-    navigate('/inicio');
-  }
-  try{
-    if(!isBlocked && Number(localStorage.getItem('intentos')) > 2){
-      setIsBlocked(true);
-      let totalBloqueos = localStorage.getItem('totalBloqueos') || 0;
-      let segundos = segundosBloqueo;
-      if(totalBloqueos > 2){
-        segundos = (segundos * totalBloqueos);
+  useEffect(() => {
+      setLoadingPage(true)
+      try{
+        usuario ? navigate('/inicio') : setLoadingPage(false)
+      } catch (error) {
+        console.error('Error al cargar el usuario:', error);
+        setLoadingPage(false)
       }
-      setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos.`); 
-      const id = setInterval(() => {
-          segundos -= 1;
-
-          if (segundos <= 0) {
-            clearInterval(id);
-            setIsBlocked(false);
-            setIntentosLogin(0);
-            setError('');
-            localStorage.removeItem('intentos');
-          } else {
-            setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos. Contacta con el administrador si el problema persiste.`);
-          }
-        }, 1000);
-    }
-} catch (err){
+      
+    }, [usuario, navigate]);
   
-}
+
+  const BLOQUEO_KEY = 'bloqueadoHasta'; // timestamp en ms
+
+  function calcularSegundos(totalBloqueos) {
+    return totalBloqueos > 2 ? segundosBloqueo * totalBloqueos : segundosBloqueo;
+  }
+
+  function iniciarBloqueo(nuevoTotalBloqueos) {
+    const total = Math.min(nuevoTotalBloqueos, 7);
+    const segundos = calcularSegundos(total);
+    const hasta = Date.now() + segundos * 1000;
+
+    localStorage.setItem('totalBloqueos', total);
+    localStorage.setItem(BLOQUEO_KEY, hasta);
+    setTotalBloqueos(total);
+    setIsBlocked(true);
+  }
+  
+  
+
+  useEffect(() => {
+    const hasta = Number(localStorage.getItem(BLOQUEO_KEY));
+    if (!hasta || hasta <= Date.now()) return;
+
+    setIsBlocked(true);
+
+    const id = setInterval(() => {
+      const restantes = Math.ceil((hasta - Date.now()) / 1000);
+      if (restantes <= 0) {
+        clearInterval(id);
+        setIsBlocked(false);
+        setIntentosLogin(0);
+        setError('');
+        localStorage.removeItem('intentos');
+        localStorage.removeItem(BLOQUEO_KEY);
+      } else {
+        setSegundosRestantes(restantes);
+        setError(`Has excedido el número de intentos. Intenta nuevamente en ${restantes} segundos.`);
+      }
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [isBlocked]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,10 +90,9 @@ function Login() {
         navigate('/inicio')
         localStorage.removeItem('intentos');
         localStorage.removeItem('totalBloqueos');
+        cargarUsuario();
       }
-      
-      
-    }catch (err) {
+    } catch (err) {
 
       const status = err.response?.status;
       const errorMsg = err.response?.data?.error || err.message || '';
@@ -84,51 +109,20 @@ function Login() {
       if (is502Error) {
         setIsServerStarting(true);
         setError(
-          'El servidor se está iniciando o estableciendo conexión con la base de datos. Por favor, espera unos segundos e intenta nuevamente.'
+          'Ocurrió un error al conectar con el servidor. Por favor, espera unos segundos e intenta nuevamente.'
         );
-        } else if (status === 401) {
-    setIsServerStarting(false);
-    setIntentosLogin((prev) => {
-      const nuevosIntentos = prev + 1;
+      } else if (status === 401) {
 
-      localStorage.setItem('intentos', nuevosIntentos);
-      
-      if (nuevosIntentos >= 3) {
-        setIsBlocked(true);
-        setTotalBloqueos((prevBloqueos) => prevBloqueos + 1);
-        let segundos = segundosBloqueo;
-        setSegundosRestantes(segundos);
-        if(totalBloqueos >= 7){
-          setTotalBloqueos(7);
-        }
-        localStorage.setItem('totalBloqueos', totalBloqueos);
-
-        if(totalBloqueos > 1){
-          segundos = (segundos * totalBloqueos);
-        }
-        setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos.`);
-
-        const id = setInterval(() => {
-          segundos -= 1;
-          setSegundosRestantes(segundos);
-          //si se termina el temporizador, se desbloquea el boton, se reinicia el contador de intentos y se limpia el error
-          if (segundos <= 0) {
-            clearInterval(id);
-            setIsBlocked(false);
-            setIntentosLogin(0);
-            setSegundosRestantes(0);
-            setError('');
-            localStorage.removeItem('intentos');
+        setIntentosLogin((prev) => {
+          const nuevosIntentos = prev + 1;
+          localStorage.setItem('intentos', nuevosIntentos);
+          if (nuevosIntentos >= 3) {
+            iniciarBloqueo(totalBloqueos + 1);
           } else {
-            setError(`Has excedido el número de intentos. Intenta nuevamente en ${segundos} segundos. contavcta con el administrador si el problema persiste.`);
+            setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
           }
-        }, 1000);
-      } else {
-        setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
-      }
-      return nuevosIntentos;
-    });
-  
+          return nuevosIntentos;
+        });
       } else if (status === 405) {
         setIsServerStarting(false);
         setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST.');
@@ -136,14 +130,20 @@ function Login() {
         setIsServerStarting(false);
         setError(errorMsg || 'Error al conectar con el servidor.');
       }
-    
-    }finally {
+
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
+  <div>
+    {loadingPage ?
+      (<div>
+        Loading
+      </div>)
+       :
+      (<div className="login-page">
       <div className="login-card">
         <div className="login-brand">
           <div className="login-brand__icon" aria-hidden="true">
@@ -225,6 +225,7 @@ function Login() {
                 onChange={(e) => setCorreo(e.target.value)}
                 placeholder="usuario@empresa.com"
                 autoComplete="email"
+                disabled={isBlocked}
                 required
               />
             </div>
@@ -250,6 +251,7 @@ function Login() {
                 autoComplete="current-password"
                 required
                 style={{ paddingRight: '2.75rem' }}
+                disabled={isBlocked}
               />
               <button
                 type="button"
@@ -272,7 +274,6 @@ function Login() {
               </button>
             </div>
           </div>
-
           <button
             type="submit"
             className="login-btn"
@@ -285,8 +286,11 @@ function Login() {
           </button>
         </form>
       </div>
-    </div>
-  );
+    </div>)}
+  </div>
+  //return
+  )
 }
+
 
 export default Login;

@@ -1,0 +1,7 @@
+unit: auth-api
+commit: false
+candidate_splits:
+  - id: "sicat-backend/src/controllers/auth.controller.js:1"
+    drivers: [concern_split]
+    rationale: "Login, registro, sesión actual y cierre de sesión son operaciones separables."
+    source_slice: {file: "sicat-backend/src/controllers/auth.controller.js", lines: [1, 140]}

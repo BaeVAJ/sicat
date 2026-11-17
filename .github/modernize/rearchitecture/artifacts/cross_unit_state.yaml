@@ -1,0 +1,31 @@
+flows:
+  - name: auth-cookie
+    medium: cookie
+    key: auth_token
+    writer: {unit: auth-api, source_loc: "sicat-backend/src/controllers/auth.controller.js:1"}
+    reader: {unit: frontend-spa, source_loc: "sicat-frontend/src/context/AuthContext.jsx:12"}
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Login seguido de recarga debe restaurar /auth/me."
+    notes: "La cookie se transporta con credentials/include."
+  - name: event-stream
+    medium: framework-context
+    key: event
+    writer: {unit: tickets-api, source_loc: "sicat-backend/src/controllers/ticket.controller.js:1"}
+    reader: {unit: frontend-spa, source_loc: "sicat-frontend/src/api/events.js:1"}
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Crear/actualizar ticket debe producir evento visible al usuario de sistemas."
+    notes: "También participan pedidos/asignaciones/inventario; EventEmitter no persiste."
+  - name: department-filter
+    medium: framework-context
+    key: departamento
+    writer: {unit: auth-api, source_loc: "sicat-backend/src/controllers/auth.controller.js:1"}
+    reader: {unit: events-api, source_loc: "sicat-backend/src/controllers/events.controller.js:12"}
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Solo usuarios cuyo departamento contiene sistemas reciben eventos."
+    notes: "El filtro depende del payload JWT."

@@ -2,7 +2,11 @@ import pool from '../db/pool.js'
 
 export async function getAll(req, res){
     try{
-        const { rows } = await pool.query('SELECT * FROM DEPARTAMENTO ORDER BY id_departamento')
+        const { rows } = await pool.query(`
+            SELECT d.*, e.nombre AS empresa 
+            FROM DEPARTAMENTO d 
+            LEFT JOIN EMPRESA e 
+            ON d.id_empresa = e.id_empresa`);
         res.json(rows);
     } catch (err){
         res.status(500).json({error:err.message})

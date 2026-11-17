@@ -1,0 +1,3 @@
+unit: compras-api
+commit: false
+candidate_splits: [{id: "sicat-backend/src/controllers/compra.controller.js:1", drivers: [data_ownership_split], rationale: "Cabecera, detalle y consulta de factura tienen datos y ciclos de cambio distintos.", source_slice: {file: "sicat-backend/src/controllers/compra.controller.js", lines: [1, 130]}}]

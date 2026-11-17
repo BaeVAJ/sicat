@@ -1,5 +1,5 @@
 // src/components/Ticket/CrearTicket/CrearTicket.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
@@ -15,14 +15,19 @@ function CrearTicket() {
     const [miDepartamentoNombre, setMiDepartamentoNombre] = useState(usuario?.departamento || '');
     const [descripcion, setDescripcion] = useState('');
     const [urgente, setUrgente] = useState(false);
+    const fechaInicial = new Date();
+    fechaInicial.setDate(fechaInicial.getDate() + 3);
+    const [fechaLimite, setFechaLimite] = useState(fechaInicial.toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [loadingDeps, setLoadingDeps] = useState(true);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [message, setMessage] = useState({type: '', text: ''});
 
     const MAX_DESC = 500;
-
-    // Cargar departamentos y perfil del usuario
+    
+    const showMessage = useCallback((type, text) => {
+            setMessage({ type, text });
+        }, [])
+    
     useEffect(() => {
         let mounted = true;
 
@@ -45,7 +50,7 @@ function CrearTicket() {
                         if (me?.id_departamento) depId = me.id_departamento;
                         if (me?.departamento) depNombre = me.departamento;
                     } catch {
-                        // ignore error
+                        
                     }
                 }
 
@@ -59,7 +64,22 @@ function CrearTicket() {
                     if (depNombre) setMiDepartamentoNombre(depNombre);
                 }
             } catch {
-                if (mounted) setError('No se pudieron cargar los datos de departamentos');
+                if (mounted) {
+                    const status = err.response?.status;
+                    const serverError = err.response?.data?.error;
+                    const errorText = typeof serverError === 'string' ? serverError : '';
+                    let message = 'Error al cargar los usuarios';
+
+                    if (!err.response) {
+                        message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+                    } else if (errorText.includes('getaddrinfo')) {
+                        message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                    }
+                    if (isAdmin) {
+                        message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+                    }
+                    showMessage('error', message);
+                };
             } finally {
                 if (mounted) setLoadingDeps(false);
             }
@@ -74,12 +94,13 @@ function CrearTicket() {
     const isValid =
         (isAdmin ? idDepartamento !== '' : (idDepartamento !== '' || miDepartamentoNombre !== '')) &&
         descripcion.trim().length >= 10 &&
-        descripcion.length <= MAX_DESC;
+        descripcion.length <= MAX_DESC &&
+        fechaLimite !== '';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        
+        
         setLoading(true);
 
         try {
@@ -92,9 +113,10 @@ function CrearTicket() {
                 descripcion: descripcion.trim(),
                 id_usuario: usuario?.id_usuario || null,
                 urgente: Boolean(urgente),
+                fecha_limite: fechaLimite,
             });
 
-            setSuccess('Ticket creado exitosamente');
+            showMessage('success', 'Ticket creado exitosamente.');
             setDescripcion('');
             setUrgente(false);
 
@@ -103,15 +125,53 @@ function CrearTicket() {
                 setIdDepartamento(usuario?.id_departamento ? String(usuario.id_departamento) : '');
             }
         } catch (err) {
-            const mensaje =
-                err.response?.data?.error ||
-                err.message ||
-                'Error al crear el ticket';
-            setError(mensaje);
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error al cargar los usuarios';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
     };
+
+    
+    const alerta = message.text && (
+        <div className={`ticket-alert ticket-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="ticket-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
     return (
         <div className="ticket-page">
@@ -131,49 +191,7 @@ function CrearTicket() {
                 </div>
 
                 {/* ── Alerts ── */}
-                {error && (
-                    <div className="ticket-alert ticket-alert--error" role="alert">
-                        <span className="ticket-alert__icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                        </span>
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {success && (
-                    <div className="ticket-alert ticket-alert--success" role="alert">
-                        <span className="ticket-alert__icon">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
-                            <span>{success}</span>
-                            <button
-                                type="button"
-                                onClick={() => navigate('/tickets')}
-                                style={{
-                                    background: 'rgba(255,255,255,0.18)',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    color: '#fff',
-                                    padding: '0.25rem 0.65rem',
-                                    fontSize: '0.75rem',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
-                                }}
-                            >
-                                Ver Tickets
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {alerta}
 
                 {/* ── Form ── */}
                 <form onSubmit={handleSubmit} noValidate>
@@ -269,6 +287,24 @@ function CrearTicket() {
                         <div className="ticket-field__counter">
                             {descripcion.length} / {MAX_DESC}
                         </div>
+                    </div>
+
+                    <div className="ticket-field">
+                        <label htmlFor="ticket-fecha-limite" className="ticket-field__label">
+                            Fecha límite de solución
+                        </label>
+                        <input
+                            id="ticket-fecha-limite"
+                            type="date"
+                            className="ticket-field__select"
+                            value={fechaLimite}
+                            min={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => setFechaLimite(e.target.value)}
+                            required
+                        />
+                        <span style={{ fontSize: '0.74rem', color: 'rgba(148, 163, 184, 0.7)', marginTop: '4px', display: 'block' }}>
+                            El ticket se marcará como vencido si no se soluciona antes de esta fecha.
+                        </span>
                     </div>
 
                     {/* ── Botón / Selector de Urgente ── */}

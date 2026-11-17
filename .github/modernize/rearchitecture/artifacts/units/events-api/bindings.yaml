@@ -1,0 +1,3 @@
+unit: events-api
+bindings: [{type: listener, name: "GET /api/events/stream", source_loc: "sicat-backend/src/index.js:66", target: "SSE response", must_appear_in_target: true, notes: "Protegido por verificarToken."}]
+runtime_config: []

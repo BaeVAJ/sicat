@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="87b5671c-2859-4cbe-a9d2-612260ae8b1a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.modules.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.modules.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.package-map.json" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.package-map.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm-workspace-state-v1.json" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm-workspace-state-v1.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/History.md" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/History.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/LICENSE" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/Readme.md" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/Readme.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/node_modules/.pnpm/node_modules/cookie-signature/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/pnpm-lock.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/controllers/asignacion.controller.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/controllers/asignacion.controller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/controllers/auth.controller.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/controllers/auth.controller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/controllers/factura.controller.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/controllers/factura.controller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/controllers/inventario.controller.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/controllers/inventario.controller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/controllers/pedido.controller.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/controllers/pedido.controller.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/middlewares/auth.middleware.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/middlewares/auth.middleware.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/routes/auth.routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/routes/auth.routes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/routes/factura.routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/routes/factura.routes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/routes/inventario.routes.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/routes/inventario.routes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-backend/src/services/supabaseStorage.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-backend/src/services/supabaseStorage.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-database/database.sql" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-database/database.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/api/client.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/api/client.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/api/events.js" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/api/events.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/assets/strikethrough-svgrepo-com.svg" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/assets/strikethrough-svgrepo-com.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Facturas/facturas.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Facturas/facturas.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Login/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Login/Login.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Organizacion/Departamento/Departamento.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Organizacion/Departamento/Departamento.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Organizacion/Empresa/Empresa.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Organizacion/Empresa/Empresa.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Ticket/VerTicket/Tickets.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Ticket/VerTicket/Tickets.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Usuarios/Usuarios.css" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Usuarios/Usuarios.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/Usuarios/Usuarios.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/Usuarios/Usuarios.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/catalogo/Proveedores/Proveedores.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/catalogo/Proveedores/Proveedores.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/inicio/Inicio.css" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/inicio/Inicio.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/inicio/Inicio.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/inicio/Inicio.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/layout/SistemasAlertas.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/layout/SistemasAlertas.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/components/layout/sidebar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/components/layout/sidebar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/context/AuthContext.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/context/AuthContext.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sicat-frontend/src/main.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/sicat-frontend/src/main.jsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="3Jy8zCIiDaLPe2IigGZmfKBmNet" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "junie.onboarding.icon.badge.shown": "true",
+    "nodejs_package_manager_path": "pnpm",
+    "settings.editor.selected.configurable": "preferences.lookFeel",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.28539.97" />
+        <option value="bundled-js-predefined-d6986cc7102b-a71380e98a7c-JavaScript-IU-252.28539.97" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="87b5671c-2859-4cbe-a9d2-612260ae8b1a" name="Changes" comment="" />
+      <created>1790622209169</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1790622209169</updated>
+      <workItem from="1790622212804" duration="9000" />
+    </task>
+    <servers />
+  </component>
+</project>

@@ -1,0 +1,8 @@
+unit: tickets-api
+side_effects:
+  - {source_loc: "sicat-backend/src/controllers/ticket.controller.js:1", effect: "Crea tickets y publica eventos ticket.*.", must_preserve: true}
+  - {source_loc: "sicat-backend/src/controllers/ticket.controller.js:1", effect: "Actualiza estado y fechas de solución.", must_preserve: true}
+branches:
+  - {source_loc: "sicat-backend/src/controllers/ticket.controller.js:1", condition: "cambio de estado", behavior: "aplica ciclo PENDIENTE/EN_PROCESO/SOLUCIONADO", must_preserve: true}
+error_paths: [{source_loc: "sicat-backend/src/controllers/ticket.controller.js:1", trigger: "ticket inexistente o payload inválido", outcome: "JSON error", contract: "400/404", must_preserve: true}]
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/ticket.controller.js:1", scope: "ticket y evento", isolation: "pool default", must_preserve: true}}

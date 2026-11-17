@@ -15,56 +15,75 @@ const subscribers = new Set();
 
 function closeConnection() {
     if (!connection) return;
+
     connection.handlers.forEach(([type, handler]) =>
         connection.source.removeEventListener(type, handler)
     );
+
     connection.source.close();
     connection = null;
 }
 
-function createConnection(token) {
+function createConnection() {
     const baseUrl = import.meta.env.VITE_API_URL || '';
+
     const source = new EventSource(
-        `${baseUrl}/events/stream?token=${encodeURIComponent(token)}`
+        `${baseUrl}/events/stream`,
+        { withCredentials: true }
     );
 
     const handlers = eventTypes.map((type) => {
         const handler = (event) => {
             let payload;
+
             try {
                 payload = JSON.parse(event.data);
             } catch {
                 return;
             }
-            subscribers.forEach((subscriber) => subscriber(type, payload));
+
+            subscribers.forEach((subscriber) => {
+                subscriber(type, payload);
+            });
         };
 
         source.addEventListener(type, handler);
+
         return [type, handler];
     });
 
-    // ✅ No cerrar en error: dejar reconectar. Solo cerrar si el stream queda CLOSED.
     source.onerror = () => {
         if (source.readyState === EventSource.CLOSED) {
-            console.warn('[SICAT] SSE cerrado, se recreará en el próximo subscribe.');
+            console.warn(
+                '[SICAT] SSE cerrado, se recreará en el próximo subscribe.'
+            );
+
             closeConnection();
         }
     };
 
-    return { source, handlers, token };
+    return {
+        source,
+        handlers
+    };
 }
 
 export function subscribeToEvents(onEvent) {
-    const token = localStorage.getItem('token');
-    if (!token || typeof onEvent !== 'function') return () => {};
+    if (typeof onEvent !== 'function') {
+        return () => {};
+    }
 
-    if (connection && connection.token !== token) closeConnection();
-    if (!connection) connection = createConnection(token);
+    if (!connection) {
+        connection = createConnection();
+    }
 
     subscribers.add(onEvent);
 
     return () => {
         subscribers.delete(onEvent);
-        if (subscribers.size === 0) closeConnection();
+
+        if (subscribers.size === 0) {
+            closeConnection();
+        }
     };
 }

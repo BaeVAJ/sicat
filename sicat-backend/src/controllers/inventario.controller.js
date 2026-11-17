@@ -1,8 +1,40 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
 
+const DEPARTAMENTO_SISTEMAS = 1;
+
+/**
+ * Responde un error 500 enviando al frontend:
+ *  - error:   mensaje genérico (apto para usuarios normales)
+ *  - detalle: mensaje real del servidor (el frontend decide si lo muestra, p. ej. solo a admins)
+ *  - codigo:  código de error de Postgres u otro, si existe
+ */
+function enviarErrorServidor(res, err, contexto) {
+  console.error(`Error en inventario (${contexto}):`, err);
+  return res.status(500).json({
+    error: 'Error interno del servidor',
+    detalle: err?.message ?? String(err),
+    codigo: err?.code ?? null,
+  });
+}
+
+const esEnteroPositivo = (v) => Number.isInteger(Number(v)) && Number(v) > 0 && String(v).trim() !== '';
+const esEnteroNoNegativo = (v) => Number.isInteger(Number(v)) && Number(v) >= 0 && String(v).trim() !== '';
+
+function validarCantidades(res, campos) {
+  for (const [campo, valor] of campos) {
+    if (valor != null && !esEnteroNoNegativo(valor)) {
+      res.status(400).json({ error: `${campo} debe ser un entero mayor o igual a 0` });
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function getAll(req, res) {
   try {
+    const departamentoUsuario = Number(req.usuario?.id_departamento);
+    const esSistemas = departamentoUsuario === DEPARTAMENTO_SISTEMAS;
     const { rows } = await pool.query(`
       SELECT i.*, pr.nombre AS producto, pr.marca, pr.modelo,
              d.nombre AS departamento, e.nombre AS empresa
@@ -10,17 +42,22 @@ export async function getAll(req, res) {
       JOIN PRODUCTO     pr ON i.id_producto     = pr.id_producto
       JOIN DEPARTAMENTO d  ON i.id_departamento = d.id_departamento
       JOIN EMPRESA       e ON d.id_empresa      = e.id_empresa
-      ${req.usuario?.rol === 'admin' || req.usuario?.rol === 'gerente' ? '' : `WHERE i.id_departamento = ${Number(req.usuario?.id_departamento) || 0}`}
+      WHERE ${esSistemas ? 'TRUE' : 'i.id_departamento = $1'}
       ORDER BY e.nombre, d.nombre, pr.nombre
-    `);
+    `, esSistemas ? [] : [departamentoUsuario || 0]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { enviarErrorServidor(res, err, 'getAll'); }
 }
 
 export async function getByDepartamento(req, res) {
   try {
-    if (!['admin', 'gerente'].includes(req.usuario?.rol) &&
-        Number(req.params.id) !== Number(req.usuario?.id_departamento)) {
+    const departamentoUsuario = Number(req.usuario?.id_departamento);
+    const esSistemas = departamentoUsuario === DEPARTAMENTO_SISTEMAS;
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'El id de departamento no es válido' });
+    }
+    const departamentoSolicitado = Number(req.params.id);
+    if (!esSistemas && departamentoSolicitado !== departamentoUsuario) {
       return res.status(403).json({ error: 'Solo puedes consultar el inventario de tu departamento' });
     }
     const { rows } = await pool.query(`
@@ -29,36 +66,49 @@ export async function getByDepartamento(req, res) {
       JOIN PRODUCTO pr ON i.id_producto = pr.id_producto
       WHERE i.id_departamento = $1
       ORDER BY pr.nombre
-    `, [req.params.id]);
+    `, [departamentoSolicitado]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { enviarErrorServidor(res, err, 'getByDepartamento'); }
 }
 
 export async function getAlertas(req, res) {
   try {
-    const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
+    const esSistemas = Number(req.usuario?.id_departamento) === DEPARTAMENTO_SISTEMAS;
     const { rows } = await pool.query(`
       SELECT i.*, pr.nombre AS producto, d.nombre AS departamento
       FROM INVENTARIO i
       JOIN PRODUCTO     pr ON i.id_producto     = pr.id_producto
       JOIN DEPARTAMENTO d  ON i.id_departamento = d.id_departamento
       WHERE i.cantidad_disponible <= i.cantidad_minima
-        ${isManager ? '' : `AND i.id_departamento = ${Number(req.usuario?.id_departamento) || 0}`}
+        ${esSistemas ? '' : 'AND i.id_departamento = $1'}
       ORDER BY i.cantidad_disponible ASC
-    `);
+    `, esSistemas ? [] : [Number(req.usuario?.id_departamento) || 0]);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { enviarErrorServidor(res, err, 'getAlertas'); }
 }
 
 export async function update(req, res) {
   const { cantidad_disponible, cantidad_minima, id_producto, id_departamento } = req.body;
   try {
-    const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
-    const ownDepartment = Number(req.usuario?.id_departamento);
-    const targetDepartment = Number(id_departamento);
-    if (!isManager && targetDepartment && targetDepartment !== ownDepartment) {
+    const deptoToken = Number(req.usuario?.id_departamento);
+    const esSistemas = deptoToken === DEPARTAMENTO_SISTEMAS;
+    const departamentoUsuario = esSistemas ? Number(id_departamento) : deptoToken;
+    if (!Number.isInteger(departamentoUsuario) || departamentoUsuario <= 0) {
+      return res.status(403).json({ error: 'Tu usuario no tiene un departamento asignado' });
+    }
+
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'El id de inventario no es válido' });
+    }
+    const idInventario = Number(req.params.id);
+
+    const departamentoSolicitado = id_departamento == null ? null : Number(id_departamento);
+    if (departamentoSolicitado != null && departamentoSolicitado !== departamentoUsuario && !esSistemas) {
       return res.status(403).json({ error: 'Solo puedes modificar el inventario de tu departamento' });
     }
+
+    if (!validarCantidades(res, [['cantidad_disponible', cantidad_disponible], ['cantidad_minima', cantidad_minima]])) return;
+
     const { rows } = await pool.query(`
       UPDATE INVENTARIO
       SET id_producto = COALESCE($1, id_producto),
@@ -66,45 +116,70 @@ export async function update(req, res) {
           cantidad_disponible = COALESCE($3, cantidad_disponible),
           cantidad_minima     = COALESCE($4, cantidad_minima)
       WHERE id_inventario = $5
-        AND ($6 OR id_departamento = $7)
+        AND id_departamento = $6
       RETURNING *
-    `, [id_producto || null, isManager ? id_departamento || null : ownDepartment,
-      cantidad_disponible, cantidad_minima, req.params.id, isManager, ownDepartment]);
+    `, [id_producto ?? null, departamentoSolicitado, cantidad_disponible ?? null,
+      cantidad_minima ?? null, idInventario, departamentoUsuario]);
     if (!rows[0]) return res.status(404).json({ error: 'Inventario no encontrado' });
     publish('inventory.updated', rows[0]);
     res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { enviarErrorServidor(res, err, 'update'); }
 }
 
 export async function create(req, res) {
   const { id_producto, id_departamento, cantidad_disponible = 0, cantidad_minima = 1 } = req.body;
-  const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
-  const department = isManager ? Number(id_departamento) : Number(req.usuario?.id_departamento);
-  if (!id_producto || !department) return res.status(400).json({ error: 'Producto y departamento son obligatorios' });
+  const department = Number(req.usuario?.id_departamento);
+  const esSistemas = (department === DEPARTAMENTO_SISTEMAS);
+
+  if (!Number.isInteger(department) || department <= 0)
+    return res.status(403).json({ error: 'Tu usuario no tiene un departamento asignado' });
+  
+      // Si el usuario no es de sistemas, solo puede crear inventario para su propio departamento
+  if ((id_departamento != null && Number(id_departamento) !== department) && !esSistemas)
+    return res.status(403).json({ error: 'Solo puedes modificar el inventario de tu departamento' });
+  
+  if (id_producto == null || !esEnteroPositivo(id_producto))
+    return res.status(400).json({ error: 'Producto y departamento son obligatorios' });
+  if (!validarCantidades(res, [['cantidad_disponible', cantidad_disponible], ['cantidad_minima', cantidad_minima]])) return;
+  
   try {
     const { rows } = await pool.query(`
       INSERT INTO INVENTARIO (id_producto, id_departamento, cantidad_disponible, cantidad_minima)
       VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [id_producto, department, cantidad_disponible, cantidad_minima]);
+
+      ON CONFLICT (id_producto, id_departamento)
+      DO UPDATE SET
+        cantidad_disponible = COALESCE(EXCLUDED.cantidad_disponible, INVENTARIO.cantidad_disponible),
+        cantidad_minima     = COALESCE(EXCLUDED.cantidad_minima, INVENTARIO.cantidad_minima)
+      RETURNING *;
+
+    `, [Number(id_producto), Number(id_departamento), Number(cantidad_disponible), Number(cantidad_minima)]);
     publish('inventory.created', rows[0]);
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Ese producto ya existe en el departamento' });
-    res.status(500).json({ error: err.message });
+    enviarErrorServidor(res, err, 'create');
   }
 }
 
 export async function remove(req, res) {
   try {
-    const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
+    const departamentoUsuario = Number(req.usuario?.id_departamento);
+    if (!Number.isInteger(departamentoUsuario) || departamentoUsuario <= 0) {
+      return res.status(403).json({ error: 'Tu usuario no tiene un departamento asignado' });
+    }
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'El id de inventario no es válido' });
+    }
+    const esSistemas = departamentoUsuario === DEPARTAMENTO_SISTEMAS;
     const { rows } = await pool.query(`
       DELETE FROM INVENTARIO
-      WHERE id_inventario = $1 AND ($2 OR id_departamento = $3)
+      WHERE id_inventario = $1
+        ${esSistemas ? '' : 'AND id_departamento = $2'}
       RETURNING *
-    `, [req.params.id, isManager, req.usuario?.id_departamento]);
+    `, esSistemas ? [Number(req.params.id)] : [Number(req.params.id), departamentoUsuario]);
     if (!rows[0]) return res.status(404).json({ error: 'Inventario no encontrado' });
     publish('inventory.deleted', rows[0]);
     res.json({ mensaje: 'Inventario eliminado correctamente' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { enviarErrorServidor(res, err, 'remove'); }
 }

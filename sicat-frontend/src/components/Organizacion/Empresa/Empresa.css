@@ -45,6 +45,30 @@
     flex-wrap: wrap;
 }
 
+.empresa-empty-state__icon{
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(148, 163, 184, 0.6);
+}
+
+.empresa-empty-state{
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(10px);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+}
 /* ---------- Buttons & Micro-animations ---------- */
 .empresa-btn {
     display: inline-flex;
@@ -131,79 +155,98 @@
     to { transform: rotate(360deg); }
 }
 
-/* ---------- Stat Cards / Metrics Bar ---------- */
-.empresa-stats {
+.empresa-spin{
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(99, 102, 241, 0.15);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: empresaSpin 0.75s linear infinite;
+    align-self: center;
+}
+
+.empresa-empty-state__title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin: 0;
+}
+
+.empresa-kpis{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.empresa-kpi__icon-box{
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 11px;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
+    justify-content: center;
 }
 
-.empresa-stat {
-    flex: initial;
-    display: inline-flex;
+.empresa-kpi{
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    backdrop-filter: blur(16px);
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem;
+    display: flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.4rem 0.95rem;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-left: 3px solid !important;
-    border-radius: 9999px;
-    flex-direction: row;
-    transition: all 0.2s ease;
-    animation: empresaStatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    gap: 1rem;
+    transition: all 0.25s ease;
+    cursor:pointer;
 }
 
-.empresa-stat:nth-child(1) { animation-delay: 0.05s; }
-.empresa-stat:nth-child(2) { animation-delay: 0.12s; }
-.empresa-stat:nth-child(3) { animation-delay: 0.19s; }
-
-.empresa-stat:hover {
-    background: rgba(30, 41, 59, 0.75);
-    border-color: rgba(255, 255, 255, 0.14);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+.empresa-kpi:hover{
+    border-color: rgba(6, 182, 212, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
-.empresa-stat__label {
-    order: 1;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: #94a3b8;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-flex;
-    align-items: center;
+.prov-kpi__icon-box--cyan {
+    background: rgba(6, 182, 212, 0.15);
+    color: #22d3ee;
+    border: 1px solid rgba(6, 182, 212, 0.25);
 }
 
-.empresa-stat__label::after {
-    content: ':';
-    margin-right: 0.15rem;
+.prov-kpi__icon-box--amber {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
-.empresa-stat__count {
-    order: 2;
-    font-size: 0.85rem;
+.prov-kpi__icon-box--emerald {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.prov-kpi__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.prov-kpi__label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(148, 163, 184, 0.75);
+    margin-bottom: 0.2rem;
+}
+
+.prov-kpi__value {
+    font-size: 1.45rem;
     font-weight: 700;
-    letter-spacing: normal;
-    line-height: 1;
+    color: #f8fafc;
+    line-height: 1.15;
 }
 
-@keyframes empresaStatIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ---------- Alerts ---------- */
 .empresa-alert {
     display: flex;
     align-items: center;
@@ -280,7 +323,7 @@
     }
 }
 
-/* ---------- Search & Filters Toolbar ---------- */
+
 .empresa-toolbar {
     display: flex;
     gap: 1rem;
@@ -450,10 +493,12 @@
 }
 
 .empresa-table__empty {
-    padding: 3.5rem 1.5rem !important;
+    padding: 3.5rem 1.5rem;
     text-align: center;
     color: rgba(148, 163, 184, 0.5);
     font-size: 0.92rem;
+    align-items: center;
+    
 }
 
 /* ---------- Badges ---------- */
@@ -467,6 +512,7 @@
     font-weight: 600;
     letter-spacing: 0.03em;
     white-space: nowrap;
+    cursor:pointer;
 }
 
 .empresa-badge__dot {
@@ -484,7 +530,6 @@
 .empresa-badge--active .empresa-badge__dot {
     background: #10b981;
     box-shadow: 0 0 8px #10b981;
-    animation: badgePulse 2s ease-in-out infinite;
 }
 
 .empresa-badge--inactive {
@@ -498,12 +543,6 @@
     box-shadow: 0 0 8px #f59e0b;
 }
 
-@keyframes badgePulse {
-    0%, 100% { transform: scale(1); opacity: 0.9; }
-    50% { transform: scale(1.4); opacity: 0.4; }
-}
-
-/* ---------- Action Buttons in Table ---------- */
 .empresa-table__actions {
     display: flex;
     align-items: center;
@@ -530,29 +569,50 @@
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.2s ease;
 }
 
-.empresa-action-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-}
-
 .empresa-action-btn:hover:not(:disabled) svg {
     transform: scale(1.22);
 }
 
+.empresa-action-btn--edit {
+    background: rgba(2, 132, 199, 0.2);
+    color:#38bdf8;
+    border: 2px solid rgba(2, 132, 199, 0.3);
+}
 .empresa-action-btn--edit:hover:not(:disabled) {
-    border-color: rgba(124, 58, 237, 0.4);
-    background: rgba(124, 58, 237, 0.15);
-    color: #c4b5fd;
+    background:rgba(2, 132, 199, 0.3);
+    color:#7dd3fc;
+    border-color: 2px solid rgba(2,132, 199, 0.5);
+    transform: translateY(-1px);
 }
 
-.empresa-action-btn--edit:hover:not(:disabled) svg {
-    transform: scale(1.25) rotate(-12deg);
+.empresa-action-btn-toggle--disabled {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 2px solid rgba(245, 158, 11, 0.3);
+}
+.empresa-action-btn-toggle--disabled:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.3);
+    color: #ffc532;
+    border: 2px solid rgba(245, 158, 11, 0.5);
+    transform: translateY(-1px);
 }
 
+.empresa-action-btn-toggle--enabled {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+}
+
+.empresa-action-btn--delete {
+    background: rgba(239, 68, 68, 0.2);
+    color:#fca5a5;
+    border: 2px solid rgba(239,68,68, 0.3);
+}
 .empresa-action-btn--delete:hover:not(:disabled) {
-    border-color: rgba(239, 68, 68, 0.4);
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.3);
+    color:#fee2e2;
+    border-color:2px solid rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
 }
 
 .empresa-action-btn--delete:hover:not(:disabled) svg {
@@ -565,7 +625,6 @@
     transform: none;
 }
 
-/* ---------- Modals ---------- */
 .empresa-modal-overlay {
     position: fixed;
     inset: 0;
@@ -654,7 +713,6 @@
     transform: rotate(90deg) scale(1.15);
 }
 
-/* ---------- Form Controls inside Modal ---------- */
 .empresa-form-group {
     margin-bottom: 1.25rem;
 }
@@ -753,7 +811,6 @@
     margin-top: 1.75rem;
 }
 
-/* ---------- Global SVG Animations ---------- */
 @keyframes svgAppear {
     0% {
         opacity: 0;
@@ -782,7 +839,6 @@
     }
 }
 
-/* ---------- Responsive Breakpoints ---------- */
 @media (max-width: 768px) {
     .empresa-container {
         padding: 1.25rem;

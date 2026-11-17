@@ -5,7 +5,13 @@ export async function getAll(req, res) {
     const { sin_factura } = req.query;
     let query = `
       SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa,
-             (f.id_compra IS NOT NULL) AS tiene_factura
+             (f.id_compra IS NOT NULL) AS tiene_factura,
+             (
+               SELECT STRING_AGG(DISTINCT d.nombre, ', ' ORDER BY d.nombre)
+               FROM DETALLE_COMPRA dc
+               JOIN DEPARTAMENTO d ON dc.id_departamento = d.id_departamento
+               WHERE dc.id_compra = c.id_compra
+             ) AS departamento
       FROM COMPRA c
       JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
       JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
@@ -29,10 +35,12 @@ export async function getAll(req, res) {
 export async function getById(req, res) {
   try {
     const { rows: [compra] } = await pool.query(
-      `SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa
+      `SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa, d.nombre as departamento
        FROM COMPRA c
        JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
        JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
+       JOIN DETALLE_COMPRA dc ON c.id_compra = dc.id_compra
+       JOIN DEPARTAMENTO d on dc.id_departamento = d.id_departamento
        WHERE c.id_compra = $1`, [req.params.id]
     );
     if (!compra) return res.status(404).json({ error: 'Compra no encontrada' });
@@ -51,6 +59,13 @@ export async function getById(req, res) {
 export async function create(req, res) {
   const { id_proveedor, id_empresa, fecha_compra, detalle } = req.body;
   if (!detalle?.length) return res.status(400).json({ error: 'El detalle es requerido' });
+  const departamentoUsuario = Number(req.usuario?.id_departamento);
+  const esSistemas = departamentoUsuario === 1;
+  if (!esSistemas && detalle.some((item) => Number(item.id_departamento) !== departamentoUsuario)) {
+    return res.status(403).json({
+      error: 'Solo puedes registrar productos para el inventario de tu departamento'
+    });
+  }
 
   const client = await pool.connect();
   try {
@@ -65,9 +80,9 @@ export async function create(req, res) {
 
     for (const d of detalle) {
       await client.query(
-        `INSERT INTO DETALLE_COMPRA (id_compra, id_producto, cantidad, precio_unitario)
-         VALUES ($1, $2, $3, $4)`,
-        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario]
+        `INSERT INTO DETALLE_COMPRA (id_compra, id_producto, cantidad, precio_unitario, id_departamento)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario, d.id_departamento || null]
       );
       // Verificar si ya existe en inventario para ese producto y departamento
       const { rows: invExistente } = await client.query(
@@ -101,4 +116,33 @@ export async function create(req, res) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
+}
+
+export async function remove(req, res) {
+  try {
+    const client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows } = await client.query(  `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
+    if (!rows || rows.length === 0 || rows[0].length === 0 || rows[0] === undefined || !rows[0]) {
+      res.status(404).json({ error: 'Compra no encontrada' })
+      await client.query('ROLLBACK');
+      return 
+    }
+
+    for(const d of rows){
+      await client.query(
+        `UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_producto = $2 AND id_departamento = $3`,
+        [d.cantidad, d.id_producto, d.id_departamento]
+      )
+    }
+
+    await client.query(`DELETE FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
+    await client.query(`DELETE FROM COMPRA WHERE id_compra = $1 RETURNING *`, [req.params.id]);
+
+    await client.query('COMMIT');
+    res.json({mensaje:'Compra eliminada correctamente'});
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+    await client.query('ROLLBACK')
+  }
 }

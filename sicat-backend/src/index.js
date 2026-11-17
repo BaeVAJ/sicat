@@ -21,20 +21,32 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
-app.use(cors(
-  {origin: process.env.FRONTEND_URL, 
+const allowedOrigins = [
+  'https://sicat.22670030.workers.dev',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://0h4s588j-5173.usw3.devtunnels.ms',
+  
+];
+
+//permite conexion desde preview de cloudflare workers
+const previewRegex = /^https:\/\/[a-z0-9-]+-sicat\.22670030\.workers\.dev$/;
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // Postman, curl, etc.
+    if (allowedOrigins.includes(origin) || previewRegex.test(origin)) {
+      return cb(null, true); // refleja el origen exacto
+    }
+    
+    return cb(new Error('Origen no permitido por CORS'));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}
-));
+}));
 app.use(express.json());
 app.use(cookieParser());
-
-const TWELVE_HOURS_MS = 8 * 60 * 60 * 1000 //12 hrs que dura la cookie de sesión, para que el usuario no tenga que loguearse cada vez que refresca la página
-
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', sistema: 'SICAT' });

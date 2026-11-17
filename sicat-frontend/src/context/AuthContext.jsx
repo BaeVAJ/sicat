@@ -7,25 +7,28 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario]   = useState(null);
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    const token    = localStorage.getItem('token');
-    const guardado = localStorage.getItem('usuario');
-    if (token && guardado) {
-      try {
-        setUsuario(JSON.parse(guardado));
-      } catch {
-        localStorage.removeItem('usuario');
-      }
-    }
-    setCargando(false);
-  }, []);
-
-  async function login(correo, contrasena, maxIntentos = 2) {
+  const cargarUsuario = async () => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                setUsuario(null);
+                return;
+            }
+            const data = await res.json();
+            setUsuario(data);
+        } catch {
+            setUsuario(null);
+        } finally {
+            setCargando(false);
+        }
+    };
+    
+    async function login(correo, contrasena, maxIntentos = 2) {
     for (let intento = 1; intento <= maxIntentos; intento++) {
       try {
         const { data } = await client.post('/auth/login', { correo, contrasena });
-        localStorage.setItem('token',   data.token);
-        localStorage.setItem('usuario', JSON.stringify(data.usuario));
         setUsuario(data.usuario);
         return data.usuario;
       } catch (err) {
@@ -50,15 +53,13 @@ export function AuthProvider({ children }) {
       }
     }
   }
-
-  function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
-    setUsuario(null);
-  }
+  
+  useEffect(() => {
+    cargarUsuario();
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, logout }}>
+    <AuthContext.Provider value={{ usuario, cargando, cargarUsuario, login }}>
       {children}
     </AuthContext.Provider>
   );

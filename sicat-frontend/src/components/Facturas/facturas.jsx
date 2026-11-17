@@ -1,9 +1,25 @@
 // src/components/Facturas/facturas.jsx
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
 import './facturas.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function formatXml(xmlStr) {
     if (!xmlStr) return '';
@@ -35,7 +51,6 @@ function formatXml(xmlStr) {
     }
 }
 
-// Helper: Descarga de archivo segura con nombre y extensión garantizada
 async function downloadFile(url, filename) {
     try {
         const response = await fetch(url);
@@ -60,8 +75,14 @@ async function downloadFile(url, filename) {
     }
 }
 
+function formatoMoneda(valor) {
+    const n = Number(valor) || 0;
+    return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function Facturas() {
     const { usuario } = useAuth();
+    const navigate = useNavigate();
 
     const [facturas, setFacturas] = useState([]);
     const [compras, setCompras] = useState([]);
@@ -84,11 +105,12 @@ function Facturas() {
     const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().split('T')[0]);
     const [montoSubtotal, setMontoSubtotal] = useState('');
     const [montoIva, setMontoIva] = useState('');
-    const [metodoPago, setMetodoPago] = useState('PUE');
+    const [metodoPago, setMetodoPago] = useState('PPD');
     const [usoCfdi, setUsoCfdi] = useState('G01');
     const [archivoPdf, setArchivoPdf] = useState(null);
     const [archivoXml, setArchivoXml] = useState(null);
     const [xmlParseNotice, setXmlParseNotice] = useState('');
+    const [createdPpdId, setCreatedPpdId] = useState(null);
 
     // PDF Viewer Modal state
     const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
@@ -113,7 +135,16 @@ function Facturas() {
     const xmlInputRef = useRef(null);
     const [isMobile, setIsMobile] = useState(false);
 
+    const [filters, setFilters] = useState({
+        UUID_fiscal: '',
+        empresa: '',
+        Emisión: '',
+        Subtotal : '',
+        Total: '',
+        Metodo :'',
 
+    });
+    const [sort, setSort] = useState({ key: 'fecha_pago', dir: 'desc' });
 
     useEffect(() => {
         fetchFacturas();
@@ -147,6 +178,12 @@ function Facturas() {
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+    const subtotalNum = Number(montoSubtotal) || 0;
+    const ivaNum = Number(montoIva) || 0;
+    const totalFactura = subtotalNum + ivaNum;
+    const montosValidos = subtotalNum >= 0 && ivaNum >= 0 && totalFactura > 0;
+    const puedeGuardar = Boolean(idCompra) && Boolean(uuidFiscal.trim()) && montosValidos;
+
     // Open create modal
     const handleOpenCreate = () => {
         fetchCompras();
@@ -157,25 +194,15 @@ function Facturas() {
         setFechaEmision(new Date().toISOString().split('T')[0]);
         setMontoSubtotal('');
         setMontoIva('');
-        setMetodoPago('PUE');
+        setMetodoPago('PPD');
         setUsoCfdi('G01');
         setArchivoPdf(null);
         setArchivoXml(null);
         setXmlParseNotice('');
+        setCreatedPpdId(null);
         setError('');
         setModalOpen(true);
-    };
-
-    // Calculate IVA automatically when subtotal changes (16%)
-    const handleSubtotalChange = (val) => {
-        setMontoSubtotal(val);
-        const num = parseFloat(val);
-        if (!isNaN(num) && num > 0) {
-            setMontoIva((num * 0.16).toFixed(2));
-        } else {
-            setMontoIva('');
-        }
-    };
+    };    
 
     // Handle PDF File selection
     const handlePdfChange = (e) => {
@@ -193,6 +220,21 @@ function Facturas() {
             setError('');
         }
     };
+
+    const toggleSort = useCallback((key) => {
+            setSort((prev) =>
+                prev.key === key
+                    ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                    : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+            );
+        }, []);
+    
+        function normalizar(texto) {
+            return String(texto ?? '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
 
     // Handle XML File selection & Smart CFDI Autofill
     const handleXmlChange = async (e) => {
@@ -308,6 +350,7 @@ function Facturas() {
         }
     };
 
+    
     // Handle Submit
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -319,10 +362,15 @@ function Facturas() {
             setError('El UUID fiscal es obligatorio');
             return;
         }
+        if (!montosValidos) {
+            setError('Los montos deben ser números mayores o iguales a cero y el total mayor a cero');
+            return;
+        }
 
         setActionLoading(true);
         setError('');
         setSuccess('');
+        
 
         const formData = new FormData();
         formData.append('id_compra', idCompra);
@@ -334,7 +382,6 @@ function Facturas() {
         formData.append('monto_iva', montoIva || '0');
         formData.append('metodo_pago', metodoPago);
         formData.append('uso_cfdi', usoCfdi);
-
         if (archivoPdf) {
             formData.append('archivo_pdf', archivoPdf);
         }
@@ -359,6 +406,9 @@ function Facturas() {
 
             setSuccess(mensaje);
             setModalOpen(false);
+            if (metodoPago === 'PPD' && data?.id_factura) {
+                setCreatedPpdId(data.id_factura);
+            }
             fetchCompras();
         } catch (err) {
             setError(err.response?.data?.error || 'Error al registrar la factura');
@@ -439,6 +489,25 @@ function Facturas() {
         setXmlCopied(true);
         setTimeout(() => setXmlCopied(false), 2500);
     };
+    function valorOrden(item, key) {
+        const montoTotal = Number(item.monto_subtotal || 0) + Number(item.monto_iva || 0);
+        switch (key) {
+            case 'uuid_fiscal':
+                return item.uuid_fiscal;
+            case 'empresa':
+                return normalizar(item.empresa);
+            case 'emision':
+                return normalizar(item.fecha_emision);
+            case 'metodo_pago':
+                return normalizar(item.metodo_pago);
+            case 'subtotal':
+                return normalizar(item.monto_subtotal);
+            case 'total':
+                return normalizar(montoTotal);
+            default:
+                return item[key] ?? null;
+        }
+    }
 
     // Confirm Delete
     const handleConfirmDelete = async () => {
@@ -479,7 +548,7 @@ function Facturas() {
 
     // Filter and search
     const facturasFiltradas = useMemo(() => {
-        return facturas.filter((factura) => {
+        const lista = facturas.filter((factura) => {
             const query = search.toLowerCase().trim();
             const matchesSearch =
                 !query ||
@@ -507,7 +576,19 @@ function Facturas() {
 
             return matchesSearch && matchesMetodo && matchesArchivos;
         });
-    }, [facturas, search, filterMetodo, filterArchivos]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+
+    }, [facturas, search, filterMetodo, filterArchivos, filters, sort]);
 
     // Financial KPI stats
     const kpis = useMemo(() => {
@@ -615,6 +696,16 @@ function Facturas() {
                                 <polyline points="22 4 12 14.01 9 11.01" />
                             </svg>
                             <span>{success}</span>
+                            {createdPpdId && (
+                                <button
+                                    type="button"
+                                    className="facturas-btn facturas-btn--primary"
+                                    style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem', marginLeft: '0.5rem' }}
+                                    onClick={() => navigate('/complementos-pago', { state: { idFactura: createdPpdId } })}
+                                >
+                                    Registrar primer pago
+                                </button>
+                            )}
                         </div>
                         <button type="button" className="facturas-alert__close" onClick={() => setSuccess('')} aria-label="Cerrar alerta">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -678,12 +769,12 @@ function Facturas() {
                     <table className="facturas-table">
                         <thead>
                             <tr>
-                                <th>UUID Fiscal</th>
-                                <th>Empresa / Proveedor</th>
-                                <th className="facturas-hide-mobile">Emisión</th>
-                                <th className="facturas-hide-mobile">Subtotal / IVA</th>
-                                <th>Total</th>
-                                <th className="facturas-hide-mobile">Método / CFDI</th>
+                                <SortHeader label="UUID FISCAL" sortKey="uuid_fiscal" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Empresa / Proveedor" sortKey="empresa" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Emisión" sortKey="emision" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Subtotal / IVA" sortKey="subtotal" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Total" sortKey="total" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Método / CFDI" sortKey="metodo_pago" sort={sort} onSort={toggleSort} />
                                 {isMobile ? <th>Acciones</th> : <th>Documentos & Acciones</th>}
                             </tr>
                         </thead>
@@ -1053,9 +1144,38 @@ function Facturas() {
                                         </select>
                                     </div>
                                 </div>
+                                
 
-                                {/* ── Sección de Archivos Adjuntos (PDF + XML) ── */}
                                 <div className="facturas-upload-section">
+                                    <div className="facturas-resumen">
+                                        <div className="facturas-resumen__row">
+                                            <span>Subtotal</span>
+                                            <span>{formatoMoneda(subtotalNum)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row">
+                                            <span>IVA</span>
+                                            <span>{formatoMoneda(ivaNum)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row facturas-resumen__row--total">
+                                            <span>Total facturado</span>
+                                            <span>{formatoMoneda(totalFactura)}</span>
+                                        </div>
+                                        <div className="facturas-resumen__row">
+                                            <span>Saldo esperado</span>
+                                            <span>{metodoPago === 'PPD' ? formatoMoneda(totalFactura) : '—'}</span>
+                                        </div>
+                                        {metodoPago === 'PPD' ? (
+                                            <p className="facturas-resumen__hint">
+                                                Estado inicial: <strong>PENDIENTE</strong>. Se actualizará automáticamente conforme se registren pagos en “Complementos de pago”.
+                                            </p>
+                                        ) : (
+                                            <p className="facturas-resumen__hint">
+                                                Con método PUE la factura se registra como <strong>PAGADO</strong>.
+                                            </p>
+                                        )}
+                                    </div>
+                                    {/* ── Sección de Archivos Adjuntos (PDF + XML) ── */}
+ 
                                     <span className="facturas-label" style={{ marginBottom: '8px', display: 'block' }}>
                                         Comprobantes Fiscales Digitales (PDF, XML o Ambos)
                                     </span>
@@ -1162,7 +1282,8 @@ function Facturas() {
                                     <button
                                         type="submit"
                                         className="facturas-btn facturas-btn--primary"
-                                        disabled={actionLoading}
+                                        disabled={actionLoading || !puedeGuardar}
+                                        title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                     >
                                         {actionLoading ? 'Guardando en Supabase...' : 'Guardar Factura'}
                                     </button>

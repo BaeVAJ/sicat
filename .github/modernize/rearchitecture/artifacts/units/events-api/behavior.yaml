@@ -1,0 +1,5 @@
+unit: events-api
+side_effects: [{source_loc: "sicat-backend/src/controllers/events.controller.js:1", effect: "Mantiene conexión SSE, heartbeat y listener EventEmitter.", must_preserve: true}]
+branches: [{source_loc: "sicat-backend/src/controllers/events.controller.js:12", condition: "departamento contiene sistemas", behavior: "permite ticket.* y material-request.*", must_preserve: true}]
+error_paths: [{source_loc: "sicat-backend/src/index.js:66", trigger: "cookie ausente o JWT inválido", outcome: "rechaza stream", contract: "401/403", must_preserve: true}]
+concurrency: {model: event-loop, tx_boundary: {source_loc: "sicat-backend/src/controllers/events.controller.js:20", scope: "suscripción y desconexión SSE", isolation: "proceso Node", must_preserve: true}}

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
 
 export async function login(req, res) {
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000; 
     const { correo, contrasena } = req.body;
     if (!correo || !contrasena) {
         return res.status(400).json({ error: 'Correo y contrasena son requeridos' })
@@ -40,10 +41,16 @@ export async function login(req, res) {
                 estatus_empleado: usuario.estatus_empleado
             },
             process.env.JWT_SECRET,
-            { expiresIn: '8h' }
+            { expiresIn: '12h' }
         );
+        res.cookie('auth_token', token,{
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: TWELVE_HOURS_MS,
+        })
         const { contrasena: _, ...datos } = usuario;
-        res.json({ token, usuario: datos });
+        res.json({ usuario: datos });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -87,4 +94,12 @@ export async function registrar(req, res) {
         }
         res.status(500).json({ error: err.message })
     }
+}
+export async function logout(req, res){
+    res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
+  return res.status(200).json({ message: 'Sesión cerrada' });
 }

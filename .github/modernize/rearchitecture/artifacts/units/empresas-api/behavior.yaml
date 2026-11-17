@@ -1,0 +1,5 @@
+unit: empresas-api
+side_effects: [{source_loc: "sicat-backend/src/controllers/empresa.controller.js:44", effect: "CRUD de empresas.", must_preserve: true}]
+branches: [{source_loc: "sicat-backend/src/controllers/empresa.controller.js:27", condition: "nombre ausente", behavior: "400", must_preserve: true}]
+error_paths: [{source_loc: "sicat-backend/src/controllers/empresa.controller.js:58", trigger: "error SQL", outcome: "JSON error", contract: "500", must_preserve: true}]
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/empresa.controller.js:1", scope: "una operación CRUD", isolation: "pool default", must_preserve: true}}

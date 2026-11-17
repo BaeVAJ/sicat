@@ -6,10 +6,12 @@ export async function getAll(req, res) {
     const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
     const { rows } = await pool.query(`
       SELECT pm.*, d.nombre AS departamento, pr.nombre AS producto,
+             pr.marca, pr.modelo, c.tipo AS tipo_producto,
              e.nombre AS empresa
       FROM PEDIDO_MATERIAL pm
       JOIN DEPARTAMENTO d  ON pm.id_departamento = d.id_departamento
-      JOIN PRODUCTO     pr ON pm.id_producto      = pr.id_producto
+      LEFT JOIN PRODUCTO pr ON pm.id_producto = pr.id_producto
+      LEFT JOIN CATEGORIA c ON pr.id_categoria = c.id_categoria
       JOIN EMPRESA       e ON d.id_empresa        = e.id_empresa
       ${isManager ? '' : `WHERE pm.id_departamento = ${Number(req.usuario?.id_departamento) || 0}`}
       ORDER BY pm.urgente DESC, pm.fecha_solicitud DESC
@@ -19,40 +21,27 @@ export async function getAll(req, res) {
 }
 
 export async function create(req, res) {
-  const { id_departamento, id_producto, stock_actual, stock_deseado, urgente, para_sistemas } = req.body;
-  if (!id_producto || stock_actual == null || !stock_deseado)
-    return res.status(400).json({ error: 'Faltan campos requeridos' });
-  if (para_sistemas && String(req.usuario?.departamento || '').toLowerCase().includes('sistema')) {
-    return res.status(403).json({ error: 'El departamento de Sistemas no puede solicitar material a sí mismo' });
-  }
+  const { id_departamento, descripcion_material, cantidad_solicitada, urgente } = req.body;
+  const cantidad = Number(cantidad_solicitada);
+  if (!descripcion_material?.trim() || !Number.isInteger(cantidad) || cantidad < 1)
+    return res.status(400).json({ error: 'Indica el material y una cantidad válida' });
 
   try {
-    let department;
-    if (para_sistemas) {
-      const { rows: systemsDepartments } = await pool.query(`
-        SELECT id_departamento
-        FROM DEPARTAMENTO
-        WHERE LOWER(nombre) LIKE '%sistema%'
-        ORDER BY id_departamento
-        LIMIT 1
-      `);
-      department = systemsDepartments[0]?.id_departamento;
-    } else {
-      department = ['admin', 'gerente'].includes(req.usuario?.rol)
-        ? Number(id_departamento)
-        : Number(req.usuario?.id_departamento);
-    }
+    const department = ['admin', 'gerente'].includes(req.usuario?.rol)
+      ? Number(id_departamento) || Number(req.usuario?.id_departamento)
+      : Number(req.usuario?.id_departamento);
 
     if (!department) {
-      return res.status(400).json({ error: 'No se encontró el departamento de Sistemas' });
+      return res.status(400).json({ error: 'No se encontró el departamento del solicitante' });
     }
 
     const { rows } = await pool.query(`
       INSERT INTO PEDIDO_MATERIAL
-        (id_departamento, id_producto, stock_actual, stock_deseado, urgente)
-      VALUES ($1, $2, $3, $4, $5)
+        (id_departamento, id_producto, descripcion_material, cantidad_solicitada,
+         stock_actual, stock_deseado, urgente)
+      VALUES ($1, NULL, $2, $3, 0, $3, $4)
       RETURNING *
-    `, [department, id_producto, stock_actual, stock_deseado, urgente ?? false]);
+    `, [department, descripcion_material.trim(), cantidad, urgente ?? false]);
     publish('material-request.created', rows[0]);
     res.status(201).json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
