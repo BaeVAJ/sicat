@@ -6,6 +6,17 @@ import client from '../../api/client';
 import Layout from '../layout/Layout';
 import './Inicio.css';
 
+function FechaOrdenada(fecha) {
+    if (!fecha || !(fecha instanceof Date) || isNaN(fecha) || fecha < 1970) return '—';
+    fecha.setHours(0, 0, 0, 0);
+    const day = fecha.getDate().toString().padStart(2, '0');
+    const month = (fecha.getMonth() + 1).toString().padStart(2, '0');
+    const year = fecha.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+
+
+
 // ── Iconos SVG compactos ──
 const icons = {
     pending: (
@@ -109,9 +120,9 @@ function Inicio() {
                     client.get('/tickets'),
                     client.get('/pedidos')
 
-                 ]);
+                ]);
 
-                
+
                 if (resAlertas.status === 'fulfilled' && Array.isArray(resAlertas.value.data)) {
                     setAlertasStock(resAlertas.value.data);
                 }
@@ -166,7 +177,7 @@ function Inicio() {
     const asignacionesPendientes = useMemo(() => {
         return pedido.filter(p => p.estatus === 'PENDIENTE');
     }, [pedido]);
-    
+
     const badgeRol = {
         admin: 'Administrador',
         gerente: 'Gerente',
@@ -176,14 +187,14 @@ function Inicio() {
     return (
         <Layout>
             <div className="simple-dash">
-                
+
                 <header className="simple-header">
                     <div>
                         <h1 className="simple-title">
                             Hola, {usuario?.nombre?.split(' ')[0] || 'Usuario'}
                         </h1>
                         <p className="simple-subtitle">
-                             <span className={`simple-role-tag simple-role-tag--${rol}`}>{badgeRol}</span>
+                            <span className={`simple-role-tag simple-role-tag--${rol}`}>{badgeRol}</span>
                         </p>
                     </div>
 
@@ -204,7 +215,7 @@ function Inicio() {
                     <div className="simple-view">
                         {/* KPIs Principales */}
                         <div className="simple-kpis">
-                            {usuario?.id_departamento === 1 &&<div className="simple-kpi" onClick={() => navigate('/tickets')}>
+                            {usuario?.id_departamento === 1 && <div className="simple-kpi" onClick={() => navigate('/tickets')}>
                                 <div className="simple-kpi__icon simple-kpi__icon--amber">{icons.ticket}</div>
                                 <div className="simple-kpi__info">
                                     <span className="simple-kpi__num">{cargando ? '—' : ticketsPendientes.length}</span>
@@ -256,136 +267,145 @@ function Inicio() {
                         Tickets que requieren atención
                         */}
                         {ticketsPendientes.length > 0 && (
-                        <div className="simple-box">
-                            <div className="simple-box__header">
-                                <h3>Tickets Pendientes ({ticketsPendientes.length})</h3>
-                                <button className="simple-box__link" onClick={() => navigate('/tickets')}>
-                                    Ver todos {icons.arrowRight}
-                                </button>
-                            </div>
-                            <div className="simple-list">
-                                {
-                                    ticketsPendientes.slice(0, 5).map(t => (
-                                        <div
-                                            key={t.id_ticket}
-                                            className="simple-item"
-                                            onClick={() => navigate('/tickets')}
-                                        >
-                                            <div className="simple-item__left">
-                                                <span className="simple-item__id">#{t.id_ticket}</span>
-                                                <div className="simple-item__meta">
-                                                    <span className="simple-item__title">{t.descripcion}</span>
-                                                    <span className="simple-item__sub">{t.usuario_nombre || 'Usuario'} • {t.departamento || 'General'}</span>
+                            <div className="simple-box">
+                                <div className="simple-box__header">
+
+                                    <div className="simple-item__left">
+                                        <h3>Tickets Pendientes ({ticketsPendientes.length})</h3>
+                                    </div>
+                                    <div className="simple-item__right">
+                                        <h3 className="simple-box__title">Fecha Limite</h3>
+                                        <button className="simple-box__link" onClick={() => navigate('/tickets')}>
+                                            Ver todos {icons.arrowRight}
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                                <div className="simple-list">
+                                    {
+                                        ticketsPendientes.slice(0, 5).map(t => (
+                                            <div
+                                                key={t.id_ticket}
+                                                className="simple-item"
+                                                onClick={() => navigate('/tickets')}
+                                            >
+                                                <div className="simple-item__left">
+                                                    <span className="simple-item__id">#{t.id_ticket}</span>
+                                                    <div className="simple-item__meta">
+                                                        <span className="simple-item__title">{t.descripcion}</span>
+                                                        <span className="simple-item__sub">{t.usuario_nombre || 'Usuario'} • {t.departamento || 'General'}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="simple-item__right">
+                                                    <span className="simple-item__date">{FechaOrdenada(new Date(t.fecha_limite))}</span>
+                                                    {t.urgente && <span className="simple-badge simple-badge--urgent">Urgente</span>}
+                                                    <span className={`simple-badge simple-badge--${t.estado?.toLowerCase()}`}>
+                                                        {t.estado}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <div className="simple-item__right">
-                                                {t.urgente && <span className="simple-badge simple-badge--urgent">Urgente</span>}
-                                                <span className={`simple-badge simple-badge--${t.estado?.toLowerCase()}`}>
-                                                    {t.estado}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))
-                                }
-                            </div>
-                        </div>)}
+                                        ))
+                                    }
+                                </div>
+                            </div>)}
 
                         {/*
                         inventario bajo
                         */}
                         {alertasStock.length > 0 && (
                             <>
-                        <div style={{padding: 20}}/>
-                        <div className="simple-box">
-                            <div className="simple-box__header">
-                                <h3>Inventario Bajo ({alertasStock.length})</h3>
-                                <button className="simple-box__link" onClick={() => navigate('/inventario')}>
-                                    Ver todos {icons.arrowRight}
-                                </button>
-                            </div>
+                                <div style={{ padding: 20 }} />
+                                <div className="simple-box">
+                                    <div className="simple-box__header">
+                                        <h3>Inventario Bajo ({alertasStock.length})</h3>
+                                        <button className="simple-box__link" onClick={() => navigate('/inventario')}>
+                                            Ver todos {icons.arrowRight}
+                                        </button>
+                                    </div>
 
-                            <div className="simple-list">
-                                {
-                                    alertasStock.slice(0, 5).map(i => (
-                                        <div
-                                            key={i.id_inventario}
-                                            className="simple-item"
-                                            onClick={() => navigate('/inventario')}
-                                        >
-                                            <div className="simple-item__left">
-                                                <span className="simple-item__id">#{i.id_producto}</span>
-                                                <div className="simple-item__meta">
-                                                   <span className="simple-item__title">{i.producto}</span>
-                                                    <span className="simple-item__sub"></span>
-                                                </div>
-                                            </div>
-                                            <div className="simple-item__right">
-                                                <div className="simple-item__stocks">
-                                                    <div className="simple-item__meta">
-                                                        <span className="simple-item-inv__title">Stock Disponible</span>
-                                                        <span className="simple-item-inv__sub">{i.cantidad_disponible}</span>
+                                    <div className="simple-list">
+                                        {
+                                            alertasStock.slice(0, 5).map(i => (
+                                                <div
+                                                    key={i.id_inventario}
+                                                    className="simple-item"
+                                                    onClick={() => navigate('/inventario')}
+                                                >
+                                                    <div className="simple-item__left">
+                                                        <span className="simple-item__id">#{i.id_producto}</span>
+                                                        <div className="simple-item__meta">
+                                                            <span className="simple-item__title">{i.producto}</span>
+                                                            <span className="simple-item__sub"></span>
+                                                        </div>
                                                     </div>
-                                                    <div className="simple-item__meta">
-                                                        <span className="simple-item-inv__title">Stock Mínimo</span>
-                                                        <span className="simple-item-inv__sub">{i.cantidad_minima}</span>
+                                                    <div className="simple-item__right">
+                                                        <div className="simple-item__stocks">
+                                                            <div className="simple-item__meta">
+                                                                <span className="simple-item-inv__title">Stock Disponible</span>
+                                                                <span className="simple-item-inv__sub">{i.cantidad_disponible}</span>
+                                                            </div>
+                                                            <div className="simple-item__meta">
+                                                                <span className="simple-item-inv__title">Stock Mínimo</span>
+                                                                <span className="simple-item-inv__sub">{i.cantidad_minima}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                }
-                            </div>
-                        </div>
-                        </>)}
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+                            </>)}
 
                         {/*
                         Asignaciones pendientes
                         */}
+                        <div style={{ padding: 20 }} />
                         {asignacionesPendientes.length > 0 && (
                             <div className="simple-box">
-                            <div className="simple-box__header">
-                                <h3>Pedidos Pendientes ({asignacionesPendientes.length})</h3>
-                                <button className="simple-box__link" onClick={() => navigate('/asignaciones')}>
-                                    Ver todos {icons.arrowRight}
-                                </button>
+                                <div className="simple-box__header">
+                                    <h3>Pedidos Pendientes ({asignacionesPendientes.length})</h3>
+                                    <button className="simple-box__link" onClick={() => navigate('/asignaciones')}>
+                                        Ver todos {icons.arrowRight}
+                                    </button>
 
-                            </div>
-                            <div className="simple-list">
-                                {
-                                    asignacionesPendientes.slice(0, 5).map(p => (
-                                        
-                                        <div
-                                            key={p.id_pedido}
-                                            className="simple-item"
-                                            onClick={() => navigate('/asignaciones')}
-                                        >
-                                            <div className="simple-item__left">
-                                                <span className="simple-item__id">#{p.id_pedido}</span>
-                                                <div className="simple-item__meta">
-                                                    <span className="simple-item__title">{p.descripcion_material}</span>
-                                                    <span className="simple-item__sub"> </span>
+                                </div>
+                                <div className="simple-list">
+                                    {
+                                        asignacionesPendientes.slice(0, 5).map(p => (
+
+                                            <div
+                                                key={p.id_pedido}
+                                                className="simple-item"
+                                                onClick={() => navigate('/asignaciones')}
+                                            >
+                                                <div className="simple-item__left">
+                                                    <span className="simple-item__id">#{p.id_pedido}</span>
+                                                    <div className="simple-item__meta">
+                                                        <span className="simple-item__title">{p.descripcion_material}</span>
+                                                        <span className="simple-item__sub"> </span>
+                                                    </div>
+                                                </div>
+                                                <div className="simple-item__right">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                                    </svg>
+                                                    <span className="simple-item__title">
+                                                        {p.departamento || 'General'}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <div className="simple-item__right">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                                                </svg>
-                                                <span className="simple-item__title">
-                                                     {p.departamento || 'General'}
-                                                     </span>
-
-                                                
-                                            </div>
-                                        </div>
-                                    ))
-                                }
+                                        ))
+                                    }
+                                </div>
                             </div>
-                        </div>
                         )}
                         {ticketsPendientes.length === 0 && alertasStock.length === 0 && asignacionesPendientes.length === 0 && (
-                            <div className= 'simple-box__header'>
-                                <div style={{padding: 20, textAlign: 'center'}}>
-                                <span><strong>Nada que mostrar</strong></span>
+                            <div className='simple-box__header'>
+                                <div style={{ padding: 20, textAlign: 'center' }}>
+                                    <span><strong>Nada que mostrar</strong></span>
                                 </div>
                             </div>
                         )}
@@ -443,7 +463,7 @@ function Inicio() {
                                 <span>Revisar Tickets</span>
                             </button>
                         </div>
-                        
+
                     </div>
                 )}
                 {/* 

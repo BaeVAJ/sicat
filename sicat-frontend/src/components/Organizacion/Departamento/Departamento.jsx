@@ -1,19 +1,34 @@
 // src/components/Organizacion/Departamento/Departamento.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
 import './Departamento.css';
 
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
+
 function Departamento() {
     const { usuario } = useAuth();
+
+    const isAdmin = usuario?.rol === 'admin';
 
     const [departamentos, setDepartamentos] = useState([]);
     const [empresas, setEmpresas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     // Vista activa por defecto: 'GROUPED' (Por Empresa)
     const [viewMode, setViewMode] = useState('GROUPED');
@@ -24,7 +39,7 @@ function Departamento() {
 
     // Modales
     const [modalOpen, setModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' | 'EDIT'
+    const [modalMode, setModalMode] = useState('CREATE');
     const [currentDepto, setCurrentDepto] = useState(null);
 
     // Form inputs
@@ -35,13 +50,25 @@ function Departamento() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deptoToDelete, setDeptoToDelete] = useState(null);
 
+    const [filters, setFilters] = useState({
+        id_departamento:'',
+        nombre:'',
+        empresa:'',
+    });
+    const [sort, setSort] = useState({ key: 'id_departamento', dir: 'desc' });
+    const [message, setMessage] = useState('');
+
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text});
+    }, []);
+
     useEffect(() => {
         fetchData();
     }, []);
 
     const fetchData = async () => {
         setLoading(true);
-        setError('');
+        showMessage('','');
         try {
             const [deptRes, empRes] = await Promise.all([
                 client.get('/departamentos'),
@@ -50,7 +77,21 @@ function Departamento() {
             setDepartamentos(Array.isArray(deptRes.data) ? deptRes.data : []);
             setEmpresas(Array.isArray(empRes.data) ? empRes.data : []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar los departamentos');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar los departamentos';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
@@ -77,7 +118,7 @@ function Departamento() {
         } else {
             setIdEmpresa(empresas.length > 0 ? String(empresas[0].id_empresa) : '');
         }
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -87,7 +128,7 @@ function Departamento() {
         setCurrentDepto(depto);
         setNombre(depto.nombre || '');
         setIdEmpresa(String(depto.id_empresa));
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -95,17 +136,16 @@ function Departamento() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!nombre.trim()) {
-            setError('El nombre del departamento es obligatorio.');
+            showMessage('error', 'El nombre del departamento es obligatorio.');
             return;
         }
         if (!idEmpresa) {
-            setError('Debes seleccionar una empresa.');
+            showMessage('error', 'Debes seleccionar una empresa.');
             return;
         }
 
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
 
         const payload = {
             nombre: nombre.trim(),
@@ -116,17 +156,32 @@ function Departamento() {
             if (modalMode === 'CREATE') {
                 const { data } = await client.post('/departamentos', payload);
                 setDepartamentos((prev) => [...prev, data]);
-                setSuccess('Departamento registrado exitosamente.');
+                showMessage('success', 'Departamento registrado exitosamente.');
             } else {
                 const { data } = await client.put(`/departamentos/${currentDepto.id_departamento}`, payload);
                 setDepartamentos((prev) =>
                     prev.map((d) => (d.id_departamento === currentDepto.id_departamento ? data : d))
                 );
-                setSuccess('Departamento actualizado exitosamente.');
+                showMessage('success', 'Departamento actualizado exitosamente.')
             }
             setModalOpen(false);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al guardar el departamento');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = modalMode=== 'CREATE' ? 'Error al crear el departamento.' : 'Error al actualizar el departamento.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
+
         } finally {
             setActionLoading(false);
         }
@@ -142,29 +197,69 @@ function Departamento() {
     const handleConfirmDelete = async () => {
         if (!deptoToDelete) return;
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
         try {
             await client.delete(`/departamentos/${deptoToDelete.id_departamento}`);
             setDepartamentos((prev) => prev.filter((d) => d.id_departamento !== deptoToDelete.id_departamento));
-            setSuccess('Departamento eliminado exitosamente.');
+            showMessage('success', 'Departamento eliminado exitosamente.');
             setDeleteModalOpen(false);
             setDeptoToDelete(null);
         } catch (err) {
-            const errorMsg = err.response?.data?.error;
-            if (errorMsg && errorMsg.includes('foreign key')) {
-                setError('No se puede eliminar el departamento. Podría tener usuarios o inventario vinculado.');
-            } else {
-                setError('Error al eliminar el departamento.');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar los departamentos';
+
+            if (serverError && serverError.includes('foreign key')) {
+                message = 'No se puede eliminar el departamento. Podría tener usuarios o inventario vinculado.';
             }
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
     };
 
+    const toggleSort = useCallback((key) => {
+            setSort((prev) =>
+                prev.key === key
+                    ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                    : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+            );
+        }, []);
+    
+        function normalizar(texto) {
+            return String(texto ?? '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id_departamento':
+                return item.id_departamento;
+            case 'nombre':
+                return normalizar(item.nombre);
+            case 'empresa':
+                return normalizar(item.empresa?.nombre || empresaMap[item.id_empresa]?.nombre || '');
+            default:
+                return item[key] ?? null;
+        }
+    }
+
     // Departamentos filtrados
     const deptosFiltrados = useMemo(() => {
-        return departamentos.filter((d) => {
+        const lista = departamentos.filter((d) => {
             const empNombre = empresaMap[d.id_empresa]?.nombre || '';
             const matchSearch =
                 (d.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -174,7 +269,46 @@ function Departamento() {
             if (filterEmpresa !== 'ALL') return String(d.id_empresa) === filterEmpresa;
             return true;
         });
-    }, [departamentos, search, filterEmpresa, empresaMap]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [departamentos, search, filterEmpresa, empresaMap, filters, sort]);
+
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
     // Métricas compactas
     const totalCount = departamentos.length;
@@ -276,40 +410,7 @@ function Departamento() {
                     </div>
                 </div>
                 
-                {error && (
-                    <div className="depto-alert depto-alert--error" role="alert">
-                        <div className="depto-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                            <span>{error}</span>
-                        </div>
-                        <button type="button" className="depto-alert__close" onClick={() => setError('')} aria-label="Cerrar alerta">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {success && (
-                    <div className="depto-alert depto-alert--success" role="alert">
-                        <div className="depto-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                            <span>{success}</span>
-                        </div>
-                        <button type="button" className="depto-alert__close" onClick={() => setSuccess('')} aria-label="Cerrar notificación">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
+                {alerta}
 
                 
                 <div className="depto-toolbar">
@@ -409,14 +510,7 @@ function Departamento() {
                 
                 {loading ? (
                     <div className="depto-empty-state">
-                        <div className="depto-empty-state__icon">
-                            <span className="depto-btn__spin">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="23 4 23 10 17 10" />
-                                    <polyline points="1 20 1 14 7 14" />
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                                </svg>
-                            </span>
+                        <div className="depto-spin">
                         </div>
                         <h3 className="depto-empty-state__title">Cargando departamentos...</h3>
                     </div>
@@ -600,9 +694,9 @@ function Departamento() {
                         <table className="depto-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Departamento</th>
-                                    <th>Empresa Perteneciente</th>
+                                    <SortHeader label="ID" sortKey="id_departamento" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Departamento" sortKey="nombre" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Empresa Perteneciente" sortKey="empresa" sort={sort} onSort={toggleSort} />
                                     {usuario?.rol === 'admin' && <th>Acciones</th>}
                                 </tr>
                             </thead>
@@ -762,27 +856,7 @@ function Departamento() {
                                     </svg>
                                 </button>
                             </div>
-                            {error && (
-                                    <div className="empresa-alert empresa-alert--error" role="alert" style={{ marginTop: '0.5rem' }}>
-                                        <div className="empresa-alert__content">
-                                            <svg
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            >
-                                                <circle cx="12" cy="12" r="10" />
-                                                <line x1="12" y1="8" x2="12" y2="12" />
-                                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                                            </svg>
-                                            <span>{error}</span>
-                                        </div>
-                                    </div>
-                                )}
+                            {alerta}
                             <p style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: '1.5', margin: '0.4rem 0 1.25rem' }}>
                                 ¿Deseas eliminar el departamento{' '}
                                 <strong style={{ color: '#f1f5f9' }}>{deptoToDelete.nombre}</strong> de{' '}

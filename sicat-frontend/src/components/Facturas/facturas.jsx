@@ -1,10 +1,25 @@
 // src/components/Facturas/facturas.jsx
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
 import './facturas.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function formatXml(xmlStr) {
     if (!xmlStr) return '';
@@ -120,6 +135,17 @@ function Facturas() {
     const xmlInputRef = useRef(null);
     const [isMobile, setIsMobile] = useState(false);
 
+    const [filters, setFilters] = useState({
+        UUID_fiscal: '',
+        empresa: '',
+        Emisión: '',
+        Subtotal : '',
+        Total: '',
+        Metodo :'',
+
+    });
+    const [sort, setSort] = useState({ key: 'fecha_pago', dir: 'desc' });
+
     useEffect(() => {
         fetchFacturas();
         fetchCompras();
@@ -194,6 +220,21 @@ function Facturas() {
             setError('');
         }
     };
+
+    const toggleSort = useCallback((key) => {
+            setSort((prev) =>
+                prev.key === key
+                    ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                    : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+            );
+        }, []);
+    
+        function normalizar(texto) {
+            return String(texto ?? '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
 
     // Handle XML File selection & Smart CFDI Autofill
     const handleXmlChange = async (e) => {
@@ -309,6 +350,7 @@ function Facturas() {
         }
     };
 
+    
     // Handle Submit
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -447,6 +489,25 @@ function Facturas() {
         setXmlCopied(true);
         setTimeout(() => setXmlCopied(false), 2500);
     };
+    function valorOrden(item, key) {
+        const montoTotal = Number(item.monto_subtotal || 0) + Number(item.monto_iva || 0);
+        switch (key) {
+            case 'uuid_fiscal':
+                return item.uuid_fiscal;
+            case 'empresa':
+                return normalizar(item.empresa);
+            case 'emision':
+                return normalizar(item.fecha_emision);
+            case 'metodo_pago':
+                return normalizar(item.metodo_pago);
+            case 'subtotal':
+                return normalizar(item.monto_subtotal);
+            case 'total':
+                return normalizar(montoTotal);
+            default:
+                return item[key] ?? null;
+        }
+    }
 
     // Confirm Delete
     const handleConfirmDelete = async () => {
@@ -487,7 +548,7 @@ function Facturas() {
 
     // Filter and search
     const facturasFiltradas = useMemo(() => {
-        return facturas.filter((factura) => {
+        const lista = facturas.filter((factura) => {
             const query = search.toLowerCase().trim();
             const matchesSearch =
                 !query ||
@@ -515,7 +576,19 @@ function Facturas() {
 
             return matchesSearch && matchesMetodo && matchesArchivos;
         });
-    }, [facturas, search, filterMetodo, filterArchivos]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+
+    }, [facturas, search, filterMetodo, filterArchivos, filters, sort]);
 
     // Financial KPI stats
     const kpis = useMemo(() => {
@@ -696,12 +769,12 @@ function Facturas() {
                     <table className="facturas-table">
                         <thead>
                             <tr>
-                                <th>UUID Fiscal</th>
-                                <th>Empresa / Proveedor</th>
-                                <th className="facturas-hide-mobile">Emisión</th>
-                                <th className="facturas-hide-mobile">Subtotal / IVA</th>
-                                <th>Total</th>
-                                <th className="facturas-hide-mobile">Método / CFDI</th>
+                                <SortHeader label="UUID FISCAL" sortKey="uuid_fiscal" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Empresa / Proveedor" sortKey="empresa" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Emisión" sortKey="emision" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Subtotal / IVA" sortKey="subtotal" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Total" sortKey="total" sort={sort} onSort={toggleSort} />
+                                <SortHeader label="Método / CFDI" sortKey="metodo_pago" sort={sort} onSort={toggleSort} />
                                 {isMobile ? <th>Acciones</th> : <th>Documentos & Acciones</th>}
                             </tr>
                         </thead>

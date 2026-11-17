@@ -1,0 +1,9 @@
+unit: facturas-api
+side_effects:
+  - {source_loc: "sicat-backend/src/controllers/factura.controller.js:1", effect: "Persiste CFDI, sube PDF/XML y genera URLs firmadas.", must_preserve: true}
+  - {source_loc: "sicat-backend/src/controllers/factura.controller.js:1", effect: "Administra complementos y estados PPD.", must_preserve: true}
+branches:
+  - {source_loc: "sicat-backend/src/routes/factura.routes.js:10", condition: "archivo no PDF/XML o mayor a 25 MB", behavior: "rechaza multipart", must_preserve: true}
+error_paths:
+  - {source_loc: "sicat-backend/src/routes/factura.routes.js:23", trigger: "MIME/extensión inválida", outcome: "error de multer", contract: "400/error", must_preserve: true}
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/factura.controller.js:1", scope: "persistencia de factura y complementos", isolation: "pool default", must_preserve: true}}

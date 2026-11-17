@@ -1,0 +1,6 @@
+unit: asignaciones-api
+side_effects:
+  - {source_loc: "sicat-backend/src/controllers/asignacion.controller.js:2", effect: "Consulta y modifica inventario/asignaciones; publica eventos.", must_preserve: true}
+branches: [{source_loc: "sicat-backend/src/controllers/asignacion.controller.js:88", condition: "devolución válida", behavior: "marca DEVUELTO y registra fecha", must_preserve: true}]
+error_paths: [{source_loc: "sicat-backend/src/controllers/asignacion.controller.js:141", trigger: "regla de devolución inválida", outcome: "JSON error", contract: "400", must_preserve: true}]
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/asignacion.controller.js:1", scope: "asignación/devolución y stock", isolation: "pool default", must_preserve: true}}

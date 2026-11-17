@@ -1,0 +1,6 @@
+unit: frontend-spa
+bindings:
+  - {type: route-declaration, name: "BrowserRouter/Routes/Route", source_loc: "sicat-frontend/src/App.jsx:28", target: "React route tree", must_appear_in_target: true, notes: "Incluye guardas por rol."}
+  - {type: di-registration, name: "AuthProvider", source_loc: "sicat-frontend/src/App.jsx:27", target: "React context", must_appear_in_target: true, notes: "Envuelve toda la aplicación."}
+runtime_config:
+  - {key: VITE_API_URL, source_loc: "sicat-frontend/src/api/client.js:4", source: env, default_value: "", must_appear_in_target: true, notes: "Base URL de API."}

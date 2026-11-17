@@ -1,6 +1,4 @@
-/* ═══════════════════════════════════════════════════════════
-   CrearTicket — Modern Card Style (matches Login theme)
-   ═══════════════════════════════════════════════════════════ */
+
 
 .ticket-page {
   min-height: 100vh;
@@ -240,6 +238,18 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+}
+
+.ticket-alert__close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, transform 0.15s ease;
 }
 
 /* ---------- Buttons ---------- */

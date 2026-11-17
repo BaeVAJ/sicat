@@ -1,0 +1,3 @@
+unit: tickets-api
+commit: false
+candidate_splits: [{id: "sicat-backend/src/controllers/ticket.controller.js:1", drivers: [lifecycle_split], rationale: "Creación, consulta y transición de estados tienen consumidores y efectos distintos.", source_slice: {file: "sicat-backend/src/controllers/ticket.controller.js", lines: [1, 150]}}]

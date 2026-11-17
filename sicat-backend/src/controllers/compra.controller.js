@@ -5,12 +5,16 @@ export async function getAll(req, res) {
     const { sin_factura } = req.query;
     let query = `
       SELECT c.*, p.nombre AS proveedor, e.nombre AS empresa,
-             (f.id_compra IS NOT NULL) AS tiene_factura, d.nombre AS departamento
+             (f.id_compra IS NOT NULL) AS tiene_factura,
+             (
+               SELECT STRING_AGG(DISTINCT d.nombre, ', ' ORDER BY d.nombre)
+               FROM DETALLE_COMPRA dc
+               JOIN DEPARTAMENTO d ON dc.id_departamento = d.id_departamento
+               WHERE dc.id_compra = c.id_compra
+             ) AS departamento
       FROM COMPRA c
       JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
       JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
-      JOIN DETALLE_COMPRA dc ON c.id_compra = dc.id_compra
-      JOIN DEPARTAMENTO d ON dc.id_departamento = d.id_departamento
       LEFT JOIN (
         SELECT DISTINCT id_compra FROM FACTURA WHERE id_compra IS NOT NULL
       ) f ON c.id_compra = f.id_compra
@@ -78,7 +82,7 @@ export async function create(req, res) {
       await client.query(
         `INSERT INTO DETALLE_COMPRA (id_compra, id_producto, cantidad, precio_unitario, id_departamento)
          VALUES ($1, $2, $3, $4, $5)`,
-        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario,d.id_departamento || null]
+        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario, d.id_departamento || null]
       );
       // Verificar si ya existe en inventario para ese producto y departamento
       const { rows: invExistente } = await client.query(
@@ -112,4 +116,33 @@ export async function create(req, res) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
+}
+
+export async function remove(req, res) {
+  try {
+    const client = await pool.connect();
+    await client.query('BEGIN');
+    const { rows } = await client.query(  `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
+    if (!rows || rows.length === 0 || rows[0].length === 0 || rows[0] === undefined || !rows[0]) {
+      res.status(404).json({ error: 'Compra no encontrada' })
+      await client.query('ROLLBACK');
+      return 
+    }
+
+    for(const d of rows){
+      await client.query(
+        `UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_producto = $2 AND id_departamento = $3`,
+        [d.cantidad, d.id_producto, d.id_departamento]
+      )
+    }
+
+    await client.query(`DELETE FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
+    await client.query(`DELETE FROM COMPRA WHERE id_compra = $1 RETURNING *`, [req.params.id]);
+
+    await client.query('COMMIT');
+    res.json({mensaje:'Compra eliminada correctamente'});
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+    await client.query('ROLLBACK')
+  }
 }

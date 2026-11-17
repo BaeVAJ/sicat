@@ -1,0 +1,5 @@
+unit: proveedores-api
+side_effects: [{source_loc: "sicat-backend/src/controllers/proveedor.controller.js:6", effect: "CRUD de proveedores y tipo de pago.", must_preserve: true}]
+branches: [{source_loc: "sicat-backend/src/controllers/proveedor.controller.js:18", condition: "proveedor inexistente", behavior: "404", must_preserve: true}]
+error_paths: [{source_loc: "sicat-backend/src/controllers/proveedor.controller.js:107", trigger: "error SQL o email duplicado", outcome: "JSON error", contract: "500/409 según causa", must_preserve: true}]
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/proveedor.controller.js:1", scope: "una operación CRUD", isolation: "pool default", must_preserve: true}}

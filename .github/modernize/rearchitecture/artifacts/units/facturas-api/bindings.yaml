@@ -1,0 +1,5 @@
+unit: facturas-api
+bindings:
+  - {type: route-declaration, name: "invoice/complement multipart routes", source_loc: "sicat-backend/src/routes/factura.routes.js:37", target: "Express Router + multer", must_appear_in_target: true, notes: "Escrituras admin; lecturas autenticadas."}
+runtime_config:
+  - {key: SUPABASE_URL, source_loc: "sicat-backend/src/services/supabaseStorage.js:13", source: env, default_value: "", must_appear_in_target: true, notes: "Storage de archivos."}

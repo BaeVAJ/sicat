@@ -1,0 +1,5 @@
+unit: pedidos-api
+side_effects: [{source_loc: "sicat-backend/src/controllers/pedido.controller.js:46", effect: "Crea/atiende solicitudes y publica material-request events.", must_preserve: true}]
+branches: [{source_loc: "sicat-backend/src/controllers/pedido.controller.js:35", condition: "solicitante sin departamento", behavior: "400", must_preserve: true}]
+error_paths: [{source_loc: "sicat-backend/src/controllers/pedido.controller.js:56", trigger: "pedido inexistente", outcome: "404", contract: "JSON Pedido no encontrado", must_preserve: true}]
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/pedido.controller.js:1", scope: "pedido y stock/asignación", isolation: "pool default", must_preserve: true}}

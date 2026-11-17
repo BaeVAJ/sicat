@@ -1,16 +1,30 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
 import './Proveedores.css';
+
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function Proveedores() {
     const { usuario } = useAuth();
     const [proveedores, setProveedores] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     const [search, setSearch] = useState('');
     const [filterPago, setFilterPago] = useState('ALL');
@@ -23,37 +37,59 @@ function Proveedores() {
     const [formTipoPago, setFormTipoPago] = useState('');
     const [formError, setFormError] = useState('')
 
-    const [ provToDelete, setProvToDelete ] = useState(null);
+
+    const [provToDelete, setProvToDelete] = useState(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+    const [message, setMessage] = useState({ type: '', text: '' });
 
     const isAdmin = (usuario?.rol || '').toLowerCase() === 'admin'
     const isGerente = (usuario?.rol || '').toLowerCase() === 'gerente'
     const canManage = isAdmin || isGerente;
+
+    const [filters, setFilters] = useState({
+        id: '',
+        nombre: '',
+        correo: '',
+        tipo: '',
+    });
+    const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
+    
+
     useEffect(() => {
         fetchProveedores();
     }, []);
 
-    useEffect(() => {
-        if (success) {
-            const timer = setTimeout(() => setSuccess(''), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [success]);
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text });
+    }, []);
 
     const fetchProveedores = async () => {
         setLoading(true);
-        setError('');
-        setSuccess('');
-
+        
         try {
             const res = await client.get('/proveedores');
             setProveedores(res.data);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar los proveedores' || err.message);
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los proveedores.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
     }
+
     const formatPhone = (phone) => {
         if (!phone) return '';
         const clean = String(phone).replace(/\D/g, '');
@@ -62,8 +98,40 @@ function Proveedores() {
         }
         return clean;
     };
+
+    const toggleSort = useCallback((key) => {
+        setSort((prev) =>
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+        );
+    }, []);
+
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id':
+                return item.id_proveedor;
+            case 'nombre':
+                return normalizar(item.nombre);
+            case 'telefono':
+                return normalizar(item.telefono);
+            case 'correo':
+                return normalizar(item.email);
+            case 'tipo':
+                return normalizar(item.tipo_pago);
+            default:
+                return item[key] ?? null;
+        }
+    }
     const filteredProveedores = useMemo(() => {
-        return proveedores.filter((p) => {
+        const lista = proveedores.filter((p) => {
             const matchesSearch = (p.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
                 (p.email || '').toLowerCase().includes(search.toLowerCase()) ||
                 (p.telefono || '').includes(search) ||
@@ -74,7 +142,18 @@ function Proveedores() {
 
             return matchesSearch && matchesPago;
         });
-    }, [proveedores, search, filterPago]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [proveedores, search, filterPago, filters, sort]);
 
     const handleOpenCreate = () => {
         setModalMode('CREATE');
@@ -83,7 +162,7 @@ function Proveedores() {
         setFormTelefono('');
         setFormCorreo('');
         setFormTipoPago('Transferencia');
-        setFormError('');
+        showMessage('', '');
         setModalOpen(true);
     }
 
@@ -94,24 +173,23 @@ function Proveedores() {
         setFormTelefono(proveedor.telefono || '-');
         setFormCorreo(proveedor.email || '-');
         setFormTipoPago(proveedor.tipo_pago || '-');
-        setFormError('');
+        showMessage('', '');
         setSelectedProveedor(proveedor);
     }
 
     const handleSave = async (e) => {
         e.preventDefault();
-
-        setFormError('');
+        showMessage('', '');
 
         if (!formNombre || !formTelefono || !formCorreo || !formTipoPago) {
-            setFormError('Todos los campos son obligatorios');
+            showMessage('error', 'Todos los campos son obligatorios');
             return;
         }
 
         const cleanPhone = formTelefono.replace(/\D/g, '');
 
         if (formTelefono.trim() && cleanPhone.length !== 10) {
-            setFormError('El teléfono debe tener 10 dígitos');
+            showMessage('error', 'El teléfono debe tener 10 dígitos');
             return;
         }
 
@@ -125,16 +203,29 @@ function Proveedores() {
             }
             if (modalMode === 'CREATE') {
                 await client.post('/proveedores', payload);
-                setSuccess('Proveedor creado correctamente');
+                showMessage('success', 'Proveedor creado correctamente');
             }
             if (modalMode === 'EDIT') {
                 await client.put(`/proveedores/${selectedProveedor.id_proveedor}`, payload);
-                setSuccess('Proveedor actualizado correctamente');
+                showMessage('success', 'Proveedor actualizado correctamente');
             }
             setModalOpen(false);
             fetchProveedores();
         } catch (err) {
-            setFormError(err.response?.data?.error || 'Error al guardar el proveedor' || err.message);
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los productos.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
@@ -148,23 +239,64 @@ function Proveedores() {
     const handleDeleteConfirm = async () => {
         if (!provToDelete) return;
 
-        setActionLoading(true);
-        setError('');
-        setSuccess('');
+        setActionLoading(true);   
+        showMessage('', '');
+        
         try {
             await client.delete(`/proveedores/${provToDelete.id_proveedor}`);
-            setSuccess(`Proveedor ${provToDelete.nombre} - ${provToDelete.id_proveedor} eliminado correctamente`);
+            showMessage('success', `Proveedor ${provToDelete.nombre} - ${provToDelete.id_proveedor} eliminado correctamente`)
             setDeleteModalOpen(false);
             setProvToDelete(null);
             fetchProveedores();
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al eliminar el proveedor' || err.message);
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los productos.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
             setDeleteModalOpen(false);
             setProvToDelete(null);
         } finally {
             setActionLoading(false);
         }
     }
+
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => showMessage('','')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
     const proveedoresTotal = filteredProveedores.length;
     const transferenciaTotal = filteredProveedores.filter((p) => (p.tipo_pago === 'Transferencia')).length;
@@ -177,65 +309,48 @@ function Proveedores() {
                 <div className="prov-header">
                     <div>
                         <h1 className="prov-header__title">
-                            <span className="prov-header__icon-box">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
-                                    <path d="M15 18H9" />
-                                    <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
-                                    <circle cx="17" cy="18" r="2" />
-                                    <circle cx="7" cy="18" r="2" />
-                                </svg>
-                            </span>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+                                <path d="M15 18H9" />
+                                <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+                                <circle cx="17" cy="18" r="2" />
+                                <circle cx="7" cy="18" r="2" />
+                            </svg>
                             Proveedores
                         </h1>
                         <p className="prov-header__subtitle">
                             Registro de distribuidores
                         </p>
-                    </div>              
-                        <div className="prov-header__actions">
-                            <button className="prov-btn prov-btn--secondary prov-btn--icon-only"
-                                type="button"
-                                title="Recargar proveedores"
-                                onClick={fetchProveedores}
-                                disabled={loading || actionLoading}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
-                                </svg>
-                            </button>
-
-                            {canManage && (
-                                <button className="prov-btn prov-btn--primary"
-                                    title="Agregar proveedor"
-                                    type="button"
-                                    onClick={handleOpenCreate}
-                                    disabled={loading || actionLoading || !canManage}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="12" y1="5" x2="12" y2="19" />
-                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                    </svg>
-                                    Nuevo proveedor
-                                </button>
-                            )}
-                        </div>
                     </div>
-                    {error && (
-                        <div className="prov-alert prov-alert--error">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                    <div className="prov-header__actions">
+                        <button className="prov-btn prov-btn--secondary prov-btn--icon-only"
+                            type="button"
+                            title="Recargar proveedores"
+                            onClick={fetchProveedores}
+                            disabled={loading || actionLoading}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
                             </svg>
-                            {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div className="prov-alert prov-alert--success">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                            {success}
-                        </div>
-                    )}
-                
+                        </button>
+
+                        {canManage && (
+                            <button className="prov-btn prov-btn--primary"
+                                title="Agregar proveedor"
+                                type="button"
+                                onClick={handleOpenCreate}
+                                disabled={loading || actionLoading || !canManage}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Nuevo proveedor
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {alerta}
+
                 <div className="prov-kpis">
                     <div className="prov-kpi">
                         <div className="prov-kpi__icon-box prov-kpi__icon-box--cyan">
@@ -260,7 +375,7 @@ function Proveedores() {
                                 <line x1="2" y1="10" x2="22" y2="10" />
                             </svg>
                         </div>
-                        
+
                         <div className="prov-kpi__content" >
                             <div className="prov-kpi__label"> Transferencia</div>
                             <div className="prov-kpi__value">
@@ -280,7 +395,7 @@ function Proveedores() {
                             <div className="prov-kpi__label">Credito</div>
                             <div className="prov-kpi__value">
                                 {creditoTotal}
-                        </div>
+                            </div>
                         </div>
                     </div>
                     <div className="prov-kpi">
@@ -294,7 +409,7 @@ function Proveedores() {
                             <div className="prov-kpi__label">Cheque / Contado</div>
                             <div className="prov-kpi__value">
                                 {contadoChequeTotal}
-                        </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -331,29 +446,27 @@ function Proveedores() {
                         <table className="prov-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Proveedor</th>
-                                    <th>Telefono</th>
-                                    <th>Correo Electronico</th>
-                                    <th>Tipo de Pago</th>
+                                    <SortHeader label="ID" sortKey="id" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Proveedor" sortKey="nombre" sort={sort} onSort={toggleSort} />
+                                    <th>Teléfono</th>
+                                    <SortHeader label="Correo Electronico" sortKey="correo" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Tipo de Pago" sortKey="tipo" sort={sort} onSort={toggleSort} />
                                     {canManage && (
                                         <th>Acciones</th>
                                     )}
                                 </tr>
                             </thead>
                             <tbody>
-                                {loading ?(
+                                {loading ? (
                                     <tr>
                                         <td colSpan={canManage ? 6 : 5} style={{ textAlign: 'center', padding: '3rem' }}>
                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', color: '#94a3b8' }}>
-                                                <svg style={{ animation: 'spin 1s linear infinite' }} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                                                </svg>
+                                                <div className="prov-spin"></div>
                                                 Cargando proveedores...
                                             </div>
                                         </td>
                                     </tr>
-                                ): filteredProveedores.length === 0 ?(
+                                ) : filteredProveedores.length === 0 ? (
                                     <tr>
                                         <td colSpan={canManage ? 6 : 5}>
                                             <div className="prov-empty">
@@ -394,7 +507,7 @@ function Proveedores() {
                                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                                                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                                             </svg>
-                                                            {formatPhone(prov.telefono)}
+                                                            {`${formatPhone(prov.telefono)}`}
                                                         </a>
                                                     ) : (
                                                         <span style={{ color: '#64748b' }}>—</span>
@@ -469,10 +582,10 @@ function Proveedores() {
                                     {modalMode === 'CREATE' ? 'Nuevo Proveedor' : 'Editar Proveedor'}
                                 </h2>
                                 <button
-                                type="button"
-                                className="prov-modal__close"
-                                onClick={()=> setModalOpen(false)}
-                                disabled={actionLoading || !modalOpen}>
+                                    type="button"
+                                    className="prov-modal__close"
+                                    onClick={() => setModalOpen(false)}
+                                    disabled={actionLoading || !modalOpen}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                     </svg>
@@ -480,49 +593,42 @@ function Proveedores() {
                             </div>
                             <form className="prov-modal__form" onSubmit={handleSave}>
                                 <div className="prov-modal__body">
-                                    {formError && (
-                                        <div className="prov-alert prov-alert--error" style={{ marginBottom: 0 }}>
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                                            </svg>
-                                            <span>{formError}</span>
-                                        </div>
-                                    )}
+                                    {alerta}
                                     <div className="prov-form-group">
                                         <label className="prov-form-label">
                                             Nombre comercial o razón social
                                         </label>
-                                        <input 
-                                        type="text"
-                                        className="prov-input"
-                                        placeholder="ej. Proveedor S.A. de C.V."
-                                        value={formNombre}
-                                        onChange={(e) => setFormNombre(e.target.value)}
-                                        disabled={actionLoading}
-                                        required
+                                        <input
+                                            type="text"
+                                            className="prov-input"
+                                            placeholder="ej. Proveedor S.A. de C.V."
+                                            value={formNombre}
+                                            onChange={(e) => setFormNombre(e.target.value)}
+                                            disabled={actionLoading}
+                                            required
                                         />
                                     </div>
                                     <div className="prov-form-group">
                                         <label className="prov-form-label">Teléfono</label>
                                         <input
-                                        type="tel"
-                                        className="prov-input"
-                                        placeholder="ej. 123 456 7891"
-                                        value={formTelefono}
-                                        onChange={(e) => setFormTelefono(e.target.value)}
-                                        disabled={actionLoading}
-                                        maxLength="10"
+                                            type="tel"
+                                            className="prov-input"
+                                            placeholder="ej. 123 456 7891"
+                                            value={formTelefono}
+                                            onChange={(e) => setFormTelefono(e.target.value)}
+                                            disabled={actionLoading}
+                                            maxLength="10"
                                         />
                                     </div>
                                     <div className="prov-form-group">
                                         <label className="prov-form-label">Correo electrónico</label>
                                         <input
-                                        className='prov-input'
-                                        type="email"
-                                        placeholder="Ej. proveedor@gmail.com"
-                                        value={formCorreo}
-                                        onChange={(e) => setFormCorreo(e.target.value)}
-                                        disabled={actionLoading}/>
+                                            className='prov-input'
+                                            type="email"
+                                            placeholder="Ej. proveedor@gmail.com"
+                                            value={formCorreo}
+                                            onChange={(e) => setFormCorreo(e.target.value)}
+                                            disabled={actionLoading} />
                                     </div>
                                     <div className="prov-form-group">
                                         <label className="prov-form-label">Tipo de pago</label>
@@ -539,17 +645,17 @@ function Proveedores() {
                                 </div>
                                 <div className="prov-modal__footer">
                                     <button
-                                    className="prov-btn prov-btn--secondary"
-                                    type="button"
-                                    onClick={() => setModalOpen(false)}
-                                    disabled={actionLoading}
+                                        className="prov-btn prov-btn--secondary"
+                                        type="button"
+                                        onClick={() => setModalOpen(false)}
+                                        disabled={actionLoading}
                                     >
                                         Cancelar
                                     </button>
                                     <button
-                                    className="prov-btn prov-btn--primary"
-                                    type="submit"
-                                    disabled={actionLoading || !formNombre.trim()}>
+                                        className="prov-btn prov-btn--primary"
+                                        type="submit"
+                                        disabled={actionLoading || !formNombre.trim()}>
                                         {actionLoading ? ('Guardando...') : (modalMode === 'CREATE' ? 'Guardar proveedor' : 'Actualizar proveedor')}
                                     </button>
                                 </div>
@@ -558,7 +664,7 @@ function Proveedores() {
                     </div>
                 )}
                 {deleteModalOpen && provToDelete && (
-                    <div className="prov-modal-overlay" onClick={()=> !actionLoading && setDeleteModalOpen(false)}>
+                    <div className="prov-modal-overlay" onClick={() => !actionLoading && setDeleteModalOpen(false)}>
                         <div className="prov-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="prov-modal__header">
                                 <h2 className="prov-modal__title" style={{color:'#f87171'}}>
@@ -569,37 +675,37 @@ function Proveedores() {
                                     Eliminar Proveedor
                                 </h2>
                                 <button
-                                type="button"
-                                className="prov-modal__close"
-                                onClick={()=> setDeleteModalOpen(false)}
-                                disabled={actionLoading}>
+                                    type="button"
+                                    className="prov-modal__close"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    disabled={actionLoading}>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                     </svg>
                                 </button>
                             </div>
                             <div className="prov-modal__body">
-                                <p style={{color:'#e2e8f0', margin:0, fontSize:'0.9rem'}}>
+                                <p style={{ color: '#e2e8f0', margin: 0, fontSize: '0.9rem' }}>
                                     ¿Estás seguro de que deseas eliminar al proveedor <strong>{provToDelete.nombre}</strong> (ID: {provToDelete.id_proveedor})? Esta acción no se puede deshacer.
                                 </p>
                                 <div className="prov-delete-box">
-                                    <strong>Advertencia:</strong> Si el proveedor tiene compras registradas o facturas vinculadas, no se podrá eliminar.    
+                                    <strong>Advertencia:</strong> Si el proveedor tiene compras registradas o facturas vinculadas, no se podrá eliminar.
                                 </div>
                             </div>
                             <div className="prov-modal__footer">
                                 <button
-                                className="prov-btn prov-btn--secondary"
-                                type="button"
-                                onClick={() => setDeleteModalOpen(false)}
-                                disabled={actionLoading}
+                                    className="prov-btn prov-btn--secondary"
+                                    type="button"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    disabled={actionLoading}
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                className="prov-btn prov-btn--danger"
-                                type="button"
-                                disabled={actionLoading}
-                                onClick={handleDeleteConfirm}
+                                    className="prov-btn prov-btn--danger"
+                                    type="button"
+                                    disabled={actionLoading}
+                                    onClick={handleDeleteConfirm}
                                 >
                                     {actionLoading ? ('Eliminando...') : ('Eliminar proveedor')}
                                 </button>

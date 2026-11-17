@@ -442,16 +442,28 @@
     transform: translateY(-1px);
 }
 
-.cat-action-btn--edit:hover {
-    color: #a78bfa;
-    border-color: rgba(139, 92, 246, 0.4);
-    background: rgba(139, 92, 246, 0.15);
+.cat-action-btn--edit:hover:not(:disabled) {
+    background:rgba(2, 132, 199, 0.3);
+    color:#7dd3fc;
+    border-color: 2px solid rgba(2,132, 199, 0.5);
+    transform: translateY(-1px);
+}
+.cat-action-btn--edit {
+    background: rgba(2, 132, 199, 0.2);
+    color:#38bdf8;
+    border: 2px solid rgba(2, 132, 199, 0.3);
 }
 
-.cat-action-btn--delete:hover {
-    color: #f87171;
-    border-color: rgba(239, 68, 68, 0.4);
-    background: rgba(239, 68, 68, 0.15);
+.cat-action-btn--delete {
+    background: rgba(239, 68, 68, 0.2);
+    color:#fca5a5;
+    border: 2px solid rgba(239,68,68, 0.3);
+}
+.cat-action-btn--delete:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.3);
+    color:#fee2e2;
+    border-color:2px solid rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
 }
 
 /* Empty State */
@@ -629,6 +641,15 @@
     font-size: 0.84rem;
     color: #fca5a5;
     line-height: 1.5;
+}
+
+.cat-spin{
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(99, 102, 241, 0.15);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: comprasSpin 0.75s linear infinite;
 }
 
 /* Animations */

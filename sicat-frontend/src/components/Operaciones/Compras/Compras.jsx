@@ -1,8 +1,23 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import Layout from '../../layout/Layout';
 import './Compras.css'
 import client from '../../../api/client';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function Compras() {
     const { usuario } = useAuth();
@@ -14,8 +29,6 @@ function Compras() {
     const [departamentos, setDepartamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     const [search, setSearch] = useState('');
     const [filterProveedor, setFilterProveedor] = useState('ALL');
@@ -26,26 +39,41 @@ function Compras() {
     const [formIdEmpresa, setFormIdEmpresa] = useState('');
     const [formFecha, setFormFecha] = useState(new Date().toISOString().split('T')[0]);
     const [formDetalle, setFormDetalle] = useState([{ id_producto: '', cantidad: 1, precio_unitario: '', id_departamento: '' }]);
-    const [formError, setFormError] = useState('');
 
     const [detailCompra, setDetailCompra] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
 
+    const [deleteItem, setDeleteItem] = useState(null);
+    const [openDeleteModal, setOpenDeleteModal] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const [filters, setFilters] = useState({
+        id_compra: '',
+        proveedor: '',
+        empresa: '',
+        fecha_compra: '',
+        total: '',
+    });
+    const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
+
+    const [minFecha, setMinFecha] = useState('');
+    const [maxFecha, setMaxFecha] = useState('');
+
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text });
+    }, []);
 
     useEffect(() => {
         fetchData();
     }, []);
 
-    useEffect(() => {
-        if (success) {
-            const t = setTimeout(() => setSuccess(''), 4000)
-            return () => clearTimeout(t);
-        }
-    })
-
     const fetchData = async () => {
         setLoading(true);
-        setError('');
+        if (message.type === 'error') {
+            showMessage('', '');
+        }
         try {
             const [cRes, pRes, eRes, prRes, dRes] = await Promise.all([
                 client.get('/compras'),
@@ -60,29 +88,117 @@ function Compras() {
             setProductos(Array.isArray(prRes.data) ? prRes.data : [])
             setDepartamentos(Array.isArray(dRes.data) ? dRes.data : [])
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al cargar los datos');
+            //setError(err.response?.data?.message || 'Error al cargar los datos');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar las compras.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
     };
 
+    const toggleSort = useCallback((key) => {
+        setSort((prev) =>
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+        );
+    }, []);
+
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id':
+                return item.id_compra;
+            case 'proveedor':
+                return normalizar(item.proveedor);
+            case 'empresa':
+                return normalizar(item.empresa);
+            case 'fecha':
+                return normalizar(item.fecha_compra);
+            case 'total':
+                return normalizar(item.total);
+            default:
+                return item[key] ?? null;
+        }
+    }
+
     const comprasFiltradas = useMemo(() => {
-        return compras.filter(c => {
+        const lista = compras.filter(c => {
+            const fechaMin = minFecha ? new Date(`${minFecha}T00:00:00`) : null;
+            const fechaMax = maxFecha ? new Date(`${maxFecha}T23:59:59.999`) : null;
+            const fechaCompra = c.fecha_compra ? new Date(c.fecha_compra) : null;
             const q = search.toLowerCase();
+
             const matchSearch =
                 String(c.id_compra).includes(q) ||
                 (c.proveedor || '').toLowerCase().includes(q) ||
                 (c.empresa || '').toLowerCase().includes(q);
+
             if (!matchSearch) return false;
+
             if (filterProveedor !== 'ALL' && String(c.id_proveedor) !== filterProveedor) return false;
             if (filterEmpresa !== 'ALL' && String(c.id_empresa) !== filterEmpresa) return false;
+            if (fechaMin) {
+                if (fechaMin && fechaMin > fechaCompra) return false;
+                
+            }
+            if (fechaMax){
+                if (fechaMax && fechaMax < fechaCompra) return false;
+            }
             return true;
         })
-    }, [compras, search, filterProveedor, filterEmpresa]);
 
-    const totalCompras = compras.length;
-    const montoTotal = compras.reduce((s, c) => s + (parseFloat(c.total) || 0), 0);
-    const proveedoresUnidos = new Set(compras.map(c => c.id_proveedor)).size;
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        if (sort.key === 'total') {
+            return [...lista].sort((a, b) => {
+                const va = parseFloat(a.total) || 0;
+                const vb = parseFloat(b.total) || 0;
+                if (va < vb) return -1 * factor;
+                if (va > vb) return 1 * factor;
+                return 0;
+            })
+        }
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [compras, search, filterProveedor, filterEmpresa, filters, sort, minFecha, maxFecha]);
+
+    const deptoFilter = useMemo(() => {
+        const q = formIdEmpresa;
+        if (!q) return departamentos;
+        if (String(q) !== String(formIdEmpresa)) return false
+        return departamentos.filter(d => String(d.id_empresa) === String(q));
+
+    }, [departamentos, formIdEmpresa]);
+
+    const totalCompras = comprasFiltradas.length;
+    const montoTotal = comprasFiltradas.reduce((s, c) => s + (parseFloat(c.total) || 0), 0);
+    const proveedoresUnidos = new Set(comprasFiltradas.map(c => c.id_proveedor)).size;
 
     const formatMoney = (val) => {
         const n = parseFloat(val);
@@ -99,7 +215,7 @@ function Compras() {
         setFormIdEmpresa('');
         setFormFecha(new Date().toISOString().split('T')[0]);
         setFormDetalle([{ id_producto: '', cantidad: 1, precio_unitario: '', id_departamento: '' }]);
-        setFormError('');
+        showMessage('', '');
         setModalOpen(true);
     }
 
@@ -123,36 +239,36 @@ function Compras() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setFormError('');
+        showMessage('', '');
         if (!formIdProveedor) {
-            setFormError('Seleccione un proveedor');
+            showMessage('error', 'Seleccione un proveedor');
             return;
         }
         if (!formIdEmpresa) {
-            setFormError('seleccione una empresa');
+            showMessage('error', 'Seleccione una empresa');
             return;
         }
         if (formDetalle.length === 0) {
-            setFormError('Agregue al menos un producto');
+            showMessage('error', 'Agregue al menos un producto');
             return;
         }
 
         for (let i = 0; i < formDetalle.length; i++) {
             const d = formDetalle[i];
             if (!d.id_producto) {
-                setFormError('Seleccione un producto para cada línea');
+                showMessage('error', 'Seleccione un producto para cada línea');
                 return;
             }
             if (!d.cantidad) {
-                setFormError('Ingrese la cantidad para cada línea');
+                showMessage('error', 'Ingrese la cantidad para cada línea');
                 return;
             }
             if (!d.precio_unitario) {
-                setFormError('Ingrese el precio unitario para cada línea');
+                showMessage('error', 'Ingrese la cantiad para caa línea');
                 return;
             }
             if (!d.id_departamento) {
-                setFormError('Seleccione un departamento para cada línea');
+                showMessage('error', 'Seleccione un departamento para cada línea');
                 return;
             }
         }
@@ -170,34 +286,145 @@ function Compras() {
                 })),
             };
             await client.post('/compras', payload);
-            setSuccess('Compra registrada exitosamente');
+            showMessage('success', 'Compra registrada exitosamente');
             setModalOpen(false);
             fetchData();
         } catch (err) {
-            setFormError(err.response?.data?.message || 'Error al registrar la compra');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al registrar la compra. ';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
     }
+
+    const handleDepartamentoChoose = (idx, e) => {
+        handleLineChange(idx, 'id_departamento', e.target.value);
+        setFormIdEmpresa(deptoFilter.find(d => String(d.id_departamento) === e.target.value)?.id_empresa || '');
+    }
+
+    const handleOpenDelete = async (item) => {
+        showMessage('', '');
+        setConfirmDelete(false);
+        setOpenDeleteModal(true);
+        setDeleteItem(item);
+        try {
+            const { data } = await client.get(`/compras/${item.id_compra}`);
+            setDeleteItem(data);
+        } catch (err) {
+            setDeleteItem({ ...item, detalle: [] });
+            showMessage('error', 'No se pudo cargar el detalle de la compra.');
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteItem) return;
+
+        if (deleteItem.detalle?.some(d => Number(d.cantidad) > Number(d.inventario))) {
+            showMessage('error', 'La cantidad de la compra de un producto a eliminar es mayor a la cantidad del inventario.');
+            return;
+        }
+
+        setActionLoading(true);
+        try {
+            await client.delete(`/compras/${deleteItem.id_compra}`);
+            showMessage('success', 'Compra eliminada exitosamente');
+            setOpenDeleteModal(false);
+            setDeleteItem(null);
+            setConfirmDelete(false);
+            fetchData();
+        } catch (err) {
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error al eliminar la compra.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleOpenDetail = async (compra) => {
         setDetailLoading(true);
         setDetailCompra(null);
+        showMessage('', '');
         try {
             const { data } = await client.get(`/compras/${compra.id_compra}`);
             setDetailCompra(data);
-            console.log('Detalle de compra:', data);
-        } catch {
+        } catch (err) {
             setDetailCompra({ ...compra, detalle: [] });
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar los detalles de la compra. ';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += `[ ${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setDetailLoading(false);
         }
     }
 
-
-
     const isAdmin = usuario?.rol === 'admin';
     const isGerente = usuario?.rol === 'gerente';
     const canCreate = isAdmin || isGerente;
+
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
     return (
         <Layout>
@@ -214,7 +441,7 @@ function Compras() {
                             </span>
                             Compras
                         </h1>
-                        <p className="compras-header__subtitle">Registro de compras</p>
+                        
                     </span>
                     <div className="compras-header__actions">
                         <button className="compras-btn compras-btn--secondary" onClick={fetchData} disabled={loading}>
@@ -234,24 +461,7 @@ function Compras() {
                         )}
                     </div>
                 </header>
-
-                {error && (
-                    <div className="compras-alert compras-alert--error">
-                        <div className="compras-alert__content">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                            {error}
-                        </div>
-                    </div>
-                )}
-                {success && (
-                    <div className="compras-alert compras-alert--success">
-                        <div className="compras-alert__content">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                            {success}
-                        </div>
-                    </div>
-                )}
-
+                {alerta}
                 <div className="compras-kpis">
                     <div className="compras-kpi">
                         <div className="compras-kpi__icon-box--blue">
@@ -269,7 +479,7 @@ function Compras() {
                         </div>
                         <div className="compras-kpi__content">
                             <div className="compras-kpi__label">Total de compras</div>
-                            <div className="compras-kpi__value">{montoTotal}</div>
+                            <div className="compras-kpi__value">{formatMoney(montoTotal)}</div>
                         </div>
                     </div>
 
@@ -306,6 +516,18 @@ function Compras() {
                         <option value="ALL">Todas las empresas</option>
                         {empresas.map(e => <option key={e.id_empresa} value={String(e.id_empresa)}> {e.nombre} </option>)}
                     </select>
+                    <input
+                        type="date"
+                        className="compras-input--date"
+                        value={minFecha}
+                        onChange={(e) => setMinFecha(e.target.value)}
+                    />
+                    <input
+                        type="date"
+                        className="compras-input--date"
+                        value={maxFecha}
+                        onChange={(e) => setMaxFecha(e.target.value)}
+                    />
                 </div>
                 {loading ? (
                     <div className="compras-loading">
@@ -329,11 +551,11 @@ function Compras() {
                         <table className="compras-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Proveedor</th>
-                                    <th>Empresa</th>
-                                    <th>fecha</th>
-                                    <th style={{ textAlign: 'right' }}>total</th>
+                                    <SortHeader label="ID" sortKey="id" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Proveedor" sortKey="proveedor" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Empresa" sortKey="empresa" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Fecha" sortKey="fecha" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Total" sortKey="total" sort={sort} onSort={toggleSort} className="compras-table__total" />
                                     <th style={{ textAlign: 'right' }}>acciones</th>
                                 </tr>
                             </thead>
@@ -350,6 +572,16 @@ function Compras() {
                                                 <div className="compras-row-actions" onClick={e => e.stopPropagation()}>
                                                     <button className="compras-action-btn" onClick={() => handleOpenDetail(c)} title="Ver detalle">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                    </button>
+                                                    <button className="compras-action-btn compras-action-btn--delete" onClick={() => handleOpenDelete(c)}>
+                                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                                            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                                            <g id="SVGRepo_iconCarrier">
+                                                                <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                </path>
+                                                            </g>
+                                                        </svg>
                                                     </button>
                                                 </div>
                                             </td>
@@ -373,21 +605,17 @@ function Compras() {
                                 <button className="compras-modal__close" onClick={() => setModalOpen(false)} disabled={actionLoading}>&times;</button>
                             </div>
                             <form className="compras-form" onSubmit={handleSubmit}>
-                                {formError && (
-                                    <div className="compras-form__error">{formError}</div>
-                                )}
+                                {alerta}
                                 <div className="compras-grid-3">
                                     <div className="compras-form__group">
                                         <label className="compras-form-label">Proveedor <span className="compras-req"></span></label>
                                         <select className="compras-input" value={formIdProveedor} onChange={(e) => setFormIdProveedor(e.target.value)}>
                                             <option value="">Seleccionar...</option>
                                             {proveedores.map(p => <option key={p.id_proveedor} value={String(p.id_proveedor)}>{p.nombre}</option>)}
-
                                         </select>
                                     </div>
-
                                     <div className="compras-form__group">
-                                        <label className="compras-form-label">Empresa <span className="compras-req"></span></label>
+                                        <label className="compras-form-label">Empresa Destino<span className="compras-req"></span></label>
                                         <select className="compras-input" value={formIdEmpresa} onChange={(e) => setFormIdEmpresa(e.target.value)}>
                                             <option value=''>Seleccionar...</option>
                                             {empresas.map(e => <option key={e.id_empresa} value={String(e.id_empresa)}>{e.nombre}</option>)}
@@ -398,7 +626,6 @@ function Compras() {
                                         <input type="date" className="compras-input" value={formFecha} onChange={e => setFormFecha(e.target.value)} />
                                     </div>
                                 </div>
-
                                 <div className="compras-lines-section">
                                     <div className="compras-lines-header">
                                         <span className="compras-lines-header__title">Detalle de productos</span>
@@ -418,31 +645,34 @@ function Compras() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {formDetalle.map((line, idx)=> (
+                                            {formDetalle.map((line, idx) => (
                                                 <tr key={idx}>
-                                                <td>
-                                                    <select className="compras-input" value={formDetalle[0].id_producto} onChange={(e) => handleLineChange(0, 'id_producto', e.target.value)}>
-                                                        <option value="">Seleccionar...</option>
-                                                        {productos.map(p => <option key={p.id_producto} value={String(p.id_producto)}>{p.nombre}</option>)}
-                                                    </select>
-                                                </td>
-                                                <td><input type="number" className="compras-input" min="1" value={formDetalle[0].cantidad} onChange={(e) => handleLineChange(0, 'cantidad', e.target.value)} /></td>
-                                                <td><input type="number" className="compras-input" min="0" step="0.01" value={formDetalle[0].precio_unitario} onChange={(e) => handleLineChange(0, 'precio_unitario', e.target.value)} /></td>
-                                                <td>
-                                                    <select className="compras-input" value={formDetalle[0].id_departamento} onChange={(e) => handleLineChange(0, 'id_departamento', e.target.value)}>
-                                                        <option value="">Seleccionar...</option>
-                                                        {departamentos.map(d => <option key={d.id_departamento} value={String(d.id_departamento)}>{d.nombre}</option>)}
-                                                    </select>
-                                                </td>
-                                                <td style={{ textAlign: 'right' }} className="compras-line-subtotal">{formatMoney(formDetalle[0].cantidad * formDetalle[0].precio_unitario)}</td>
-                                                <td>
-                                                    {formDetalle.length > 1 && (
-                                                        <button type="button" className="compras-line-remove" onClick={() => handleRemoveLine(0)} disabled={formDetalle.length === 1}>
-                                                            &times;
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
+                                                    <td>
+                                                        <select className="compras-input" value={formDetalle[idx].id_producto} onChange={(e) => handleLineChange(idx, 'id_producto', e.target.value)}>
+                                                            <option value="">Seleccionar...</option>
+                                                            {productos.map(p => <option key={p.id_producto} value={String(p.id_producto)}>{p.nombre}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td><input type="number" className="compras-input compras-input--val" min="1" value={formDetalle[idx].cantidad} onChange={(e) => handleLineChange(idx, 'cantidad', e.target.value)} /></td>
+                                                    <td><input type="number" className="compras-input" min="0" step="0.01" value={formDetalle[idx].precio_unitario} onChange={(e) => handleLineChange(idx, 'precio_unitario', e.target.value)} /></td>
+                                                    <td>
+                                                        <select name="deptoChoose" className="compras-input" value={formDetalle[idx].id_departamento} onChange={(e) => handleDepartamentoChoose(idx, e)}>
+                                                            <option id="deptoChoose" value="">Seleccionar</option>
+                                                            {deptoFilter.map(d => <option key={d.id_departamento} value={String(d.id_departamento)}>{d.nombre} · {d.empresa}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td className="compras-line-subtotal">{formatMoney(formDetalle[idx].cantidad * formDetalle[idx].precio_unitario)}</td>
+                                                    <td>
+                                                        {formDetalle.length > 1 && (
+                                                            <button type="button" className="compras-line-remove" onClick={() => handleRemoveLine(idx)} disabled={formDetalle.length === 1}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
                                             ))}
                                         </tbody>
                                     </table>
@@ -451,30 +681,30 @@ function Compras() {
                                     </div>
                                 </div>
                                 <div className="compras-modal__footer">
-                                        <button type="button" className="compras-btn compras-btn--secondary" onClick={()=> setModalOpen(false)} disabled={actionLoading}>
-                                            Cancelar
-                                        </button>
-                                        <button type="submit" clasName="compras-btn compras-btn--primary" disabled={actionLoading}>
-                                            {actionLoading && <span className="compras-btn__spin"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /></svg></span>}
-                                            {actionLoading ? 'Procesando...' : "Aceptar"}
-                                        </button>
+                                    <button type="button" className="compras-btn compras-btn--secondary" onClick={() => setModalOpen(false)} disabled={actionLoading}>
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" className="compras-btn compras-btn--primary" disabled={actionLoading}>
+                                        {actionLoading && <span className="compras-btn__spin"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /></svg></span>}
+                                        {actionLoading ? 'Procesando...' : "Aceptar"}
+                                    </button>
                                 </div>
                             </form>
                         </div>
                     </div>
                 )}
                 {(detailCompra || detailLoading) && (
-                    <div className="compras-modal-overlay" onClick={() => {setDetailCompra(null); setDetailLoading(false)}}>
-                        <div className="compras-modal compras-modal--wide" onClick={e=> e.stopPropagation()}>
+                    <div className="compras-modal-overlay" onClick={() => { setDetailCompra(null); setDetailLoading(false) }}>
+                        <div className="compras-modal compras-modal--wide" onClick={e => e.stopPropagation()}>
                             <div className="compras-modal__header">
                                 <h2 className="compras-modal__title">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                                     Detalle de Compra {detailCompra && `#${detailCompra.id_compra}`}
                                 </h2>
-                                <button className="compras-modal__close" onClick={() => {setDetailCompra(null); setDetailLoading(false)}}>&times;</button>
+                                <button className="compras-modal__close" onClick={() => { setDetailCompra(null); setDetailLoading(false) }}>&times;</button>
                             </div>
                             {detailLoading ? (
-                                <div className="compras-loading" style={{padding: '20px'}}>
+                                <div className="compras-loading" style={{ padding: '20px' }}>
                                     <div className="compras-spinner"></div>
                                     <p>Cargando detalles de la compra...</p>
                                 </div>
@@ -498,6 +728,7 @@ function Compras() {
                                             <span className="compras-detail-card__val">{formatMoney(detailCompra.total)}</span>
                                         </div>
                                     </div>
+                                    {alerta}
                                     {detailCompra.detalle && detailCompra.detalle.length > 0 && (
                                         <div className="compras-lines-section">
                                             <div className="compras-lines-header">
@@ -516,13 +747,13 @@ function Compras() {
                                                             <th>Subtotal</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody style={{textAlign: 'center'}}>
-                                                        {detailCompra.detalle.map((d, i)=> (
+                                                    <tbody style={{ textAlign: 'center' }}>
+                                                        {detailCompra.detalle.map((d, i) => (
                                                             <tr key={i}>
                                                                 <td>{d.nombre}</td>
                                                                 <td>{d.marca}</td>
                                                                 <td>{d.modelo}</td>
-                                                                <td>{detailCompra.departamento}</td>
+                                                                <td>{departamentos.find(dep => dep.id_departamento === d.id_departamento)?.nombre || d.id_departamento}</td>
                                                                 <td>{d.cantidad}</td>
                                                                 <td>{formatMoney(d.precio_unitario)}</td>
                                                                 <td>{formatMoney(d.cantidad * d.precio_unitario)}</td>
@@ -533,11 +764,46 @@ function Compras() {
                                             </div>
                                         </div>
                                     )}
+                                    <div className="compras-modal__footer">
+                                        <button className="compras-action-btn compras-action-btn--delete" onClick={() => handleOpenDelete(detailCompra)}>
+                                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                                <g id="SVGRepo_iconCarrier">
+                                                    <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    </path>
+                                                </g>
+                                            </svg>
+                                            Eliminar
+                                        </button>
+                                    </div>
                                 </>
                             )}
                         </div>
                     </div>
-                    
+                )}
+                {openDeleteModal && handleOpenDelete && (
+                    <div className="compras-modal-overlay" onClick={() => { setOpenDeleteModal(false); setDeleteItem(null) }}>
+                        <div className="compras-modal" onClick={e => e.stopPropagation()}>
+                            <div className="compras-modal__header">
+                                <h2 className="compras-modal__title">Eliminar Compra <strong>#{deleteItem?.id_compra}</strong></h2>
+                                <button className="compras-modal__close" onClick={() => { setDeleteItem(null); setOpenDeleteModal(false) }}>&times;</button>
+                            </div>
+                            <p className="compras-modal__body--text">Estás seguro de que quieres eliminar esta compra?</p>
+                            {confirmDelete && (<div className="compras-modal__body">
+                                <div className="compras-modal__body--warning">
+                                    <p><strong>Esta acción no se puede deshacer</strong></p>
+                                    <p>No se eliminará si contiene facturas asociadas o el inventario asociado es menor al de la compra</p>
+                                </div>
+                            </div>)}
+                            <div className="compras-modal__footer">
+                                <button type="button" className="compras-btn compras-btn--secondary" onClick={() => { setDeleteItem(null); setOpenDeleteModal(false) }}>Cancelar</button>
+                                <button type="button" className={`compras-btn compras-btn--${confirmDelete ? 'danger' : 'primary'}`} onClick={confirmDelete ? (handleConfirmDelete) : (() => setConfirmDelete(true))} disabled={actionLoading}>
+                                    {confirmDelete ? 'Confirmar Eliminación' : 'Eliminar Compra'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </Layout>

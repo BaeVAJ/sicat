@@ -1,9 +1,24 @@
 // src/components/catalogo/Productos/Productos.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
 import './Productos.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function Productos() {
     const { usuario } = useAuth();
@@ -12,8 +27,6 @@ function Productos() {
     const [categorias, setCategorias] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     const [viewMode, setViewMode] = useState('TABLE');
 
@@ -33,9 +46,26 @@ function Productos() {
     const [marca, setMarca] = useState('');
     const [modelo, setModelo] = useState('');
 
+    const isAdmin = usuario?.rol === 'admin';
+
     // Modal Eliminar
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [productoToDelete, setProductoToDelete] = useState(null);
+
+    const [message, setMessage] = useState({type: '', text: ''});
+
+    const [filters, setFilters] = useState({
+        id: '',
+        nombre: '',
+        categoria: '',
+        marca: '',
+        modelo: '',
+    });
+    const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
+
+    const showMessage = useCallback((type, text) => {
+        setMessage({type, text});
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -43,7 +73,7 @@ function Productos() {
 
     const fetchData = async () => {
         setLoading(true);
-        setError('');
+        showMessage('','');
         try {
             const [prodRes, catRes] = await Promise.all([
                 client.get('/productos'),
@@ -52,7 +82,20 @@ function Productos() {
             setProductos(Array.isArray(prodRes.data) ? prodRes.data : []);
             setCategorias(Array.isArray(catRes.data) ? catRes.data : []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar los productos');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los productos.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
@@ -89,7 +132,7 @@ function Productos() {
         } else {
             setIdCategoria(categorias.length > 0 ? String(categorias[0].id_categoria) : '');
         }
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -101,7 +144,7 @@ function Productos() {
         setMarca(producto.marca || '');
         setModelo(producto.modelo || '');
         setIdCategoria(String(producto.id_categoria));
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -109,17 +152,16 @@ function Productos() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!nombre.trim()) {
-            setError('El nombre del producto es obligatorio.');
+            showMessage('error', 'El nombre del producto es obligatorio.')
             return;
         }
         if (!idCategoria) {
-            setError('Debes seleccionar una categoría.');
+            showMessage('error', 'Debes seleccionar una categoría.');
             return;
         }
 
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
 
         const payload = {
             id_categoria: Number(idCategoria),
@@ -132,21 +174,49 @@ function Productos() {
             if (modalMode === 'CREATE') {
                 const { data } = await client.post('/productos', payload);
                 setProductos((prev) => [data, ...prev]);
-                setSuccess('Producto registrado exitosamente.');
+                showMessage('success', 'Producto registrado exitosamente.');
             } else {
                 const { data } = await client.put(`/productos/${currentProducto.id_producto}`, payload);
                 setProductos((prev) =>
                     prev.map((p) => (p.id_producto === currentProducto.id_producto ? data : p))
                 );
-                setSuccess('Producto actualizado exitosamente.');
+                showMessage('success', 'Producto actualizado exitosamente.');
             }
             setModalOpen(false);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al guardar el producto');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los productos.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
     };
+
+    const toggleSort = useCallback((key) => {
+        setSort((prev) =>
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+        );
+    }, []);
+
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
 
     // Abrir confirmación de eliminación
     const handleOpenDelete = (producto) => {
@@ -158,14 +228,26 @@ function Productos() {
     const handleConfirmDelete = async () => {
         if (!productoToDelete) return;
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
         try {
             await client.delete(`/productos/${productoToDelete.id_producto}`);
             setProductos((prev) => prev.filter((p) => p.id_producto !== productoToDelete.id_producto));
-            setSuccess('Producto eliminado exitosamente.');
+            showMessage('success', 'Producto eliminado exitosamente.');
         } catch (err) {
-            setError(err.response?.data?.error || 'No se puede eliminar. Podría estar vinculado a compras o inventario.');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error cargar los productos.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
             setDeleteModalOpen(false);
@@ -173,47 +255,100 @@ function Productos() {
         }
     };
 
-    // Productos filtrados
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id':
+                return item.id_producto;
+            case 'nombre':
+                return normalizar(item.nombre);
+            case 'categoria':
+                return normalizar(item.tipo_categoria);
+            case 'marca':
+                return normalizar(item.direccion);
+            case 'modelo':
+                return normalizar(item.modelo);
+            default:
+                return item[key] ?? null;
+        }
+    }
+
     
+
     const productosFiltrados = useMemo(() => {
-    const q = search.toLowerCase();
-    return productos.filter((p) => {
-        const catNombre = p.categoria || categoriaMap[p.id_categoria]?.nombre || '';
-        const matchSearch =
-            (p.nombre || '').toLowerCase().includes(q) ||
-            (p.marca || '').toLowerCase().includes(q) ||
-            (p.modelo || '').toLowerCase().includes(q) ||
-            catNombre.toLowerCase().includes(q);
-        if (!matchSearch) return false;
+        const q = search.toLowerCase();
+        const lista = productos.filter((p) => {
+            const catNombre = p.categoria || categoriaMap[p.id_categoria]?.nombre || '';
+            const matchSearch =
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.marca || '').toLowerCase().includes(q) ||
+                (p.modelo || '').toLowerCase().includes(q) ||
+                catNombre.toLowerCase().includes(q);
+            if (!matchSearch) return false;
 
-        if (filterCategoria !== 'ALL' && String(p.id_categoria) !== filterCategoria) return false;
+            if (filterCategoria !== 'ALL' && String(p.id_categoria) !== filterCategoria) return false;
 
-        if (filterMM === 'SIN_DATOS') return !p.marca?.trim() || !p.modelo?.trim();
-        if (filterMM.startsWith('M:')) return p.marca?.trim() === filterMM.slice(2);
-        if (filterMM.startsWith('MO:')) return p.modelo?.trim() === filterMM.slice(3);
-        return true;
-    });
-}, [productos, search, filterCategoria, filterMM, categoriaMap]);
+            if (filterMM === 'SIN_DATOS') return !p.marca?.trim() || !p.modelo?.trim();
+            if (filterMM.startsWith('M:')) return p.marca?.trim() === filterMM.slice(2);
+            if (filterMM.startsWith('MO:')) return p.modelo?.trim() === filterMM.slice(3);
+            return true;
+        });
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [productos, search, filterCategoria, filterMM, categoriaMap, filters, sort]);
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
-    // Métricas y estadísticas
-    const totalProductos = new Set(productosFiltrados.map((p)=>p.id_producto)).size;
+    const totalProductos = new Set(productosFiltrados.map((p) => p.id_producto)).size;
     const categoriasConProductosCount = new Set(productosFiltrados.map((p) => p.id_categoria)).size;
-    const marcasUnicas = new Set(productosFiltrados.map((p) => p.marca).filter(Boolean)).size;
-    const modelosUnicos = new Set(productosFiltrados.map((p) => p.modelo).filter(Boolean)).size;
-    
     const productosSinMarca = productosFiltrados.filter((p) => (!p.marca || p.marca.trim() === '' || !p.modelo || p.modelo.trim() === '')).length;
 
-    // Agrupación de productos por categoría
     const groupedData = useMemo(() => {
-    const list = filterCategoria === 'ALL'
-        ? categorias
-        : categorias.filter((c) => String(c.id_categoria) === filterCategoria);
+        const list = filterCategoria === 'ALL'
+            ? categorias
+            : categorias.filter((c) => String(c.id_categoria) === filterCategoria);
 
-    return list.map((cat) => ({
-        categoria: cat,
-        productos: productosFiltrados.filter((p) => p.id_categoria === cat.id_categoria),
-    }));
-}, [categorias, productosFiltrados, filterCategoria]);
+        return list.map((cat) => ({
+            categoria: cat,
+            productos: productosFiltrados.filter((p) => p.id_categoria === cat.id_categoria),
+        }));
+    }, [categorias, productosFiltrados, filterCategoria]);
+
+    const isOnMobile = window.innerWidth <= 768;
 
     return (
         <Layout>
@@ -272,69 +407,36 @@ function Productos() {
                         )}
                     </div>
                 </div>
-                {error && (
-                    <div className="productos-alert productos-alert--error" role="alert">
-                        <div className="productos-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                            <span>{error}</span>
-                        </div>
-                        <button type="button" className="productos-alert__close" onClick={() => setError('')} aria-label="Cerrar alerta">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {success && (
-                    <div className="productos-alert productos-alert--success" role="alert">
-                        <div className="productos-alert__content">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                            <span>{success}</span>
-                        </div>
-                        <button type="button" className="productos-alert__close" onClick={() => setSuccess('')} aria-label="Cerrar notificación">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
+                {alerta}
 
                 <div className="productos-kpis">
-                    <div className="productos-kpi" onClick={()=> (setFilterMM("ALL"), setFilterCategoria("ALL"))}>
+                    <div className="productos-kpi" onClick={() => (setFilterMM("ALL"), setFilterCategoria("ALL"))}>
                         <div className="productos-kpi__icon-box productos-kpi__icon-box--cyan">
-                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" strokeL    inecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 21L12 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> <rect x="3" y="4" width="18" height="13" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"></rect> <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
+                            <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12 21L12 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> <rect x="3" y="4" width="18" height="13" rx="1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"></rect> <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
                         </div>
                         <div className="productos-kpi__content">
                             <div className="productos-kpi__label">Total de Productos</div>
                             <div className="productos-kpi__value">{totalProductos}</div>
                         </div>
                     </div>
-                    
-                    <div className="productos-kpi" onClick={()=> (setFilterCategoria("ALL"))}>
+
+                    <div className="productos-kpi" onClick={() => (setFilterCategoria("ALL"))}>
                         <div className="productos-kpi__icon-box productos-kpi__icon-box--blue">
                             <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M7.0498 7.0498H7.0598M10.5118 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V10.5118C3 11.2455 3 11.6124 3.08289 11.9577C3.15638 12.2638 3.27759 12.5564 3.44208 12.8249C3.6276 13.1276 3.88703 13.387 4.40589 13.9059L9.10589 18.6059C10.2939 19.7939 10.888 20.388 11.5729 20.6105C12.1755 20.8063 12.8245 20.8063 13.4271 20.6105C14.112 20.388 14.7061 19.7939 15.8941 18.6059L18.6059 15.8941C19.7939 14.7061 20.388 14.112 20.6105 13.4271C20.8063 12.8245 20.8063 12.1755 20.6105 11.5729C20.388 10.888 19.7939 10.2939 18.6059 9.10589L13.9059 4.40589C13.387 3.88703 13.1276 3.6276 12.8249 3.44208C12.5564 3.27759 12.2638 3.15638 11.9577 3.08289C11.6124 3 11.2455 3 10.5118 3ZM7.5498 7.0498C7.5498 7.32595 7.32595 7.5498 7.0498 7.5498C6.77366 7.5498 6.5498 7.32595 6.5498 7.0498C6.5498 6.77366 6.77366 6.5498 7.0498 6.5498C7.32595 6.5498 7.5498 6.77366 7.5498 7.0498Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
                         </div>
-                        <div className="productivos-kpi__content">
+                        <div className="productos-kpi__content">
                             <div className="productos-kpi__label">Categorias</div>
-                            <div className="productos-kpi__value">{categoriasConProductosCount}</div> 
+                            <div className="productos-kpi__value">{categoriasConProductosCount}</div>
                         </div>
-                        
                     </div>
-                    <div className="productos-kpi" onClick={()=> setFilterMM("SIN_DATOS")}>
+                    
+                    <div className="productos-kpi" onClick={() => setFilterMM("SIN_DATOS")}>
                         <div className="productos-kpi__icon-box productos-kpi__icon-box--amber">
                             <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M10.2801 20.25H17.0001C19.7601 20.25 22.0001 18.01 22.0001 15.25V8.75C22.0001 5.99 19.7601 3.75 17.0001 3.75H10.2801C8.87005 3.75 7.53005 4.34 6.58005 5.39L3.05005 9.27C1.64005 10.82 1.64005 13.18 3.05005 14.73L6.58005 18.61C7.53005 19.66 8.87005 20.25 10.2801 20.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path> <path d="M16.0001 14.47L11.0601 9.53003" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path> <path d="M11.0601 14.47L16.0001 9.53003" stroke="CurrentColor" strokeWidth="1.5" strokeLinecap="round"></path> </g></svg>
                         </div>
                         <div className="productos-kpi__content">
-                            <span className="productos-kpi__label">Productos Sin Marcas / modelo</span>
-                            <span className="productos-kpi__count">{productosSinMarca}</span>
+                            <div className="productos-kpi__label">Productos Sin Marcas / modelo</div>
+                            <div className="productos-kpi__value">{productosSinMarca}</div>
                         </div>
                     </div>
                 </div>
@@ -436,18 +538,11 @@ function Productos() {
                 </div>
 
                 {/* ── Category Quick Filter Pills ── */}
-                
-                
+
+
                 {loading ? (
                     <div className="productos-empty">
-                        <div className="productos-empty__icon">
-                            <span className="productos-btn__spin">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="23 4 23 10 17 10" />
-                                    <polyline points="1 20 1 14 7 14" />
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                                </svg>
-                            </span>
+                        <div className="productos-spin">
                         </div>
                         <h3 className="productos-empty__title">Cargando catálogo de productos...</h3>
                     </div>
@@ -586,7 +681,7 @@ function Productos() {
                     <div className="productos-grid">
                         {productosFiltrados.map((prod) => {
                             const cat = categoriaMap[prod.id_categoria];
-                            
+
                             return (
                                 <div key={prod.id_producto} className="productos-card">
                                     <div className="productos-card__header">
@@ -600,17 +695,17 @@ function Productos() {
                                                 <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
                                                 <path d="M7 7h.01" />
                                             </svg>
-                                            <span onClick={()=> setFilterCategoria(String(prod.id_categoria))} style={{cursor: 'pointer'}}>{prod.categoria || cat?.nombre || `Categoría #${prod.id_categoria}`}</span>
+                                            <span onClick={() => setFilterCategoria(String(prod.id_categoria))} style={{ cursor: 'pointer' }}>{prod.categoria || cat?.nombre || `Categoría #${prod.id_categoria}`}</span>
                                         </div>
 
                                         <div className="productos-card__details">
                                             {prod.marca && (
-                                                <span className="productos-badge productos-badge--marca" onClick={() => setFilterMM(prod.marca ? `M:${prod.marca}` : 'SIN_DATOS')} style={{cursor:'pointer'}}>
+                                                <span className="productos-badge productos-badge--marca" onClick={() => setFilterMM(prod.marca ? `M:${prod.marca}` : 'SIN_DATOS')} style={{ cursor: 'pointer' }}>
                                                     Marca: {prod.marca}
                                                 </span>
                                             )}
                                             {prod.modelo && (
-                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : `SIN_DATOS`)} style={{cursor: 'pointer'}}>
+                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : `SIN_DATOS`)} style={{ cursor: 'pointer' }}>
                                                     Mod: {prod.modelo}
                                                 </span>
                                             )}
@@ -657,34 +752,37 @@ function Productos() {
                         <table className="productos-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Nombre del Producto</th>
-                                    <th>Categoría</th>
-                                    <th>Marca</th>
-                                    <th>Modelo</th>
+                                    {!isOnMobile && <SortHeader label="ID" sortKey="id" sort={sort} onSort={toggleSort} />}
+                                    <SortHeader label="Nombre Del Producto" sortKey="nombre" sort={sort} onSort={toggleSort} />
+                                    {!isOnMobile && <SortHeader label="Categoría" sortKey="categoria" sort={sort} onSort={toggleSort} />}
+                                    <SortHeader label="Marca" sortKey="marca" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Modelo" sortKey="modelo" sort={sort} onSort={toggleSort} />
                                     {['admin', 'gerente'].includes(usuario?.rol) && <th>Acciones</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {productosFiltrados.map((prod) => (
                                     <tr key={prod.id_producto}>
-                                        <td className="productos-table__id">#{prod.id_producto}</td>
+                                        {!isOnMobile && <td className="productos-table__id">#{prod.id_producto}</td>}
                                         <td className="productos-table__name">{prod.nombre}</td>
-                                        <td>
-                                            <span style={{cursor:'pointer'}} className="productos-badge productos-badge--cat" onClick={() => setFilterCategoria(String(prod.id_categoria))}>
-                                                {prod.categoria || categoriaMap[prod.id_categoria]?.nombre || `Cat #${prod.id_categoria}`}
-                                            </span>
-                                        </td>
+                                        {!isOnMobile && (
+                                            <td>
+                                                <span style={{ cursor: 'pointer' }} className="productos-badge productos-badge--cat" onClick={() => setFilterCategoria(String(prod.id_categoria))}>
+                                                    {prod.categoria || categoriaMap[prod.id_categoria]?.nombre || `Cat #${prod.id_categoria}`}
+                                                </span>
+                                            </td>
+                                        )}
+
                                         <td>
                                             {prod.marca ? (
-                                                <span className="productos-badge productos-badge--marca" onClick={()=> setFilterMM(prod.marca ? `M:${prod.marca}` : "SIN_DATOS")} style={{cursor: 'pointer'}}>{prod.marca}</span>
+                                                <span className="productos-badge productos-badge--marca" onClick={() => setFilterMM(prod.marca ? `M:${prod.marca}` : "SIN_DATOS")} style={{ cursor: 'pointer' }}>{prod.marca}</span>
                                             ) : (
                                                 <span style={{ color: 'rgba(148, 163, 184, 0.4)' }}>—</span>
                                             )}
                                         </td>
                                         <td>
                                             {prod.modelo ? (
-                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : 'SIN_DATOS')} style={{cursor:'pointer'}}>{prod.modelo}</span>
+                                                <span className="productos-badge productos-badge--modelo" onClick={() => setFilterMM(prod.modelo ? `MO:${prod.modelo}` : 'SIN_DATOS')} style={{ cursor: 'pointer' }}>{prod.modelo}</span>
                                             ) : (
                                                 <span style={{ color: 'rgba(148, 163, 184, 0.4)' }}>—</span>
                                             )}
@@ -722,11 +820,11 @@ function Productos() {
                                     </tr>
                                 ))}
                             </tbody>
- 
+
                         </table>
                         <div className="productos-table__footer">
-                                <span className="productos-table__footer-text">Mostrando <strong>{productosFiltrados.length}</strong> de <strong>{productos.length}</strong> productos</span>
-                            </div>
+                            <span className="productos-table__footer-text">Mostrando <strong>{productosFiltrados.length}</strong> de <strong>{productos.length}</strong> productos</span>
+                        </div>
                     </div>
                 )}
                 {modalOpen && (
@@ -767,7 +865,7 @@ function Productos() {
                                         ))}
                                     </select>
                                 </div>
- 
+
                                 <div className="productos-form-group">
                                     <label className="productos-form-label">Nombre del Producto *</label>
                                     <input
@@ -842,7 +940,7 @@ function Productos() {
                     <div className="productos-modal-overlay">
                         <div className="productos-modal">
                             <div className="productos-modal__header">
-                                <h2 style={{color: '#fca5a5'}} className="productos-modal__title">Eliminar Producto</h2>
+                                <h2 style={{ color: '#fca5a5' }} className="productos-modal__title">Eliminar Producto</h2>
                                 <button
                                     type="button"
                                     className="productos-modal__close"

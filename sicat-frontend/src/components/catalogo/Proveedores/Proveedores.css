@@ -8,37 +8,32 @@
 }
 
 .prov-header {
-    display: flex;
+    display:flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 1.75rem;
-    gap: 1.25rem;
+    margin-bottom:1.6rem;
     flex-wrap: wrap;
+    gap: 1.25rem;
 }
 
 .prov-header__title {
-    font-size: 1.55rem;
-    font-weight: 700;
-    color: #f1f5f9;
-    letter-spacing: -0.02em;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    font-size:1.55rem;
+    font-weight:700;
+    color:#f1f5f9;
+    letter-spacing: -0.02rem;
+    margin:0;
+    display:flex;
+    align-items:center;
+    gap:0.7rem;
 }
 
-.prov-header__icon-box {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(20, 184, 166, 0.1));
-    border: 1px solid rgba(6, 182, 212, 0.35);
-    color: #22d3ee;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+.prov-header__title svg{
+    flex-shrink:0;
+    transition: all 0.3s cubic-bezier(0.36, 1.56, 0.64, 1);
+}
+
+.prov-header__title svg:hover{
+    transform: rotate(12deg) scale(1.1);
 }
 
 .prov-header__subtitle {
@@ -321,6 +316,24 @@
     overflow-x:auto;
 }
 
+.prov-spin{
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(99, 102, 241, 0.15);
+    border-top-color: #22d3ee;
+    border-radius: 50%;
+    animation: provSpin 0.75s linear infinite;
+}
+
+@keyframes provSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .prov-table{
     width:100%;
     border-collapse:collapse;
@@ -423,6 +436,68 @@
 .prov-link{
     color:#bfdbfe;
     text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:0.3rem;
+}
+.complementos-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.8rem 1.15rem;
+    border-radius: 12px;
+    font-size: 0.86rem;
+    margin-bottom: 1.35rem;
+    animation: complementosAlertIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.complementos-alert__content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.complementos-alert__content svg {
+    flex-shrink: 0;
+}
+
+.complementos-alert__close {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.complementos-alert__close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.complementos-alert--error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #fca5a5;
+}
+
+.complementos-alert--success {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #6ee7b7;
+}
+
+@keyframes complementosAlertIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .prov-row-actions{
@@ -454,15 +529,27 @@
     transform:translateY(-2px);
 }
 
-.prov-action-btn--edit:hover{
-    color: #22d3ee;
-    border-color: rgba(6, 182, 212, 0.4);
-    background: rgba(6, 182, 212, 0.1);
+.prov-action-btn--edit{
+    background: rgba(2, 132, 199, 0.2);
+    color:#38bdf8;
+    border: 2px solid rgba(2, 132, 199, 0.3);
 }
-.prov-action-btn--delete:hover{
-    color:#f87171;
-    border-color: rgba(239, 68, 68, 0.1);
-    background: rgba(239, 68, 68, 0.1);
+.prov-action-btn--edit:hover:not(:disabled){
+    background:rgba(2, 132, 199, 0.3);
+    color:#7dd3fc;
+    border-color: 2px solid rgba(2,132, 199, 0.5);
+    transform: translateY(-1px);
+}
+.prov-action-btn--delete{
+    background: rgba(239, 68, 68, 0.2);
+    color:#fca5a5;
+    border: 2px solid rgba(239,68,68, 0.3);
+}
+.prov-action-btn--delete:hover:not(:disabled){
+    background: rgba(239, 68, 68, 0.3);
+    color:#fee2e2;
+    border-color:2px solid rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
 }
 
 .prov-empty{
@@ -658,8 +745,10 @@
 }
 
 @media (max-width: 768px){
+    
     .prov-container {
         padding: 1.25px;
+        margin: 10px;
     }
     .prov-controls{
         flex-direction:column;
@@ -670,5 +759,13 @@
     }
     .prov-select{
         width:100%;
+    }
+    .prov-header{
+        flex-direction:column;
+        align-items:stretch;
+        
+    }
+    .prov-header__actions{
+        justify-content:flex-start;
     }
 }

@@ -1,9 +1,24 @@
 // src/components/catalogo/Categorias/Categorias.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
 import './Categorias.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function Categorias() {
     const { usuario } = useAuth();
@@ -11,47 +26,91 @@ function Categorias() {
     const [categorias, setCategorias] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-
-    // Filters
+    
     const [search, setSearch] = useState('');
-    const [filterTipo, setFilterTipo] = useState('ALL'); // ALL | equipo | insumo | accesorio
+    const [filterTipo, setFilterTipo] = useState('ALL');
 
-    // Modal Create / Edit
     const [modalOpen, setModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' | 'EDIT'
+    const [modalMode, setModalMode] = useState('CREATE');
     const [selectedCat, setSelectedCat] = useState(null);
     const [formNombre, setFormNombre] = useState('');
     const [formTipo, setFormTipo] = useState('equipo');
     const [formDescripcion, setFormDescripcion] = useState('');
     const [formError, setFormError] = useState('');
 
-    // Modal Delete
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [catToDelete, setCatToDelete] = useState(null);
 
     const isAdmin = usuario?.rol === 'admin';
+
+    const [message, setMessage] = useState({type: '', text:''});
+
+    const [filters, setFilters] = useState({
+        id:"",
+        tipo:"",
+        nombre:"",
+        Descripcion:"",
+        Productos:"",
+    });
+    const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
+
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text});
+    }, []);
 
     useEffect(() => {
         fetchCategorias();
     }, []);
 
     useEffect(() => {
-        if (success) {
-            const t = setTimeout(() => setSuccess(''), 4000);
+        if (message.type === 'success') {
+            const t = setTimeout(() => setMessage({ type: '', text: '' }), 4000);
             return () => clearTimeout(t);
         }
-    }, [success]);
+    }, []);
+
+    const toggleSort = useCallback((key) => {
+            setSort((prev) =>
+                prev.key === key
+                    ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                    : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+            );
+    }, []);
+    
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id':
+                return item.id_categoria;
+            case 'tipo':
+                return normalizar(item.tipo);
+            case 'nombre':
+                return normalizar(item.nombre);
+            case 'descripcion':
+                return normalizar(item.descripcion);
+            case 'direccion':
+                return normalizar(item.direccion);
+            case 'productos':
+                return item.total_productos;
+            default:
+                return item[key] ?? null;
+        }
+    }
 
     const fetchCategorias = async () => {
         setLoading(true);
-        setError('');
+        
         try {
             const res = await client.get('/categorias');
             setCategorias(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar las categorías');
+            showMessage('error', String(err.response?.data?.error || 'Error al cargar las categorías.'));
         } finally {
             setLoading(false);
         }
@@ -59,7 +118,7 @@ function Categorias() {
 
     // Filtered list
     const filteredCategorias = useMemo(() => {
-        return categorias.filter((c) => {
+        const lista = categorias.filter((c) => {
             const matchesSearch =
                 (c.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
                 (c.descripcion || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -70,25 +129,54 @@ function Categorias() {
 
             return matchesSearch && matchesTipo;
         });
-    }, [categorias, search, filterTipo]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [categorias, search, filterTipo, filters, sort]);
 
-    // KPIs
-    const kpis = useMemo(() => {
-        const total = categorias.length;
-        const equipos = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'equipo').length;
-        const insumos = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'insumo').length;
-        const accesorios = categorias.filter((c) => (c.tipo || '').toLowerCase() === 'accesorio').length;
-        return { total, equipos, insumos, accesorios };
-    }, [categorias]);
-
-    // Handlers
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
+    
     const handleOpenCreate = () => {
         setModalMode('CREATE');
         setSelectedCat(null);
         setFormNombre('');
         setFormTipo('equipo');
         setFormDescripcion('');
-        setFormError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -98,16 +186,16 @@ function Categorias() {
         setFormNombre(cat.nombre || '');
         setFormTipo((cat.tipo || 'equipo').toLowerCase());
         setFormDescripcion(cat.descripcion || '');
-        setFormError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
-        setFormError('');
+        showMessage('','');
 
         if (!formNombre.trim()) {
-            setFormError('El nombre de la categoría es obligatorio.');
+            showMessage('error', 'El nombre de la categoría es obligatorio.')
             return;
         }
 
@@ -119,19 +207,32 @@ function Categorias() {
                     tipo: formTipo,
                     descripcion: formDescripcion.trim() || null,
                 });
-                setSuccess('Categoría creada exitosamente.');
+                showMessage('success','Categoria creada exitosamente.');
             } else {
                 await client.put(`/categorias/${selectedCat.id_categoria}`, {
                     nombre: formNombre.trim(),
                     tipo: formTipo,
                     descripcion: formDescripcion.trim() || null,
                 });
-                setSuccess('Categoría actualizada exitosamente.');
+                showMessage('success', 'Categoría actualizada exitosamente.');
             }
             setModalOpen(false);
             fetchCategorias();
         } catch (err) {
-            setFormError(err.response?.data?.error || 'Error al guardar la categoría.');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = modalMode === 'CREATE' ? 'Error al crear la categoría.' : 'Error al actualizar la categoría.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
@@ -147,12 +248,25 @@ function Categorias() {
         setActionLoading(true);
         try {
             await client.delete(`/categorias/${catToDelete.id_categoria}`);
-            setSuccess('Categoría eliminada correctamente.');
+            showMessage('success', 'Categoría eliminada correctamente.');
             setDeleteModalOpen(false);
             setCatToDelete(null);
             fetchCategorias();
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al eliminar la categoría.');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error al eliminar la categoría.';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
             setDeleteModalOpen(false);
         } finally {
             setActionLoading(false);
@@ -254,26 +368,8 @@ function Categorias() {
                     </div>
                 </div>
 
-                {error && (
-                    <div className="cat-alert cat-alert--error">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                        </svg>
-                        <span>{error}</span>
-                    </div>
-                )}
+                {alerta}
 
-                {success && (
-                    <div className="cat-alert cat-alert--success">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span>{success}</span>
-                    </div>
-                )}
-
-                
                 <div className="cat-controls">
                     <div className="cat-search">
                         <span className="cat-search__icon">
@@ -308,11 +404,12 @@ function Categorias() {
                         <table className="cat-table">
                             <thead>
                                 <tr>
-                                    <th># ID</th>
-                                    <th>Nombre</th>
-                                    <th>Tipo</th>
-                                    <th>Descripción</th>
-                                    <th style={{ textAlign: 'center' }}>Productos</th>
+                                    <SortHeader label="ID" sortKey="id" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Nombre" sortKey="nombre" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Tipo" sortKey="tipo" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Descripción" sortKey="descripcion" sort={sort} onSort={toggleSort}/>   
+                                    <SortHeader label="Productos" sortKey="productos" sort={sort} onSort={toggleSort}/>   
+                                    
                                     {isAdmin && <th style={{ textAlign: 'right' }}>Acciones</th>}
                                 </tr>
                             </thead>
@@ -321,9 +418,8 @@ function Categorias() {
                                     <tr>
                                         <td colSpan={isAdmin ? 6 : 5} style={{ textAlign: 'center', padding: '3rem' }}>
                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', color: '#94a3b8' }}>
-                                                <svg style={{ animation: 'spin 1s linear infinite' }} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                                                </svg>
+                                                <div className="cat-spin">
+                                                </div>
                                                 Cargando categorías...
                                             </div>
                                         </td>
@@ -445,14 +541,7 @@ function Categorias() {
 
                         <form onSubmit={handleSave}>
                             <div className="cat-modal__body">
-                                {formError && (
-                                    <div className="cat-alert cat-alert--error" style={{ marginBottom: 0 }}>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                                        </svg>
-                                        <span>{formError}</span>
-                                    </div>
-                                )}
+                                {alerta}
 
                                 <div className="cat-form-group">
                                     <label className="cat-label">

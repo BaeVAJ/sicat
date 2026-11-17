@@ -27,9 +27,11 @@ const allowedOrigins = [
   'https://sicat.22670030.workers.dev',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://0h4s588j-5173.usw3.devtunnels.ms',
+  
 ];
 
-// Acepta también los subdominios de preview: https://<hash>-sicat.22670030.workers.dev
+//permite conexion desde preview de cloudflare workers
 const previewRegex = /^https:\/\/[a-z0-9-]+-sicat\.22670030\.workers\.dev$/;
 
 app.use(cors({
@@ -38,6 +40,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || previewRegex.test(origin)) {
       return cb(null, true); // refleja el origen exacto
     }
+    
     return cb(new Error('Origen no permitido por CORS'));
   },
   credentials: true,

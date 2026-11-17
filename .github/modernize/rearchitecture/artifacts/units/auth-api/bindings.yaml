@@ -1,0 +1,5 @@
+unit: auth-api
+bindings:
+  - {type: route-declaration, name: "/login,/registrar,/logout,/me", source_loc: "sicat-backend/src/routes/auth.routes.js:6", target: "Express Router", must_appear_in_target: true, notes: "registrar/logout requieren token; registrar requiere admin."}
+runtime_config:
+  - {key: JWT_SECRET, source_loc: "sicat-backend/src/controllers/auth.controller.js:1", source: env, default_value: "", must_appear_in_target: true, notes: "Firma y verificación JWT."}

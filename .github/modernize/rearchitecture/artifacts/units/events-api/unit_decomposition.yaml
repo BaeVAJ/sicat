@@ -1,0 +1,3 @@
+unit: events-api
+commit: false
+candidate_splits: [{id: "sicat-backend/src/controllers/events.controller.js:1", drivers: [execution_model_split], rationale: "La conexión SSE y el filtrado de eventos pueden evolucionar de forma independiente.", source_slice: {file: "sicat-backend/src/controllers/events.controller.js", lines: [1, 45]}}]

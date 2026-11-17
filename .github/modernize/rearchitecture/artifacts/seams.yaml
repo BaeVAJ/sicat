@@ -1,0 +1,26 @@
+seams:
+  - id: "sicat-frontend/src/api/client.js:4"
+    description: "Frontera SPA/API entre Axios y Express."
+    source: inferred
+    cut_between:
+      migrated_side: frontend-spa
+      frozen_side: auth-api
+    protocol_shift: null
+    frozen_side_rule: "auth-api MUST NOT cambiar rutas, cookie ni estados de error sin actualizar el consumidor."
+  - id: "sicat-backend/src/services/supabaseStorage.js:1"
+    description: "Frontera de archivos entre API y Supabase Storage."
+    source: inferred
+    cut_between:
+      migrated_side: facturas-api
+      frozen_side: external-supabase-storage
+    protocol_shift: {from: supabase-sdk, to: supabase-sdk}
+    frozen_side_rule: "El almacenamiento externo y sus nombres de bucket deben tratarse como contrato congelado."
+    bridge_points:
+      - at: "factura.controller -> supabaseStorage"
+        from_form: "Buffer de PDF/XML y metadata"
+        to_form: "upload de Supabase Storage"
+        mapping_rule: "Conservar bucket, path, contentType y generación de signed URL definidos por supabaseStorage.js."
+        edge_cases: ["Archivo ausente debe producir el error existente.", "No exponer credenciales en el cliente."]
+        idempotency_retry: "No repetir uploads sin conservar el path o eliminar el objeto anterior."
+        fallback: "Propagar error de Storage como error HTTP explícito."
+        must_preserve: true

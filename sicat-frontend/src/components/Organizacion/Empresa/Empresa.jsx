@@ -1,9 +1,24 @@
 // src/components/Empresa/VerEmpresa/VerEmpresa.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
 import './Empresa.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function VerEmpresa() {
     const { usuario } = useAuth();
@@ -11,8 +26,6 @@ function VerEmpresa() {
     const [empresas, setEmpresas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
     // Search and filter
     const [search, setSearch] = useState('');
@@ -33,18 +46,50 @@ function VerEmpresa() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [empresaToDelete, setEmpresaToDelete] = useState(null);
 
+    const [message, setMessage] = useState({ type:'', text:''});
+
+    const isAdmin = usuario?.rol === 'admin';
+
+
+    const [filters, setFilters] = useState({
+        id_empresa: '',
+        empresa: '',
+        rfc: '',
+        direccion: '',
+        activa: '',
+    });
+    const [sort, setSort] = useState({ key: 'id_empresa', dir: 'desc' });
+
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text});
+    }, []);
+
     useEffect(() => {
         fetchEmpresas();
     }, []);
 
     const fetchEmpresas = async () => {
         setLoading(true);
-        setError('');
+        showMessage('','');
         try {
             const { data } = await client.get('/empresas');
             setEmpresas(Array.isArray(data) ? data : []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar las empresas');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar las empresas';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
@@ -58,7 +103,7 @@ function VerEmpresa() {
         setRfc('');
         setDireccion('');
         setActiva(true);
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
@@ -70,21 +115,47 @@ function VerEmpresa() {
         setRfc(empresa.rfc || '');
         setDireccion(empresa.direccion || '');
         setActiva(empresa.activa ?? true);
-        setError('');
+        showMessage('','');
         setModalOpen(true);
     };
 
-    // Save (Create or Update)
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    );
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!nombre.trim()) {
-            setError('El nombre de la empresa es obligatorio.');
+            showMessage('error', 'El nombre de la empresa es obligatorio,');
             return;
         }
 
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
 
         const payload = {
             nombre: nombre.trim(),
@@ -97,27 +168,57 @@ function VerEmpresa() {
             if (modalMode === 'CREATE') {
                 const { data } = await client.post('/empresas', payload);
                 setEmpresas((prev) => [...prev, data]);
-                setSuccess('Empresa creada exitosamente.');
+                showMessage('success', 'Empresa creada exitosamente.');
             } else {
                 const { data } = await client.put(`/empresas/${currentEmpresa.id_empresa}`, payload);
                 setEmpresas((prev) =>
                     prev.map((item) => (item.id_empresa === currentEmpresa.id_empresa ? data : item))
                 );
-                setSuccess('Empresa actualizada exitosamente.');
+                showMessage('success', 'Empresa actualizada exitosamente.');
             }
             setModalOpen(false);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al guardar la empresa');
+
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar las empresas';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
+
         } finally {
             setActionLoading(false);
         }
     };
 
-    // Toggle active status directly
+    const toggleSort = useCallback((key) => {
+        setSort((prev) =>
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+        );
+    }, []);
+
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    
     const handleToggleStatus = async (empresa) => {
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
         try {
             const { data } = await client.put(`/empresas/${empresa.id_empresa}`, {
                 nombre: empresa.nombre,
@@ -128,9 +229,24 @@ function VerEmpresa() {
             setEmpresas((prev) =>
                 prev.map((item) => (item.id_empresa === empresa.id_empresa ? data : item))
             );
-            setSuccess(`Empresa ${data.activa ? 'activada' : 'desactivada'} correctamente.`);
+            showMessage('success', `Empresa ${data.activa ? 'activada' : 'desactivada'} correctamente.`);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al cambiar estado');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar las empresas';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
+
         } finally {
             setActionLoading(false);
         }
@@ -146,41 +262,83 @@ function VerEmpresa() {
     const handleConfirmDelete = async () => {
         if (!empresaToDelete) return;
         setActionLoading(true);
-        setError('');
-        setSuccess('');
+        showMessage('','');
         try {
             await client.delete(`/empresas/${empresaToDelete.id_empresa}`);
             setEmpresas((prev) => prev.filter((item) => item.id_empresa !== empresaToDelete.id_empresa));
-            setSuccess('Empresa eliminada exitosamente.');
+            showMessage('success', 'Empresa eliminada exitosamente.')
             setDeleteModalOpen(false);
             setEmpresaToDelete(null);
         } catch (err) {
-            setError('Error al eliminar la empresa. Revisa si no tiene departamentos asignados.' || err.response?.data?.error);
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+
+            let message = 'Error al cargar las empresas';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setActionLoading(false);
         }
     };
 
-    // Filtered list
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id_empresa':
+                return item.id_empresa;
+            case 'empresa':
+                return normalizar(item.empresa);
+            case 'rfc':
+                return normalizar(item.rfc);
+            case 'direccion':
+                return normalizar(item.direccion);
+            case 'fecha_limite': {
+                const t = new Date(item.fecha_limite).getTime();
+                return Number.isNaN(t) ? null : t;
+            }
+            default:
+                return item[key] ?? null;
+        }
+    }
+
     const empresasFiltradas = useMemo(() => {
-        return empresas.filter((emp) => {
+        const lista = empresas.filter((emp) => {
             const matchSearch =
                 (emp.nombre || '').toLowerCase().includes(search.toLowerCase()) ||
                 (emp.rfc || '').toLowerCase().includes(search.toLowerCase()) ||
-                (emp.direccion || '').toLowerCase().includes(search.toLowerCase());
+                (emp.direccion || '').toLowerCase().includes(search.toLowerCase()) ||
+                String(emp.id_empresa).includes(search);
 
             if (!matchSearch) return false;
             if (filterEstado === 'ACTIVE') return emp.activa === true;
             if (filterEstado === 'INACTIVE') return emp.activa === false;
             return true;
         });
-    }, [empresas, search, filterEstado]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [empresas, search, filterEstado, filters, sort]);
 
-    // metricas
     const empresasTotal = empresas.length;
-    const activasTotal = empresas.filter((e)=> e.activa).length;
-    const inactivasTotal = empresas.filter((e)=> !e.activas).length;
-    
+    const activasTotal = empresas.filter((e) => e.activa).length;
+    const inactivasTotal = (empresasTotal - activasTotal);
+
 
     return (
         <Layout>
@@ -238,9 +396,9 @@ function VerEmpresa() {
                         )}
                     </div>
                 </div>
-                
+
                 <div className="empresa-kpis">
-                    <div className="empresa-kpi" onClick={()=> setFilterEstado('ALL')}>
+                    <div className="empresa-kpi" onClick={() => setFilterEstado('ALL')}>
                         <div className="prov-kpi__icon-box prov-kpi__icon-box--cyan">
                             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
@@ -257,8 +415,8 @@ function VerEmpresa() {
                             </div>
                         </div>
                     </div>
-                    
-                    <div className="empresa-kpi" onClick={()=> setFilterEstado('ACTIVE')}>
+
+                    <div className="empresa-kpi" onClick={() => setFilterEstado('ACTIVE')}>
                         <div className="prov-kpi__icon-box prov-kpi__icon-box--emerald">
                             <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -275,7 +433,7 @@ function VerEmpresa() {
                             </div>
                         </div>
                     </div>
-                    <div className="empresa-kpi" onClick={()=> setFilterEstado('INACTIVE')}>
+                    <div className="empresa-kpi" onClick={() => setFilterEstado('INACTIVE')}>
                         <div className="prov-kpi__icon-box prov-kpi__icon-box--amber">
                             <svg width="22px" height="22px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
@@ -294,90 +452,7 @@ function VerEmpresa() {
                     </div>
                 </div>
 
-                {error && (
-                    <div className="empresa-alert empresa-alert--error" role="alert">
-                        <div className="empresa-alert__content">
-                            <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                            <span>{error}</span>
-                        </div>
-                        <button
-                            type="button"
-                            className="empresa-alert__close"
-                            onClick={() => setError('')}
-                            title="Cerrar alerta"
-                            aria-label="Cerrar alerta"
-                        >
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
-
-                {success && (
-                    <div className="empresa-alert empresa-alert--success" role="alert">
-                        <div className="empresa-alert__content">
-                            <svg
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                <polyline points="22 4 12 14.01 9 11.01" />
-                            </svg>
-                            <span>{success}</span>
-                        </div>
-                        <button
-                            type="button"
-                            className="empresa-alert__close"
-                            onClick={() => setSuccess('')}
-                            title="Cerrar notificación"
-                            aria-label="Cerrar notificación"
-                        >
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
+                {alerta}
 
                 {/* ── Search & Filters Toolbar ── */}
                 <div className="empresa-toolbar">
@@ -418,124 +493,131 @@ function VerEmpresa() {
 
                 {/* ── Table ── */}
                 <div className="empresa-table-wrap">
-                    <table className="empresa-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>RFC</th>
-                                <th>Dirección</th>
-                                <th>Estado</th>
-                                {usuario?.rol === 'admin' && <th>Acciones</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={usuario?.rol === 'admin' ? 6 : 5} className="empresa-table__empty">
-                                        <span className="empresa-btn__spin" style={{ display: 'inline-block', marginRight: '8px' }}>
-                                            <svg
-                                                width="18"
-                                                height="18"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            >
-                                                <polyline points="23 4 23 10 17 10" />
-                                                <polyline points="1 20 1 14 7 14" />
-                                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                                            </svg>
-                                        </span>
-                                        Cargando empresas...
-                                    </td>
-                                </tr>
-                            ) : empresasFiltradas.length === 0 ? (
-                                <tr>
-                                    <td colSpan={usuario?.rol === 'admin' ? 6 : 5} className="empresa-table__empty">
-                                        {search || filterEstado !== 'ALL'
-                                            ? 'No se encontraron empresas con esos criterios'
-                                            : 'No hay empresas registradas'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                empresasFiltradas.map((empresa) => (
-                                    <tr key={empresa.id_empresa}>
-                                        <td className="empresa-table__id">#{empresa.id_empresa}</td>
-                                        <td className="empresa-table__nombre">{empresa.nombre}</td>
-                                        <td className="empresa-table__rfc">{empresa.rfc || '—'}</td>
-                                        <td>{empresa.direccion || '—'}</td>
-                                        <td>
-                                            <span
-                                                className={`empresa-badge ${empresa.activa ? 'empresa-badge--active' : 'empresa-badge--inactive'
-                                                    }`}
-                                                    onClick={()=> setFilterEstado(empresa.activa ? 'ACTIVE' : 'INACTIVE')}
-                                            >
-                                                <span className="empresa-badge__dot"/>
-                                                {empresa.activa ? 'Activa' : 'Inactiva'}
-                                            </span>
-                                        </td>
-                                        {usuario?.rol === 'admin' && (
-                                            <td>
-                                                <div className="empresa-table__actions">
-                                                    {/* Toggle status */}
-                                                    <button
-                                                        type="button"
-                                                        className="empresa-action-btn"
-                                                        title={empresa.activa ? 'Desactivar' : 'Activar'}
-                                                        onClick={() => handleToggleStatus(empresa)}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        {empresa.activa ? (
-                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <circle cx="12" cy="12" r="10" />
-                                                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                                                            </svg>
-                                                        ) : (
-                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                                                <polyline points="22 4 12 14.01 9 11.01" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
-
-                                                    {/* Edit */}
-                                                    <button
-                                                        type="button"
-                                                        className="empresa-action-btn empresa-action-btn--edit"
-                                                        title="Editar empresa"
-                                                        onClick={() => handleOpenEdit(empresa)}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                        </svg>
-                                                    </button>
-
-                                                    {/* Delete */}
-                                                    <button
-                                                        type="button"
-                                                        className="empresa-action-btn empresa-action-btn--delete"
-                                                        title="Eliminar empresa"
-                                                        onClick={() => handleOpenDelete(empresa)}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                            <polyline points="3 6 5 6 21 6" />
-                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))
+                    {loading ? (
+                        <div className="empresa-empty-state">
+                            <div className="empresa-spin">
+                            </div>
+                            <h3 className="empresa-empty-state__title">Cargando empresas...</h3>
+                        </div>
+                    ) : empresasFiltradas.length === 0 ? (
+                        <div className="empresa-empty-state">
+                            <div className="empresa-empty-state__icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                            </div>
+                            <h3 className="empresa-empty-state__title">No se encontraron empresas</h3>
+                            <p className="empresa-empty-state__desc">
+                                {search
+                                    ? 'No hay empresas que coincidan con la búsqueda.'
+                                    : 'Aún no hay empresas registradas.'}
+                            </p>
+                            {usuario?.rol === 'admin' && (
+                                <button
+                                    type="button"
+                                    className="depto-btn empresa-btn--primary"
+                                    onClick={() => handleOpenCreate()}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    <span>Crear Empresa</span>
+                                </button>
                             )}
-                        </tbody>
-                    </table>
+                        </div>
+                    ) : (
+                        <table className="empresa-table">
+                            <thead>
+                                <tr>
+                                    <SortHeader label="ID" sortKey="id_empresa" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Nombre" sortKey="nombre" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="RFC" sortKey="rfc" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Dirección" sortKey="direccion" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Estado" sortKey="estado" sort={sort} onSort={toggleSort} />
+                                    {usuario?.rol === 'admin' && <th>Acciones</th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {
+                                    empresasFiltradas.map((empresa) => (
+                                        <tr key={empresa.id_empresa}>
+                                            <td className="empresa-table__id">#{empresa.id_empresa}</td>
+                                            <td className="empresa-table__nombre">{empresa.nombre}</td>
+                                            <td className="empresa-table__rfc">{empresa.rfc || '—'}</td>
+                                            <td>{empresa.direccion || '—'}</td>
+                                            <td>
+                                                <span
+                                                    className={`empresa-badge ${empresa.activa ? 'empresa-badge--active' : 'empresa-badge--inactive'
+                                                        }`}
+                                                    onClick={() => setFilterEstado(empresa.activa ? 'ACTIVE' : 'INACTIVE')}
+                                                >
+                                                    <span className="empresa-badge__dot" />
+                                                    {empresa.activa ? 'Activa' : 'Inactiva'}
+                                                </span>
+                                            </td>
+                                            {usuario?.rol === 'admin' && (
+                                                <td>
+                                                    <div className="empresa-table__actions">
+                                                        {/* Toggle status */}
+                                                        <button
+                                                            type="button"
+                                                            className={"empresa-action-btn " + `empresa-action-btn-toggle--${empresa.activa ? 'disabled' : 'enabled'}`}
+                                                            title={empresa.activa ? 'Desactivar' : 'Activar'}
+                                                            onClick={() => handleToggleStatus(empresa)}
+                                                            disabled={actionLoading}
+                                                        >
+                                                            {empresa.activa ? (
+                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <circle cx="12" cy="12" r="10" />
+                                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                                                                </svg>
+                                                            ) : (
+                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                                                    <polyline points="22 4 12 14.01 9 11.01" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+
+                                                        {/* Edit */}
+                                                        <button
+                                                            type="button"
+                                                            className="empresa-action-btn empresa-action-btn--edit"
+                                                            title="Editar empresa"
+                                                            onClick={() => handleOpenEdit(empresa)}
+                                                            disabled={actionLoading}
+                                                        >
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                            </svg>
+                                                        </button>
+
+                                                        {/* Delete */}
+                                                        <button
+                                                            type="button"
+                                                            className="empresa-action-btn empresa-action-btn--delete"
+                                                            title="Eliminar empresa"
+                                                            onClick={() => handleOpenDelete(empresa)}
+                                                            disabled={actionLoading}
+                                                        >
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="3 6 5 6 21 6" />
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))
+                                }
+                            </tbody>
+                        </table>
+                    )}
+
                 </div>
 
                 {/* ── Modal: Create / Edit ── */}
@@ -671,27 +753,7 @@ function VerEmpresa() {
                                     </svg>
                                 </button>
                             </div>
-                            {error && (
-                                    <div className="empresa-alert empresa-alert--error" role="alert" style={{ marginTop: '0.5rem' }}>
-                                        <div className="empresa-alert__content">
-                                            <svg
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            >
-                                                <circle cx="12" cy="12" r="10" />
-                                                <line x1="12" y1="8" x2="12" y2="12" />
-                                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                                            </svg>
-                                            <span>{error}</span>
-                                        </div>
-                                    </div>
-                                )}
+                            {alerta}
                             <p style={{ color: '#cbd5e1', fontSize: '0.92rem', lineHeight: '1.5', margin: '0.5rem 0 1.5rem' }}>
                                 ¿Estás seguro de que deseas eliminar la empresa{' '}
                                 <strong style={{ color: '#f1f5f9' }}>{empresaToDelete.nombre}</strong>? Esta acción no se puede deshacer.

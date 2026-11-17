@@ -1,0 +1,10 @@
+unit: auth-api
+side_effects:
+  - {source_loc: "sicat-backend/src/controllers/auth.controller.js:1", effect: "Lee usuarios, compara bcrypt y firma auth_token.", must_preserve: true}
+  - {source_loc: "sicat-backend/src/controllers/auth.controller.js:104", effect: "Limpia cookie en logout.", must_preserve: true}
+branches:
+  - {source_loc: "sicat-backend/src/controllers/auth.controller.js:9", condition: "faltan correo o contraseña", behavior: "400", must_preserve: true}
+  - {source_loc: "sicat-backend/src/controllers/auth.controller.js:25", condition: "credenciales inválidas", behavior: "401", must_preserve: true}
+error_paths:
+  - {source_loc: "sicat-backend/src/middlewares/auth.middleware.js:6", trigger: "cookie ausente", outcome: "JSON error", contract: "401 Token requerido", must_preserve: true}
+concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/auth.controller.js:1", scope: "consultas y escritura de cookie", isolation: "pool default", must_preserve: true}}

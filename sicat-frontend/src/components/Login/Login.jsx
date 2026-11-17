@@ -109,7 +109,7 @@ function Login() {
       if (is502Error) {
         setIsServerStarting(true);
         setError(
-          'El servidor se está iniciando o estableciendo conexión con la base de datos. Por favor, espera unos segundos e intenta nuevamente.'
+          'Ocurrió un error al conectar con el servidor. Por favor, espera unos segundos e intenta nuevamente.'
         );
       } else if (status === 401) {
 

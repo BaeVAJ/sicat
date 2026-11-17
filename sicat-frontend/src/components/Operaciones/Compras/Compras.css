@@ -215,7 +215,11 @@
     line-height: 1.15;
 }
 
-/* ---------- Alerts ---------- */
+.Compras-lines-table td{
+    padding-bottom: 0.7rem;
+    padding-right: 0.2rem;
+}
+
 .compras-alert {
     display: flex;
     align-items: center;
@@ -407,6 +411,10 @@
     white-space: nowrap;
 }
 
+.compras-table__total{
+    text-align: right;
+}
+
 .compras-table td {
     padding: 0.9rem 1.15rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -567,7 +575,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -601,6 +609,22 @@
     outline: none;
     transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
     box-sizing: border-box;
+}
+.compras-input--date {
+    padding: 0.72rem 0.95rem;
+    font-size: 0.88rem;
+    font-family: inherit;
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    box-sizing: border-box;
+}
+
+.compras-input--val{
+    text-align:center;
 }
 
 .compras-input:focus {
@@ -692,7 +716,7 @@
 }
 
 .compras-line-remove {
-    background: rgba(239, 68, 68, 0.12);
+    background: rgba(239, 68, 68, 0.20);
     border: 1px solid rgba(239, 68, 68, 0.25);
     color: #fca5a5;
     width: 26px;
@@ -703,10 +727,17 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    margin:0 10px;
+}
+
+.Compras-lines-table td {
+    padding-top: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
 }
 
 .compras-line-remove:hover {
-    background: rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.3);
+    border-color: 1px solid rgba(239, 68, 68, 0.4);
     color: #ffffff;
 }
 
@@ -714,14 +745,21 @@
     font-weight: 600;
     color: #a5b4fc;
     white-space: nowrap;
+    text-align: right;
+    width: 1%;
+    border-radius: 8px;
 }
 
 .compras-total-row {
+    display: flex;
+    justify-content: flex-end;
     font-weight: 700;
     font-size: 0.95rem;
     color: #a5b4fc;
     text-align: right;
     padding: 0.75rem 0.75rem 0.5rem;
+    vertical-align: middle;
+    align-items: center;
 }
 
 /* ---------- Detail modal cards ---------- */
@@ -801,6 +839,17 @@
     transition: all 0.2s ease;
 }
 
+.compras-action-btn--delete{
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: rgba(252, 165, 165, 0.9);
+    width: min-content;
+    padding: 0.45rem 0.65rem;
+    font-weight:500;
+}
+
+
+
 .compras-action-btn:hover {
     background: rgba(99, 102, 241, 0.15);
     border-color: rgba(99, 102, 241, 0.3);
@@ -808,6 +857,37 @@
     transform: translateY(-1px);
 }
 
+.compras-action-btn--delete:hover{
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: rgba(252, 165, 165, 1);
+    transform: translateY(-1px);
+}
+
+.compras-modal__body--warning{
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 10px;
+    padding: 1rem;
+    font-size: 0.84rem;
+    color: #fca5a5;
+    line-height: 1.5;
+    transition: all 0.2s ease;
+}
+
+.compras-modal__body{
+    display:flex;
+    flex-direction:column;
+    gap: 1rem;
+    padding: 0.5rem 1.12rem;
+    align-items: center;
+    margin: 0.5rem;
+}
+.compras-modal__body--text{
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    font-weight:700;
+}
 /* Animations */
 @keyframes comprasOverlayFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes comprasScaleIn {

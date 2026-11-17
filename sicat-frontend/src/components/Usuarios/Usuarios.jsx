@@ -1,9 +1,24 @@
 // src/components/Usuarios/Usuarios.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
 import './Usuarios.css';
+
+function SortHeader({ label, sortKey, sort, onSort, className }) {
+    const active = sort.key === sortKey;
+    const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return (
+        <th aria-sort={ariaSort} className={className}>
+            <button type="button" className="complementos-sort" onClick={() => onSort(sortKey)}>
+                {label}
+                <span className="complementos-sort__arrow" aria-hidden="true">
+                    {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function Usuarios() {
     const { usuario: currentUser } = useAuth();
@@ -40,23 +55,39 @@ function Usuarios() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
 
+    const [message, setMessage] = useState({type:'', text:''});
+
     const [detailUser, setDetailUser] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
+
+    const [filters, setFilters] = useState({
+        usuario:'',
+        rol:'',
+        estatus:'',
+        departamento:'',
+        id:'',
+    });
+    const [sort, setSort] = useState({ key: 'departamento', dir: 'desc' });
 
     const isEditingSelf =
         modalMode === 'EDIT' &&
         selectedUser &&
         currentUser &&
         selectedUser.id_usuario === currentUser.id_usuario;
+        
 
     useEffect(() => { fetchData(); }, []);
 
+    const showMessage = useCallback((type, text) => {
+        setMessage({ type, text});
+    }, []);
+
     useEffect(() => {
-        if (success) {
-            const t = setTimeout(() => setSuccess(''), 5000);
+        if (message.type === 'success') {
+            const t = setTimeout(() => setMessage({type:'', text:''}), 5000);
             return () => clearTimeout(t);
         }
-    }, [success]);
+    }, [message]);
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth <= 768);
@@ -78,7 +109,20 @@ function Usuarios() {
             setDepartamentos(Array.isArray(deptRes.data) ? deptRes.data : []);
             setEmpresas(Array.isArray(empRes.data) ? empRes.data : []);
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al obtener la lista de usuarios');
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error al cargar los usuarios';
+
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            }
+            showMessage('error', message);
         } finally {
             setLoading(false);
         }
@@ -109,21 +153,23 @@ function Usuarios() {
         return { total, activos, inactivos, suspendidos, admins, gerentes, estandar };
     }, [usuarios]);
 
-    const pct = (n) => (stats.total ? Math.round((n / stats.total) * 100) : 0);
-
     const handleOpenCreate = () => {
         setModalMode('CREATE');
         setSelectedUser(null);
-        setNombre(''); setCorreo(''); setRol('usuario');
-        setIdDepartamento(''); setEstatusEmpleado('activo');
-        setContrasena(''); setConfirmarContrasena('');
-        setMostrarContrasena(false); setFormError('');
+        setNombre(''); setCorreo(''); 
+        setRol('usuario');
+        setIdDepartamento('');
+        setEstatusEmpleado('activo');
+        setContrasena('');
+        setConfirmarContrasena('');
+        setMostrarContrasena(false);
+        showMessage('', '');
         setModalOpen(true);
     };
 
     const handleOpenEdit = (user) => {
         if (user.estatus_empleado === 'suspendido') {
-            setError(`El usuario "${user.nombre}" está suspendido y no puede editarse.`);
+            showMessage('error', `El usuario "${user.nombre}" está suspendido y no puede editarse.`)
             return;
         }
         setModalMode('EDIT');
@@ -133,28 +179,59 @@ function Usuarios() {
         setRol(user.rol || 'usuario');
         setIdDepartamento(user.id_departamento ? String(user.id_departamento) : '');
         setEstatusEmpleado(user.estatus_empleado || 'activo');
-        setContrasena(''); setConfirmarContrasena('');
-        setMostrarContrasena(false); setFormError('');
+        setContrasena(''); 
+        setConfirmarContrasena('');
+        setMostrarContrasena(false);
+        showMessage('','');
         setModalOpen(true);
     };
+
+    const alerta = message.text && (
+        <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
+            <div className="complementos-alert__content">
+                {message.type === 'error' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                )}
+                <span>{message.text}</span>
+            </div>
+            <button type="button" className="complementos-alert__close" aria-label="Cerrar Alerta" onClick={() => setMessage({ type: '', text: '' })}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    )
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
 
-        if (!nombre.trim()) return setFormError('El nombre completo es obligatorio.');
-        if (!correo.trim()) return setFormError('El correo electrónico es obligatorio.');
+        if (!nombre.trim()) return showMessage('error', 'El nombre del usuario es obligatorio.');
+
+        if (!correo.trim()) return showMessage('error', 'El correo electrónico es obligatorio.');
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(correo.trim())) return setFormError('Ingresa un correo electrónico válido.');
+        if (!emailRegex.test(correo.trim())) return showMessage('error', 'Ingresa un correo electrónico válido.');
 
         if (modalMode === 'CREATE') {
-            if (!contrasena) return setFormError('La contraseña inicial es obligatoria.');
-            if (contrasena.length < 6) return setFormError('La contraseña debe tener al menos 6 caracteres.');
-            if (contrasena !== confirmarContrasena) return setFormError('Las contraseñas no coinciden.');
+            if (!contrasena) return showMessage('error', 'La contraseña inicial es obligatoria.');
+            if (contrasena.length < 6) return showMessage('error', 'La contraseña debe tener al menos 6 caracteres.');
+            if (contrasena !== confirmarContrasena) return showMessage('error', 'Las contraseñas no coinciden.');
         } else if (modalMode === 'EDIT' && contrasena) {
-            if (contrasena.length < 6) return setFormError('La nueva contraseña debe tener al menos 6 caracteres.');
-            if (contrasena !== confirmarContrasena) return setFormError('Las contraseñas no coinciden.');
+            if (contrasena.length < 6) return showMessage('error', 'La nueva contraseña debe tener al menos 6 caracteres.');
+            if (contrasena !== confirmarContrasena) return showMessage('Las contraseñas no coinciden.');
         }
 
         setActionLoading(true);
@@ -172,15 +249,16 @@ function Usuarios() {
             if (modalMode === 'CREATE') {
                 const { data } = await client.post('/usuarios', payload);
                 setUsuarios((p) => [data, ...p]);
-                setSuccess(`Usuario "${data.nombre}" creado exitosamente.`);
+                showMessage('success', `Usuario "${data.nombre}" creado exitosamente.`);
             } else {
                 const { data } = await client.put(`/usuarios/${selectedUser.id_usuario}`, payload);
                 setUsuarios((p) => p.map((u) => (u.id_usuario === selectedUser.id_usuario ? data : u)));
-                setSuccess(`Usuario "${data.nombre}" actualizado correctamente.`);
+                showMessage('success', `Usuario "${data.nombre}" actualizado correctamente.`);
             }
             setModalOpen(false);
         } catch (err) {
-            setFormError(err.response?.data?.error || 'Error al procesar la solicitud.');
+            if(err.response?.data?.error?.includes('getaddrinfo ')) return showMessage('error', 'Error de conexión al servidor. \n Verifica tu conexión a internet o contacta al administrador.');
+            showMessage('error', String(err.response?.data?.error || 'Error al procesar la solicitud.'));
         } finally {
             setActionLoading(false);
         }
@@ -195,7 +273,8 @@ function Usuarios() {
         try {
             await client.delete(`/usuarios/${userToDelete.id_usuario}`);
             setUsuarios((p) => p.filter((u) => u.id_usuario !== userToDelete.id_usuario));
-            setSuccess(`Usuario "${userToDelete.nombre}" eliminado exitosamente.`);
+            showMessage('success', `Usuario "${userToDelete.nombre}" eliminado exitosamente.`)
+            
             setDeleteModalOpen(false); setUserToDelete(null);
         } catch (err) {
             const status = err.response?.status;
@@ -211,23 +290,68 @@ function Usuarios() {
                         estatus_empleado: 'suspendido',
                     });
                     setUsuarios((p) => p.map((u) => (u.id_usuario === data.id_usuario ? data : u)));
-                    setSuccess(`El usuario "${data.nombre}" tiene registros asociados. Se cambió a "Suspendido".`);
-                    setDeleteModalOpen(false); setUserToDelete(null);
-                } catch (putErr) {
-                    setError(putErr.response?.data?.error || 'No se pudo eliminar ni suspender el usuario.');
+                    showMessage('success', `El usuario "${data.nombre}" tiene registros asociados. Se cambió a "Suspendido".`);
+                    setDeleteModalOpen(false);
+                    setUserToDelete(null);
+                } catch (err) {
+                    showMessage('error', String(err.response?.data?.error || 'No se pudo eliminar ni suspender el usuario.'));
                     setDeleteModalOpen(false);
                 }
             } else {
-                setError(msg || 'Error al eliminar el usuario.');
-                setDeleteModalOpen(false);
+                const status = err.response?.status;
+                const serverError = err.response?.data?.error;
+                const errorText = typeof serverError === 'string' ? serverError : '';
+                let message = 'Error al cargar los usuarios';
+
+                if (!err.response) {
+                    message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+                } else if (errorText.includes('getaddrinfo')) {
+                    message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                }
+                if (isAdmin) {
+                    message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+                }
+                showMessage('error', message);
             }
         } finally {
             setActionLoading(false);
         }
     };
 
+    const toggleSort = useCallback((key) => {
+        setSort((prev) =>
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
+        );
+    }, []);
+
+    function normalizar(texto) {
+        return String(texto ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function valorOrden(item, key) {
+        switch (key) {
+            case 'id':
+                return item.id_usuario;
+            case 'usuario':
+                return normalizar(item.nombre);
+            case 'rol':
+                return normalizar(item.rol);
+            case 'estatus':
+                return normalizar(item.estatus_empleado);
+            case 'departamento':
+                return normalizar(item.departamento_nombre );
+            default:
+                return item[key] ?? null;
+        }
+    }
+
     const usuariosFiltrados = useMemo(() => {
-        return usuarios.filter((u) => {
+        const lista = usuarios.filter((u) => {
             const q = search.toLowerCase();
             const matchSearch =
                 (u.nombre || '').toLowerCase().includes(q) ||
@@ -244,7 +368,18 @@ function Usuarios() {
             }
             return true;
         });
-    }, [usuarios, search, filterRol, filterDepartamento, filterEstatus]);
+        const factor = sort.dir === 'asc' ? 1 : -1;
+        return [...lista].sort((a, b) => {
+            const va = valorOrden(a, sort.key);
+            const vb = valorOrden(b, sort.key);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (va < vb) return -1 * factor;
+            if (va > vb) return 1 * factor;
+            return 0;
+        });
+    }, [usuarios, search, filterRol, filterDepartamento, filterEstatus, sort, filters]);
 
     const getInitials = (name) => {
         if (!name) return 'U';
@@ -298,17 +433,8 @@ function Usuarios() {
                         <div>
                             <h1 className="usr-hero__title">Usuarios</h1>
                             <p className="usr-hero__subtitle">Gestiona cuentas, roles y accesos de la plataforma SICAT</p>
-                            <div className="usr-hero__meta">
-                                <span className="usr-hero__chip usr-hero__chip--active">
-                                    <span className="usr-hero__dot" />
-                                    {stats.activos} activos
-                                </span>
-                                <span className="usr-hero__chip">{stats.total} registrados</span>
-                                <span className="usr-hero__chip">{departamentos.length} departamentos</span>
-                            </div>
                         </div>
                     </div>
-
                     <div className="usr-hero__actions">
                         <button type="button" className="usr-btn usr-btn--secondary" onClick={fetchData} disabled={loading}>
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={loading ? 'usr-spin' : ''}>
@@ -344,10 +470,7 @@ function Usuarios() {
                                 </div>
                             </div>
                             <div className="usr-kpi__value">{stats.total}</div>
-                            <div className="usr-kpi__footer">
-                                <div className="usr-kpi__bar"><div className="usr-kpi__bar-fill" style={{ width: '100%' }} /></div>
-                                <span className="usr-kpi__pct">100%</span>
-                            </div>
+                            
                         </div>
 
                         <div className="usr-kpi">
@@ -361,10 +484,7 @@ function Usuarios() {
                                 </div>
                             </div>
                             <div className="usr-kpi__value">{stats.activos}</div>
-                            <div className="usr-kpi__footer">
-                                <div className="usr-kpi__bar"><div className="usr-kpi__bar-fill usr-kpi__bar-fill--success" style={{ width: `${pct(stats.activos)}%` }} /></div>
-                                <span className="usr-kpi__pct">{pct(stats.activos)}%</span>
-                            </div>
+                            
                         </div>
 
                         <div className="usr-kpi">
@@ -378,10 +498,7 @@ function Usuarios() {
                                 </div>
                             </div>
                             <div className="usr-kpi__value">{stats.inactivos}</div>
-                            <div className="usr-kpi__footer">
-                                <div className="usr-kpi__bar"><div className="usr-kpi__bar-fill usr-kpi__bar-fill--warning" style={{ width: `${pct(stats.inactivos)}%` }} /></div>
-                                <span className="usr-kpi__pct">{pct(stats.inactivos)}%</span>
-                            </div>
+                            
                         </div>
 
                         <div className="usr-kpi">
@@ -395,82 +512,13 @@ function Usuarios() {
                                 </div>
                             </div>
                             <div className="usr-kpi__value">{stats.suspendidos}</div>
-                            <div className="usr-kpi__footer">
-                                <div className="usr-kpi__bar"><div className="usr-kpi__bar-fill usr-kpi__bar-fill--danger" style={{ width: `${pct(stats.suspendidos)}%` }} /></div>
-                                <span className="usr-kpi__pct">{pct(stats.suspendidos)}%</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── DISTRIBUCIÓN POR ROL ── */}
-                {!loading && stats.total > 0 && (
-                    <div className="usr-dist">
-                        <div className="usr-dist__header">
-                            <div>
-                                <h3 className="usr-dist__title">Distribución por Rol</h3>
-                                <p className="usr-dist__subtitle">Composición del equipo por nivel de acceso</p>
-                            </div>
-                            <div className="usr-dist__total">
-                                {stats.total}<span>usuarios</span>
-                            </div>
-                        </div>
-
-                        <div className="usr-dist__bar">
-                            {stats.admins > 0 && (
-                                <div className="usr-dist__seg usr-dist__seg--admin" style={{ flexGrow: stats.admins }} title={`Administradores: ${stats.admins}`} />
-                            )}
-                            {stats.gerentes > 0 && (
-                                <div className="usr-dist__seg usr-dist__seg--gerente" style={{ flexGrow: stats.gerentes }} title={`Gerentes: ${stats.gerentes}`} />
-                            )}
-                            {stats.estandar > 0 && (
-                                <div className="usr-dist__seg usr-dist__seg--usuario" style={{ flexGrow: stats.estandar }} title={`Usuarios: ${stats.estandar}`} />
-                            )}
-                        </div>
-
-                        <div className="usr-dist__legend">
-                            <div className="usr-dist__legend-item">
-                                <span className="usr-dist__dot usr-dist__dot--admin" />
-                                <span className="usr-dist__legend-label">Administradores</span>
-                                <span className="usr-dist__legend-value">{stats.admins}</span>
-                            </div>
-                            <div className="usr-dist__legend-item">
-                                <span className="usr-dist__dot usr-dist__dot--gerente" />
-                                <span className="usr-dist__legend-label">Gerentes</span>
-                                <span className="usr-dist__legend-value">{stats.gerentes}</span>
-                            </div>
-                            <div className="usr-dist__legend-item">
-                                <span className="usr-dist__dot usr-dist__dot--usuario" />
-                                <span className="usr-dist__legend-label">Usuarios</span>
-                                <span className="usr-dist__legend-value">{stats.estandar}</span>
-                            </div>
+                            
                         </div>
                     </div>
                 )}
 
                 {/* ── ALERTAS ── */}
-                {error && (
-                    <div className="usr-alert usr-alert--danger">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="8" x2="12" y2="12" />
-                            <line x1="12" y1="16" x2="12.01" y2="16" />
-                        </svg>
-                        <span>{error}</span>
-                        <button type="button" className="usr-alert__close" onClick={() => setError('')}>×</button>
-                    </div>
-                )}
-                {success && (
-                    <div className="usr-alert usr-alert--success">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span>{success}</span>
-                        <button type="button" className="usr-alert__close" onClick={() => setSuccess('')}>×</button>
-                    </div>
-                )}
-
+                {alerta}
                 {/* ── TOOLBAR ── */}
                 <div className="usr-toolbar">
                     <div className="usr-search">
@@ -588,11 +636,11 @@ function Usuarios() {
                         <table className="usr-table">
                             <thead>
                                 <tr>
-                                    <th>Usuario</th>
-                                    <th>Rol</th>
-                                    <th>Estatus</th>
-                                    {!isMobile && <th className="col-depto">Departamento</th>}
-                                    {!isMobile && <th className="col-id">ID</th>}
+                                    <SortHeader label="Usuario" sortKey="usuario" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Rol" sortKey="rol" sort={sort} onSort={toggleSort} />
+                                    <SortHeader label="Estatus" sortKey="estatus" sort={sort} onSort={toggleSort} />
+                                    {!isMobile && <SortHeader label="Departamento" sortKey="departamento" sort={sort} onSort={toggleSort} />}
+                                    {!isMobile && <SortHeader label="ID" sortKey="id" sort={sort} onSort={toggleSort} />}
                                     <th className="usr-table__right">Acciones</th>
                                 </tr>
                             </thead>
@@ -813,16 +861,7 @@ function Usuarios() {
                             </div>
 
                             <form onSubmit={handleSubmit} className="usr-form">
-                                {formError && (
-                                    <div className="usr-form__alert">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <line x1="12" y1="8" x2="12" y2="12" />
-                                            <line x1="12" y1="16" x2="12.01" y2="16" />
-                                        </svg>
-                                        <span>{formError}</span>
-                                    </div>
-                                )}
+                                {alerta}
 
                                 <div className="usr-form__grid">
                                     <div className="usr-form__group usr-form__group--full">
