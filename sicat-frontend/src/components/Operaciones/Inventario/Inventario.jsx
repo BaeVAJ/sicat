@@ -1,3 +1,8 @@
+/*nota 
+si se cambio el departamento de un usuario ya logueado a Sistemas 
+y el inventario no se actualiza, salir y volver a entrar a la cuenta
+*/
+
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
@@ -52,7 +57,6 @@ function Inventario() {
     const [orden, setOrden] = useState('CRITICO');
 
     const isSystems = Number(usuario?.id_departamento) === Number(DEPARTAMENTO_SISTEMAS);
-    //const canEdit = isSystems || ['gerente', 'administrador'].includes(usuario?.rol);
     const canEdit = isSystems || usuario?.rol === 'gerente' || usuario?.rol === 'admin';
 
     const [filters, setFilters] = useState({
@@ -93,7 +97,7 @@ function Inventario() {
         showMessage('','');
         try {
             const [invRes, depRes, empRes, prodRes] = await Promise.all([
-                client.get('/inventario'),
+                client.get('/inventario/departamento'),
                 client.get('/departamentos'),
                 client.get('/empresas'),
                 client.get('/productos'),
@@ -176,6 +180,7 @@ function Inventario() {
             const confirmar = window.confirm(
             'Este producto ya existe en el inventario de este departamento. ¿Deseas actualizarlo a los valores ingresados?'
         );
+        
         if (!confirmar) {
             return; 
         }

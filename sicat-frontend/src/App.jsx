@@ -5,13 +5,10 @@ import Login from './components/Login/Login.jsx';
 import FoFPage from './components/404Page/ErrorSVG.jsx';
 import Inicio from './components/inicio/Inicio.jsx';
 import CrearTicket from './components/Ticket/CrearTicket/CrearTicket.jsx';
-
 import Tickets from './components/Ticket/VerTicket/Tickets.jsx';
 import VerEmpresa from './components/Organizacion/Empresa/Empresa.jsx';
 import Departamento from './components/Organizacion/Departamento/Departamento.jsx';
 import Facturas from './components/Facturas/facturas.jsx';
-import ComplementosPago from './components/Facturas/ComplementosPago.jsx';
-import EstadoCuentaPpd from './components/Facturas/EstadoCuentaPpd.jsx';
 import Productos from './components/catalogo/Productos/Productos.jsx';
 import Categorias from './components/catalogo/Categorias/Categorias.jsx';
 import Proveedores from './components/catalogo/Proveedores/Proveedores.jsx';
@@ -70,22 +67,7 @@ function App() {
               </RutaProtegida>
             }
           />
-          <Route
-            path="/complementos-pago"
-            element={
-              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
-                <ComplementosPago />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path="/estado-cuenta-ppd"
-            element={
-              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
-                <EstadoCuentaPpd />
-              </RutaProtegida>
-            }
-          />
+          
           <Route
             path="/categorias"
             element={
@@ -119,14 +101,6 @@ function App() {
             }
           />
           <Route
-            path="/Usuarios"
-            element={
-              <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
-                <Usuarios />
-              </RutaProtegida>
-            }
-          />
-          <Route
             path="/compras"
             element={
               <RutaProtegida rolesPermitidos={['admin', 'gerente']}>
@@ -142,14 +116,7 @@ function App() {
               </RutaProtegida>
             }
           />
-          <Route
-            path="/Inventario"
-            element={
-              <RutaProtegida rolesPermitidos={['admin', 'gerente', 'usuario']}>
-                <Inventario />
-              </RutaProtegida>
-            }
-          />
+          
           <Route
             path="/solicitar-material"
             element={

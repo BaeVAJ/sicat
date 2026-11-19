@@ -49,7 +49,7 @@ function Asignaciones() {
 
     const isAdmin = usuario?.rol === 'admin';
     const isGerente = usuario?.rol === 'gerente';
-    const canManage = isAdmin || isGerente;
+    const canManage = isAdmin || isGerente || usuario?.id_departamento === 1;
 
     const [message, setMessage] = useState({type: '', text: ''});
 
@@ -602,7 +602,7 @@ function Asignaciones() {
                         ) : (
                             <div className="asig-request-list">
                                 {pendingPedidos.map((pedido) => (
-                                    <article className="asig-request-card" key={pedido.id_pedido}>
+                                    <div     className="asig-request-card" key={pedido.id_pedido}>
                                         <header className="asig-request-card__header">
                                             <div className="asig-request-card__id-group">
                                                 <span className="asig-request-card__id">#{pedido.id_pedido}</span>
@@ -660,7 +660,7 @@ function Asignaciones() {
                                             </label>
                                         </div>
 
-                                        <footer className="asig-request-card__footer">
+                                        <div className="asig-request-card__footer">
                                             <button
                                                 type="button"
                                                 className="asig-btn asig-btn--primary asig-btn--block-mobile"
@@ -669,8 +669,8 @@ function Asignaciones() {
                                             >
                                                 {pedidoLoading === pedido.id_pedido ? 'Asignando…' : 'Asignar material'}
                                             </button>
-                                        </footer>
-                                    </article>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -889,7 +889,6 @@ function Asignaciones() {
                                 </svg>
                             </button>
                         </div>
-
                         <form onSubmit={handleCreate}>
                             <div className="asig-modal__body">
                                 {alerta}

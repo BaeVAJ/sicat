@@ -273,7 +273,7 @@ function CrearTicket() {
                             </span>
                             <textarea
                                 id="ticket-desc"
-                                className="ticket-field__textarea"
+                                className={`ticket-field__textarea ${descripcion.length<10 ? 'ticket-field__textarea--invalid' : 'ticket-field__textarea--valid'}`}
                                 value={descripcion}
                                 onChange={(e) => {
                                     if (e.target.value.length <= MAX_DESC) {

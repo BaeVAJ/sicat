@@ -152,18 +152,16 @@ const grupos = [
         enlaces: [
             { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'] },
             { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'] },
-            { to: '/solicitar-material', label: 'Solicitar material', icon: 'plus', roles: ['admin', 'gerente', 'usuario'], excluirDepartamentos: [1] },
+            { to: '/solicitar-material', label: 'Solicitar material', icon: 'plus', roles: ['admin', 'gerente', 'usuario']},
             { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'] },
         ],
     },
     {
-        label: 'Documentos',
+        label: 'Facturas',
         icon: 'receipt',
         roles: ['admin', 'gerente'],
         enlaces: [
             { to: '/facturas', label: 'Facturas', icon: 'receipt', roles: ['admin', 'gerente'] },
-            { to: '/complementos-pago', label: 'Complementos de pago', icon: 'receipt', roles: ['admin', 'gerente'] },
-            { to: '/estado-cuenta-ppd', label: 'Estado de cuenta PPD', icon: 'dashboard', roles: ['admin', 'gerente'] },
         ],
     },
     {
@@ -180,7 +178,7 @@ const grupos = [
         icon: 'user',
         roles: ['admin', 'gerente'],
         enlaces: [
-            { to: '/Usuarios', label: 'Usuarios', icon: 'user', roles: ['admin', 'gerente'] },
+            { to: '/usuarios', label: 'Usuarios', icon: 'user', roles: ['admin', 'gerente'] },
         ],
     },
 ];

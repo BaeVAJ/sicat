@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getAll, getByDepartamento, getAlertas, update, create, remove } from '../controllers/inventario.controller.js';
+import { getAll, getByDepartamento, getAlertas, update, create, remove, getByDpt } from '../controllers/inventario.controller.js';
 import { verificarToken, verificarRol } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 router.get ('/',              verificarToken, getAll);
+router.get ('/departamento',   verificarToken, getByDpt);
 router.get ('/alertas',       verificarToken, getAlertas);
 router.get ('/departamento/:id', verificarToken, getByDepartamento);
 router.post('/',              verificarToken, verificarRol('admin', 'gerente'), create);

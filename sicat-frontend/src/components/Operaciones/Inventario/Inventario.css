@@ -581,10 +581,6 @@
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
-
 /* ---------- Responsive: tablet ---------- */
 @media (max-width: 900px) {
     .inv-container { padding: 1.35rem; }

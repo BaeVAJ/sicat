@@ -19,6 +19,7 @@ const ESTADOS_FECHA_LIMITE = {
     HOY: { label: 'Vence hoy', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
     VENCIDO: { label: 'Vencido', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
     EN_PLAZO: { label: 'En plazo', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+    FUERA_DE_PLAZO: { label: 'Fuera de plazo', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 };
 
 function Tickets() {
@@ -236,7 +237,7 @@ function Tickets() {
 
     function estadoFechaLimite(ticket) {
 
-        if (!ticket.fecha_limite || ticket.estado === 'SOLUCIONADO') return null;
+        if (!ticket.fecha_limite) return null;
 
         const limite = new Date(ticket.fecha_limite);
         const hoy = new Date();
@@ -246,7 +247,7 @@ function Tickets() {
         hoy.setHours(0, 0, 0, 0);
         //se evalua si le fecha es el limite o ya vencio, con las horas ya normalizadas a 0 a.m
         if (limite.getTime() === hoy.getTime()) return ESTADOS_FECHA_LIMITE.HOY;
-        if (limite < hoy) return ESTADOS_FECHA_LIMITE.VENCIDO;
+        if(limite < hoy) return ESTADOS_FECHA_LIMITE.VENCIDO;
         //si no es la fecha limite ni a vencido entonces se retorna que esta en plazo
         return ESTADOS_FECHA_LIMITE.EN_PLAZO;
     }
@@ -371,7 +372,6 @@ function Tickets() {
                         </button>
                     </div>
                 )}
-
                 <>
                     <div className="tickets-toolbar">
 
@@ -403,7 +403,6 @@ function Tickets() {
                                     Limpiar filtros
                                 </button>
                             )}
-
 
                             <div className="tickets-checklist">
                                 <button

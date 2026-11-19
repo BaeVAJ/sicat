@@ -152,6 +152,11 @@
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
 
+.ticket-field__textarea--invalid:focus {
+  border-color:#f87171;
+  box-shadow: 0 0 0 3px rgba(252, 165, 165, 0.2);
+}
+
 .ticket-field__select {
   padding: 0.8rem 1rem 0.8rem 2.75rem;
   appearance: none;
@@ -186,14 +191,14 @@
 }
 
 .ticket-field__select:focus,
-.ticket-field__textarea:focus {
+.ticket-field__textarea--valid:focus {
   border-color: #059669;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
 }
 
 .ticket-field__select:focus ~ .ticket-field__icon,
-.ticket-field__textarea:focus ~ .ticket-field__icon {
+.ticket-field__textarea--valid:focus ~ .ticket-field__icon {
   color: #059669;
 }
 

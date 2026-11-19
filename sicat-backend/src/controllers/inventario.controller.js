@@ -3,12 +3,6 @@ import { publish } from '../services/eventBus.js';
 
 const DEPARTAMENTO_SISTEMAS = 1;
 
-/**
- * Responde un error 500 enviando al frontend:
- *  - error:   mensaje genérico (apto para usuarios normales)
- *  - detalle: mensaje real del servidor (el frontend decide si lo muestra, p. ej. solo a admins)
- *  - codigo:  código de error de Postgres u otro, si existe
- */
 function enviarErrorServidor(res, err, contexto) {
   console.error(`Error en inventario (${contexto}):`, err);
   return res.status(500).json({
@@ -31,7 +25,23 @@ function validarCantidades(res, campos) {
   return true;
 }
 
-export async function getAll(req, res) {
+export async function getAll(req, res){
+  try {
+    const {rows} = await pool.query(`
+      SELECT i.*, pr.nombre AS producto, pr.marca, pr.modelo, d.nombre AS departamento, e.nombre AS empresa
+      FROM INVENTARIO i
+      JOIN PRODUCTO pr ON i.id_producto = pr.id_producto
+      JOIN DEPARTAMENTO d ON i.id_departamento = d.id_departamento
+      JOIN EMPRESA e ON d.id_empresa = e.id_empresa
+      ORDER BY e.nombre
+      `)
+      res.json(rows);
+  } catch (err){
+    enviarErrorServidor(res, err, 'getAll');
+  }
+}
+
+export async function getByDpt(req, res) {
   try {
     const departamentoUsuario = Number(req.usuario?.id_departamento);
     const esSistemas = departamentoUsuario === DEPARTAMENTO_SISTEMAS;
@@ -46,7 +56,7 @@ export async function getAll(req, res) {
       ORDER BY e.nombre, d.nombre, pr.nombre
     `, esSistemas ? [] : [departamentoUsuario || 0]);
     res.json(rows);
-  } catch (err) { enviarErrorServidor(res, err, 'getAll'); }
+  } catch (err) { enviarErrorServidor(res, err, 'getByDpt'); }
 }
 
 export async function getByDepartamento(req, res) {
