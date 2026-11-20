@@ -187,6 +187,7 @@ function Usuarios() {
         setMostrarContrasena(false);
         showMessage('','');
         setModalOpen(true);
+        setIdEmpresa(user.id_departamento ? String(departamentoMap[user.id_departamento]?.id_empresa || '') : '');
     };
 
     const alerta = message.text && (
