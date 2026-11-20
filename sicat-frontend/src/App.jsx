@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import RutaProtegida from './components/RutaProtegida';
 import Login from './components/Login/Login.jsx';
 import FoFPage from './components/404Page/ErrorSVG.jsx';
+import ErrorSVGDemo from './components/404Page/ErrorSVGDemo.jsx';
 import Inicio from './components/inicio/Inicio.jsx';
 import CrearTicket from './components/Ticket/CrearTicket/CrearTicket.jsx';
 import Tickets from './components/Ticket/VerTicket/Tickets.jsx';
@@ -25,6 +26,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/404" element={<FoFPage />} />
+          <Route path="/404-demo" element={<ErrorSVGDemo />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
           <Route path="/" element={<Navigate to="/Login" />} />
           <Route path="/Login" element={<Login />} />

@@ -62,7 +62,7 @@
     font-family: inherit;
     border-radius:9px;
     cursor:pointer;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     border: 1px solid transparent;
     outline: none;
     text-decoration:none;
@@ -82,7 +82,7 @@
 }
 
 .asig-btn--primary:hover:not(:disabled){
-    background: linear-gradient(135 deg, #059669 0%, #047857 100%);
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
     box-shadow:0 6px 18px rgba(16, 185, 129, 0.4);
     transform: translateY(-1px);
 }
@@ -144,7 +144,7 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
     color: #cbd5e1;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .asig-icon-btn:hover:not(:disabled){
@@ -158,69 +158,22 @@
     cursor:not-allowed;
 }
 
-.asig-alert{
-    display:flex;
-    align-items:center;
-    gap:0.75rem;
-    padding:0.75rem 1rem;
-    border-radius:9px;
-    margin-bottom:1.25rem;
-    font-size:0.84;
-    animation: asigFadeIn 0.3s ease forwards;
-}
-
-.asig-alert--compact{
-    margin-bottom:0;
-    padding: 0.6rem 0.85rem;
-    font-size:0.8rem;
-}
-.asig-alert--error{
-    background:rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68,68, 0.3);
-    color:#fca5a5;
-}
-
-.asig-alert--success{
-    background:rgba(16,185,129, 0.1);
-    border: 1px solid rgba(16,185,129, 0.3);
-    color:#6ee7b7;
-}
-
-.asig-alert__close{
-    margin-left:auto;
-    background:transparent;
-    border: none;
-    color:inherit;
-    opacity:0.6;
-    font-size:1.15rem;
-    line-height:1;
-    cursor:pointer;
-    padding:0 0.25rem;
-    border-radius:4px
-}
-
-.asig-alert__close:hover{
-    opacity:1;
-}
-
 .asig-kpis{
     display:grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap:0.85rem;
     margin-bottom:1.35rem;
-    transition: all 1s linear;
 }
 
 .asig-kpi{
     background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(14px);
     border: 1px solid rgba(148, 163, 184, 0.1);
     border-radius: 12px;
     padding: 0.85rem 1rem;
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    transition: all 1s linear;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .asig-kpi:hover{
@@ -286,14 +239,12 @@
 
 .asig-tabs{
     background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(14px);
     border: 1px solid rgba(148, 163, 184, 0.1);
     border-radius: 12px;
     padding: 0.85rem 1rem;
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    transition: all 0.2s ease;
 }
 .asig-tabs::-webkit-scrollbar{
     display:none;
@@ -314,7 +265,7 @@
     cursor:pointer;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
-    transition:color 0.2s ease; border-color: 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease;
     white-space:nowrap;
 }
 
@@ -360,10 +311,6 @@
     font-weight:600;
 }
 
-.asig-panel{
-    animation:asigFadeIn 0.3s ease-out;
-}
-
 .asig-controls{
     display:flex;
     align-items:center;
@@ -397,7 +344,7 @@
     color:#f1f5f9;
     font-family:inherit;
     outline:none;
-    transition:all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .asig-search__input:focus{
@@ -427,7 +374,7 @@
     font-family:inherit;
     outline:none;
     border-radius:9px;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
     box-sizing:border-box
 }
 
@@ -461,7 +408,6 @@
 
 .asig-table-wrapper{
     background: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(14px);
     border-radius: 12px;
     border: 1px solid rgba(148, 163, 184, 0.1);
     overflow:hidden;
@@ -540,15 +486,7 @@
     border: 3px solid rgba(16, 185, 129, 0.15);
     border-top-color: #10b981;
     border-radius: 50%;
-    animation: asigSpin 0.75s linear infinite;
-}
-
-@keyframes asigSpin {
-    0% {
-        transform: rotate(0deg);
-    } 100% {
-        transform: rotate(360deg);
-    }
+    animation: spin 0.75s linear infinite;
 }
 
 .asig-prod-info {
@@ -697,14 +635,13 @@
 
 .asig-request-card {
     background: rgba(15,23,42,0.6);
-    backdrop-filter:blur(14px);
     border: 1px solid rgba(148, 163, 184, 0.1);
     border-radius:12px;
     padding: 0.85rem 1rem;
     display:flex;
     flex-direction:column;
     gap:0.75rem;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .asig-request-card:hover{
@@ -823,7 +760,7 @@
     border-radius:999px;
     position:relative;
     cursor:pointer;
-    transition:all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
     flex-shrink:0;
     margin:0;
     border: 1px solid rgba(148,  163, 184, 0.18);
@@ -838,7 +775,7 @@
     height:14px;
     border-radius:50%;
     background:#cbd5e1;
-    transition: all 0.18s ease;
+    transition: transform 0.18s ease, background-color 0.18s ease;
 }
 .asig-switch input:checked{
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -846,7 +783,7 @@
 }
 
 .asig-switch input:checked::after{
-    left: 16px;
+    transform: translateX(14px);
     background: #ffffff;
 }
 
@@ -946,7 +883,7 @@
     cursor:pointer;
     border-radius:7px;
     display:flex;
-    transition: all 0.18s ease;
+    transition: background-color 0.18s ease, color 0.18s ease;
     padding:0.3rem;
 }
 
@@ -1042,16 +979,6 @@
     color:#fbbf24;
 }
 
-@keyframes asigFadeIn {
-    from  {
-        opacity:0;
-        transform: translateY(-3px); } 
-    to {
-        opacity: 1;
-        transform: translateY(3px);
-    }
-}
-
 @keyframes asigOverlayIn{
     from{
         opacity:0;
@@ -1064,16 +991,12 @@
 @keyframes asigModalIn{
     from{
         opacity:0;
-        transform: scale(0.9), translateY(6px);
+        transform: scale(0.95) translateY(6px);
     }
     to{
         opacity:1;
-        transdorm: scale(1), translateY(0);
+        transform: scale(1) translateY(0);
     }
-}
-
-@keyframes asigSpin{
-    to{ transform:rotate(360deg) }
 }
 
 @media (max-width: 768px){

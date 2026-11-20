@@ -1,1 +1,92 @@
 @import "tailwindcss";
+
+/* ── Keyframes y alertas globales compartidas ── */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes modalOverlayFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes modalScaleIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ticketGradient {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes ticketOrb {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -25px) scale(1.12); }
+}
+
+@keyframes ticketCardEntry {
+    from { opacity: 0; transform: translateY(30px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.complementos-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.8rem 1.15rem;
+    border-radius: 12px;
+    font-size: 0.86rem;
+    margin-bottom: 1.35rem;
+    animation: complementosAlertIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.complementos-alert__content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.complementos-alert__content svg {
+    flex-shrink: 0;
+}
+
+.complementos-alert__close {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.complementos-alert__close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.complementos-alert--error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #fca5a5;
+}
+
+.complementos-alert--success {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #6ee7b7;
+}
+
+@keyframes complementosAlertIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}

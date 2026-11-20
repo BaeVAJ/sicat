@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import {
-  getAll, create, buscar, eliminar, getUrlPdf,
+  getAll, create, update, buscar, eliminar, getUrlPdf,
   getComplementos, getComplementosByFactura, createComplementoPago,
   updateComplementoPago, getUrlComplemento, deleteComplementoPago, getFormasPago,
   getEstadoCuentaPpd, getSiguientePago,
@@ -79,6 +79,18 @@ router.put(
     { name: 'archivo', maxCount: 1 },
   ]),
   updateComplementoPago
+);
+
+router.put(
+  '/:id',
+  verificarToken,
+  verificarRol('admin'),
+  upload.fields([
+    { name: 'archivo_pdf', maxCount: 1 },
+    { name: 'archivo_xml', maxCount: 1 },
+    { name: 'archivo', maxCount: 1 },
+  ]),
+  update
 );
 
 router.delete('/complementos/:id', verificarToken, verificarRol('admin'), deleteComplementoPago);

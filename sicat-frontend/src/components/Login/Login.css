@@ -146,7 +146,6 @@
   font-size: 1.1rem;
   color: rgba(148, 163, 184, 0.6);
   pointer-events: none;
-  transition: color 0.25s;
 }
 
 .login-field__input {
@@ -170,11 +169,6 @@
   border-color: #7c3aed;
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
-}
-
-.login-field__input:focus ~ .login-field__icon,
-.login-field__input:focus + .login-field__icon {
-  color: #7c3aed;
 }
 
 /* Password toggle */
@@ -298,10 +292,6 @@
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ---------- Footer ---------- */

@@ -1,6 +1,6 @@
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import { subscribeToEvents } from '../../../api/events';
@@ -25,6 +25,9 @@ const ESTADOS_FECHA_LIMITE = {
 function Tickets() {
     const { usuario } = useAuth();
     const [userProfile, setUserProfile] = useState(null);
+    const searchParams = useSearchParams()[0];
+
+    //Abrir el modal de detalles si viene desde el inicio con un ticket seleccionado, lo mismo con los pedidos pendientes
 
     // Cargar perfil completo si departamento no está en el token inicial
     useEffect(() => {
@@ -72,8 +75,15 @@ function Tickets() {
     const [fechaHastaSolucion, setFechaHastaSolucion] = useState('');
     const [opcionesFilterOpen, setOpcionesFilterOpen] = useState(false);
     const [departamentoFilter, setDepartamentoFilter] = useState('ALL');
+// Modal de Detalles
+    const [ticketDetalle, setTicketDetalle] = useState(null);
+    
 
     const filtrosRef = useRef(null);
+
+    const ticketRecibido = Number(searchParams.get('ticket'));
+
+    
 
     useEffect(() => {
         const handleOutsideClick = (event) => {
@@ -89,8 +99,7 @@ function Tickets() {
         return () => document.removeEventListener('pointerdown', handleOutsideClick);
     }, []);
 
-    // Modal de Detalles
-    const [ticketDetalle, setTicketDetalle] = useState(null);
+    
 
     // Cargar tickets
     useEffect(() => {
@@ -273,10 +282,20 @@ function Tickets() {
         setDepartamentoFilter('ALL');
     }; 
 
+    const ticketRecibidoDetalle = useCallback(() =>{
+        const idTicket = ticketRecibido;
+        const ticketD = tickets.find(t => Number(t.id_ticket) === Number(idTicket))
+        setTicketDetalle(ticketD)
+    }, [tickets, ticketRecibido])
+
+    useEffect(()=>{
+        ticketRecibidoDetalle()
+    }, [ticketRecibidoDetalle])
+
     return (
         <Layout>
             <div className="dash-container">
-                {/* Header */}
+                
                 <div className="dash-header">
                     <div>
                         <div className="dash-header__title-container">

@@ -25,7 +25,6 @@
         0 0 0 1px rgba(255, 255, 255, .04) inset;
     overflow: hidden;
     pointer-events: auto;
-    backdrop-filter: blur(12px);
     animation: sistemas-alerta-entrada .45s cubic-bezier(.21, 1.02, .73, 1) both;
     transform-origin: top right;
 }
@@ -111,7 +110,7 @@
     font-weight: 700;
     letter-spacing: .03em;
     text-transform: uppercase;
-    transition: all .2s ease;
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
 
 .sistemas-alerta__ver:hover {
@@ -134,7 +133,7 @@
     padding: 4px;
     border-radius: 6px;
     cursor: pointer;
-    transition: all .2s ease;
+    transition: color .2s ease, background-color .2s ease, transform .2s ease;
 }
 
 .sistemas-alerta .sistemas-alerta__cerrar:hover {
@@ -171,12 +170,10 @@
     from {
         opacity: 0;
         transform: translateX(120%) scale(.9);
-        filter: blur(4px);
     }
     60% {
         opacity: 1;
         transform: translateX(-6px) scale(1.01);
-        filter: blur(0);
     }
     to {
         opacity: 1;
@@ -224,7 +221,6 @@
     to {
         opacity: 0;
         transform: translateX(120%) scale(.9);
-        filter: blur(4px);
     }
 }
 

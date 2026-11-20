@@ -1,6 +1,6 @@
 // src/components/Facturas/facturas.jsx
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import client from '../../api/client';
 import Layout from '../layout/Layout';
@@ -173,24 +173,17 @@ const initialPagoForm = {
     faltaPagar: '',
 };
 
-const initialLogFilters = {
-    busqueda: '',
-    empresa: '',
-    proveedor: '',
-    formaPago: '',
-    desde: '',
-    hasta: '',
-    saldo: '',
-    archivos: '',
-};
-
 function Facturas() {
     const { usuario } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
+    const searchParams = useSearchParams()[0];
+    
 
     const isAdmin = usuario?.rol === 'admin';
     const canRegisterPago = isAdmin || usuario?.rol === 'gerente';
+    const facturaEnviada = Number(searchParams.get('id_compra'));
+    
 
     // Core data
     const [facturas, setFacturas] = useState([]);
@@ -203,13 +196,11 @@ function Facturas() {
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [isMobile, setIsMobile] = useState(false);
 
-    // Unified navigation & accordion state
-    const [activeTab, setActiveTab] = useState('bitacora'); // 'facturas' | 'bitacora'
+    // Accordion state
     const [expandedIds, setExpandedIds] = useState(() => new Set());
 
-    // Tab 1: Facturas + Estado PPD filters, sort, pagination
+    // Facturas + Estado PPD filters, sort, pagination
     const [quickChip, setQuickChip] = useState('ALL');
     const [search, setSearch] = useState('');
     const [filterEmpresa, setFilterEmpresa] = useState('');
@@ -219,15 +210,10 @@ function Facturas() {
     const [pageFacturas, setPageFacturas] = useState(1);
     const [pageSizeFacturas, setPageSizeFacturas] = useState(25);
 
-    // Tab 2: Bitácora Global de Pagos filters, sort, pagination
-    const [logFilters, setLogFilters] = useState(initialLogFilters);
-    const [sortLog, setSortLog] = useState({ key: 'fecha_pago', dir: 'desc' });
-    const [pageLog, setPageLog] = useState(1);
-    const [pageSizeLog, setPageSizeLog] = useState(10);
-
-    // Create Factura Modal state
-    const [modalOpen, setModalOpen] = useState(false);
-    const [idCompra, setIdCompra] = useState('');
+    // Create / Edit Factura Modal state
+    const [modalOpen, setModalOpen] = useState(searchParams.get('pagoModalOpen') || false);
+    const [editingFactura, setEditingFactura] = useState(null);
+    const [idCompra, setIdCompra] = useState(searchParams.get('idCompra') || '');
     const [uuidFiscal, setUuidFiscal] = useState('');
     const [rfcEmisor, setRfcEmisor] = useState('');
     const [rfcReceptor, setRfcReceptor] = useState('');
@@ -287,13 +273,6 @@ function Facturas() {
 
     useEffect(() => () => {
         if (messageTimer.current) clearTimeout(messageTimer.current);
-    }, []);
-
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     const fetchCompras = useCallback(async () => {
@@ -427,17 +406,6 @@ function Facturas() {
         };
     }, [facturasEnriquecidas]);
 
-    const opcionesLog = useMemo(() => {
-        const unicos = (campo) =>
-            [...new Set(complementos.map((c) => c[campo]).filter(Boolean))]
-                .sort((a, b) => String(a).localeCompare(String(b), 'es'));
-        return {
-            empresas: unicos('empresa'),
-            proveedores: unicos('proveedor'),
-            formas: unicos('forma_pago'),
-        };
-    }, [complementos]);
-
     // Global KPIs
     const kpis = useMemo(() => {
         const totalRegistros = facturasEnriquecidas.length;
@@ -481,7 +449,7 @@ function Facturas() {
         };
     }, [facturasEnriquecidas]);
 
-    // Tab 1 filtering & sorting
+    // Filtering & sorting
     const facturasFiltradas = useMemo(() => {
         const q = normalizar(search.trim());
         const lista = facturasEnriquecidas.filter((f) => {
@@ -492,6 +460,9 @@ function Facturas() {
             if (quickChip === 'INCOMPLETE' && (f.archivo_url && f.archivo_xml_url)) return false;
 
             if (q) {
+                const pagosTexto = (f.pagos || [])
+                    .map((p) => [p.forma_pago, p.num_pago, mostrarFechaCorta(p.fecha_pago)].join(' '))
+                    .join(' ');
                 const texto = normalizar([
                     f.uuid_fiscal,
                     f.empresa,
@@ -499,6 +470,7 @@ function Facturas() {
                     f.rfc_emisor,
                     f.rfc_receptor,
                     f.id_compra,
+                    pagosTexto,
                 ].join(' '));
                 if (!texto.includes(q)) return false;
             }
@@ -574,91 +546,6 @@ function Facturas() {
         setFilterArchivos('ALL');
     }, []);
 
-    // Tab 2: Bitácora Global filtering & sorting
-    const complementosFiltrados = useMemo(() => {
-        const q = normalizar(logFilters.busqueda.trim());
-        const lista = complementos.filter((item) => {
-            if (q) {
-                const texto = normalizar(
-                    [item.uuid_fiscal, item.empresa, item.proveedor, item.forma_pago, item.num_pago].join(' ')
-                );
-                if (!texto.includes(q)) return false;
-            }
-            if (logFilters.empresa && item.empresa !== logFilters.empresa) return false;
-            if (logFilters.proveedor && item.proveedor !== logFilters.proveedor) return false;
-            if (logFilters.formaPago && item.forma_pago !== logFilters.formaPago) return false;
-
-            if (logFilters.desde || logFilters.hasta) {
-                const dia = obtenerFechaLocalParaInput(item.fecha_pago).slice(0, 10);
-                if (!dia) return false;
-                if (logFilters.desde && dia < logFilters.desde) return false;
-                if (logFilters.hasta && dia > logFilters.hasta) return false;
-            }
-
-            const falta = item.falta_pagar;
-            if (logFilters.saldo === 'pendiente' && !(falta != null && Number(falta) > 0)) return false;
-            if (logFilters.saldo === 'liquidado' && !(falta != null && Number(falta) === 0)) return false;
-            if (logFilters.saldo === 'sin_dato' && falta != null) return false;
-
-            const tienePdf = Boolean(item.url_pdf);
-            const tieneXml = Boolean(item.url_xml);
-            if (logFilters.archivos === 'completos' && !(tienePdf && tieneXml)) return false;
-            if (logFilters.archivos === 'con_pdf' && !tienePdf) return false;
-            if (logFilters.archivos === 'con_xml' && !tieneXml) return false;
-            if (logFilters.archivos === 'sin_pdf' && tienePdf) return false;
-            if (logFilters.archivos === 'sin_xml' && tieneXml) return false;
-            if (logFilters.archivos === 'sin_archivos' && (tienePdf || tieneXml)) return false;
-
-            return true;
-        });
-
-        const valorOrdenLog = (item, key) => {
-            switch (key) {
-                case 'empresa':
-                    return normalizar(item.empresa);
-                case 'fecha_pago': {
-                    const t = new Date(item.fecha_pago).getTime();
-                    return Number.isNaN(t) ? null : t;
-                }
-                case 'num_pago':
-                case 'monto_pago':
-                case 'falta_pagar':
-                    return item[key] == null || item[key] === '' ? null : Number(item[key]);
-                default:
-                    return item[key] ?? null;
-            }
-        };
-
-        const factor = sortLog.dir === 'asc' ? 1 : -1;
-        return [...lista].sort((a, b) => {
-            const va = valorOrdenLog(a, sortLog.key);
-            const vb = valorOrdenLog(b, sortLog.key);
-            if (va == null && vb == null) return 0;
-            if (va == null) return 1;
-            if (vb == null) return -1;
-            if (va < vb) return -1 * factor;
-            if (va > vb) return 1 * factor;
-            return 0;
-        });
-    }, [complementos, logFilters, sortLog]);
-
-    const filtrosLogActivos = useMemo(
-        () => Object.entries(logFilters).filter(([k, v]) => v !== '' && v !== initialLogFilters[k]).length,
-        [logFilters]
-    );
-
-    const totalPagesLog = Math.max(1, Math.ceil(complementosFiltrados.length / pageSizeLog));
-    const safePageLog = Math.min(pageLog, totalPagesLog);
-    const inicioLog = (safePageLog - 1) * pageSizeLog;
-    const visiblesLog = useMemo(
-        () => complementosFiltrados.slice(inicioLog, inicioLog + pageSizeLog),
-        [complementosFiltrados, inicioLog, pageSizeLog]
-    );
-
-    useEffect(() => {
-        setPageLog(1);
-    }, [logFilters, sortLog, pageSizeLog]);
-
     const toggleSortFacturas = useCallback((key) => {
         setSortFacturas((prev) =>
             prev.key === key
@@ -667,16 +554,7 @@ function Facturas() {
         );
     }, []);
 
-    const toggleSortLog = useCallback((key) => {
-        setSortLog((prev) =>
-            prev.key === key
-                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-                : { key, dir: key === 'empresa' ? 'asc' : 'desc' }
-        );
-    }, []);
-
     const handleKpiFilter = useCallback((chipId) => {
-        setActiveTab('facturas');
         setQuickChip((prev) => (prev === chipId && chipId !== 'ALL' ? 'ALL' : chipId));
         if (chipId === 'INCOMPLETE') {
             setFilterArchivos((prev) => (prev === 'INCOMPLETE' ? 'ALL' : 'INCOMPLETE'));
@@ -691,21 +569,6 @@ function Facturas() {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
             else next.add(id);
-            return next;
-        });
-    }, []);
-
-    const irAFacturaDesdeBitacora = useCallback((idFactura) => {
-        const id = Number(idFactura);
-        setActiveTab('facturas');
-        setQuickChip('ALL');
-        setSearch('');
-        setFilterEmpresa('');
-        setFilterProveedor('');
-        setFilterArchivos('ALL');
-        setExpandedIds((prev) => {
-            const next = new Set(prev);
-            next.add(id);
             return next;
         });
     }, []);
@@ -808,6 +671,11 @@ function Facturas() {
         navigate(location.pathname, { replace: true });
     }, [location.state, location.pathname, loading, ppdFacturas, canRegisterPago, openPagoModal, navigate]);
 
+    const closeFacturaModal = useCallback(() => {
+        setModalOpen(false);
+        setEditingFactura(null);
+    }, []);
+
     // Escape key closes open modals
     useEffect(() => {
         if (!modalOpen && !pagoModalOpen && !facturaDetalle && !pagoDetalle && !deleteModalOpen && !pagoToDelete && !previewPdfUrl && !previewXmlContent) {
@@ -820,13 +688,13 @@ function Facturas() {
             else if (deleteModalOpen) setDeleteModalOpen(false);
             else if (pagoToDelete && !deletingPagoId) setPagoToDelete(null);
             else if (pagoModalOpen) closePagoModal();
-            else if (modalOpen) setModalOpen(false);
+            else if (modalOpen) closeFacturaModal();
             else if (pagoDetalle) setPagoDetalle(null);
             else if (facturaDetalle) setFacturaDetalle(null);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [modalOpen, pagoModalOpen, facturaDetalle, pagoDetalle, deleteModalOpen, pagoToDelete, deletingPagoId, previewPdfUrl, previewXmlContent, closePagoModal]);
+    }, [modalOpen, pagoModalOpen, facturaDetalle, pagoDetalle, deleteModalOpen, pagoToDelete, deletingPagoId, previewPdfUrl, previewXmlContent, closePagoModal, closeFacturaModal]);
 
     const updatePagoField = useCallback((e) => {
         const { name, value } = e.target;
@@ -1012,27 +880,8 @@ function Facturas() {
         }
     };
 
-    // Export CSV contextual to active tab
+    // Export CSV
     const handleExportCsv = useCallback(() => {
-        if (activeTab === 'bitacora') {
-            if (complementosFiltrados.length === 0) {
-                setError('No hay complementos para exportar con los filtros actuales');
-                return;
-            }
-            const encabezados = [
-                'UUID fiscal', 'Empresa', 'Proveedor', 'No. pago', 'Fecha de pago',
-                'Saldo anterior', 'Monto pagado', 'Forma de pago', 'Falta por pagar', 'PDF', 'XML',
-            ];
-            const filas = complementosFiltrados.map((c) => [
-                c.uuid_fiscal, c.empresa, c.proveedor, c.num_pago, mostrarFechaCompleta(c.fecha_pago),
-                c.saldo_anterior, c.monto_pago, c.forma_pago, c.falta_pagar,
-                c.url_pdf ? 'Sí' : 'No', c.url_xml ? 'Sí' : 'No',
-            ]);
-            descargarCsv(encabezados, filas, `complementos_pago_${new Date().toISOString().slice(0, 10)}.csv`);
-            notifySuccess(`Se exportaron ${complementosFiltrados.length} complemento(s) a CSV.`);
-            return;
-        }
-
         if (facturasFiltradas.length === 0) {
             setError('No hay facturas para exportar con los filtros actuales');
             return;
@@ -1049,7 +898,7 @@ function Facturas() {
         ]);
         descargarCsv(encabezados, filas, `facturas_y_saldos_${new Date().toISOString().slice(0, 10)}.csv`);
         notifySuccess(`Se exportaron ${facturasFiltradas.length} factura(s) a CSV.`);
-    }, [activeTab, complementosFiltrados, facturasFiltradas, notifySuccess]);
+    }, [facturasFiltradas, notifySuccess]);
 
     // Nueva Factura modal helpers
     const subtotalNum = Number(montoSubtotal) || 0;
@@ -1070,8 +919,24 @@ function Facturas() {
         );
     }, [compras, facturas]);
 
+    const comprasDisponiblesModal = useMemo(() => {
+        if (!editingFactura?.id_compra) return comprasSinFactura;
+        const yaExiste = comprasSinFactura.some((c) => Number(c.id_compra) === Number(editingFactura.id_compra));
+        if (yaExiste) return comprasSinFactura;
+        return [
+            {
+                id_compra: editingFactura.id_compra,
+                empresa: editingFactura.empresa,
+                proveedor: editingFactura.proveedor,
+                fecha_compra: editingFactura.fecha_compra,
+            },
+            ...comprasSinFactura,
+        ];
+    }, [comprasSinFactura, editingFactura]);
+
     const handleOpenCreate = () => {
         void fetchCompras();
+        setEditingFactura(null);
         setIdCompra('');
         setUuidFiscal(crypto.randomUUID ? crypto.randomUUID() : '');
         setRfcEmisor('');
@@ -1081,6 +946,28 @@ function Facturas() {
         setMontoIva('');
         setMetodoPago('PPD');
         setUsoCfdi('G01');
+        setArchivoPdf(null);
+        setArchivoXml(null);
+        setXmlParseNotice('');
+        continueToPagoRef.current = false;
+        setError('');
+        setModalOpen(true);
+    };
+
+    const handleOpenEditFactura = (factura) => {
+        if (!factura) return;
+        void fetchCompras();
+        setFacturaDetalle(null);
+        setEditingFactura(factura);
+        setIdCompra(factura.id_compra != null ? String(factura.id_compra) : '');
+        setUuidFiscal(factura.uuid_fiscal || '');
+        setRfcEmisor(factura.rfc_emisor || '');
+        setRfcReceptor(factura.rfc_receptor || '');
+        setFechaEmision(factura.fecha_emision ? String(factura.fecha_emision).slice(0, 10) : new Date().toISOString().split('T')[0]);
+        setMontoSubtotal(factura.monto_subtotal != null ? String(factura.monto_subtotal) : '0');
+        setMontoIva(factura.monto_iva != null ? String(factura.monto_iva) : '0');
+        setMetodoPago(factura.metodo_pago || 'PPD');
+        setUsoCfdi(factura.uso_cfdi || 'G01');
         setArchivoPdf(null);
         setArchivoXml(null);
         setXmlParseNotice('');
@@ -1208,8 +1095,8 @@ function Facturas() {
         const formData = new FormData();
         formData.append('id_compra', idCompra);
         formData.append('uuid_fiscal', uuidFiscal.trim());
-        if (rfcEmisor) formData.append('rfc_emisor', rfcEmisor.trim().toUpperCase());
-        if (rfcReceptor) formData.append('rfc_receptor', rfcReceptor.trim().toUpperCase());
+        if (editingFactura || rfcEmisor) formData.append('rfc_emisor', rfcEmisor.trim().toUpperCase());
+        if (editingFactura || rfcReceptor) formData.append('rfc_receptor', rfcReceptor.trim().toUpperCase());
         formData.append('fecha_emision', fechaEmision);
         formData.append('monto_subtotal', montoSubtotal || '0');
         formData.append('monto_iva', montoIva || '0');
@@ -1219,6 +1106,28 @@ function Facturas() {
         if (archivoXml) formData.append('archivo_xml', archivoXml);
 
         try {
+            if (editingFactura) {
+                const { data } = await client.put(`/facturas/${editingFactura.id_factura}`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+
+                setFacturas((prev) =>
+                    prev.map((f) => (Number(f.id_factura) === Number(editingFactura.id_factura) ? { ...f, ...data } : f))
+                );
+
+                let mensaje = 'Factura actualizada exitosamente.';
+                const adjuntos = [];
+                if (archivoPdf) adjuntos.push('PDF');
+                if (archivoXml) adjuntos.push('XML');
+                if (adjuntos.length > 0) mensaje += ` (Archivos actualizados: ${adjuntos.join(' + ')})`;
+
+                closeFacturaModal();
+                void fetchCompras();
+                notifySuccess(mensaje);
+                void refreshPpdYComplementos();
+                return;
+            }
+
             const { data } = await client.post('/facturas', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
@@ -1264,7 +1173,7 @@ function Facturas() {
             notifySuccess(mensaje);
             void refreshPpdYComplementos();
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al registrar la factura');
+            setError(err.response?.data?.error || (editingFactura ? 'Error al actualizar la factura' : 'Error al registrar la factura'));
         } finally {
             setActionLoading(false);
         }
@@ -1373,10 +1282,20 @@ function Facturas() {
         pue: facturasEnriquecidas.filter((f) => f.metodo_pago === 'PUE').length,
     }), [facturasEnriquecidas]);
 
+    const verDetalleFactura = useCallback( () => {
+            const idFactura = facturaEnviada;
+            const factura = facturas.find((f) => Number(f.id_compra) === Number(idFactura));
+            console.log(factura);
+            setFacturaDetalle(factura);
+    }, [facturas, facturaEnviada]);
+    
+    useEffect(() => {
+        verDetalleFactura();
+    }, [verDetalleFactura]);
+    
     return (
         <Layout>
             <div className="facturas-container">
-                {/* ── Header Unificado ── */}
                 <div className="facturas-header">
                     <div>
                         <h1 className="facturas-header__title">
@@ -1481,7 +1400,7 @@ function Facturas() {
                     <section className="facturas-kpis" aria-label="Resumen de facturas y pagos">
                         <button
                             type="button"
-                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'ALL' && activeTab === 'facturas' ? 'facturas-kpi-card--active' : ''}`}
+                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'ALL' ? 'facturas-kpi-card--active' : ''}`}
                             onClick={() => handleKpiFilter('ALL')}
                         >
                             <div className="facturas-kpi-card__top">
@@ -1503,7 +1422,7 @@ function Facturas() {
 
                         <button
                             type="button"
-                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'PPD_OPEN' && activeTab === 'facturas' ? 'facturas-kpi-card--active-amber' : ''}`}
+                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'PPD_OPEN' ? 'facturas-kpi-card--active-amber' : ''}`}
                             onClick={() => handleKpiFilter('PPD_OPEN')}
                         >
                             <div className="facturas-kpi-card__top">
@@ -1527,7 +1446,7 @@ function Facturas() {
 
                         <button
                             type="button"
-                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'PAID' && activeTab === 'facturas' ? 'facturas-kpi-card--active' : ''}`}
+                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'PAID' ? 'facturas-kpi-card--active' : ''}`}
                             onClick={() => handleKpiFilter('PAID')}
                         >
                             <div className="facturas-kpi-card__top">
@@ -1548,7 +1467,7 @@ function Facturas() {
 
                         <button
                             type="button"
-                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'INCOMPLETE' && activeTab === 'facturas' ? 'facturas-kpi-card--active-amber' : ''}`}
+                            className={`facturas-kpi-card facturas-kpi-card--interactive ${quickChip === 'INCOMPLETE' ? 'facturas-kpi-card--active-amber' : ''}`}
                             onClick={() => handleKpiFilter('INCOMPLETE')}
                         >
                             <div className="facturas-kpi-card__top">
@@ -1569,50 +1488,6 @@ function Facturas() {
                     </section>
                 )}
 
-                {/* ── Pestañas Segmentadas ── */}
-                <div className="facturas-view-bar">
-                    <div className="facturas-segmented-tabs" role="tablist" aria-label="Vistas de facturación">
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === 'bitacora'}
-                            className={`facturas-seg-tab ${activeTab === 'bitacora' ? 'facturas-seg-tab--active' : ''}`}
-                            onClick={() => setActiveTab('bitacora')}
-                        >
-                            <span>Bitácora Global de Pagos</span>
-                            <span className="facturas-seg-tab__count">{complementos.length}</span>
-                        </button>
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={activeTab === 'facturas'}
-                            className={`facturas-seg-tab ${activeTab === 'facturas' ? 'facturas-seg-tab--active' : ''}`}
-                            onClick={() => setActiveTab('facturas')}
-                        >
-                            <span>Facturas y Estado de Cuenta</span>
-                            <span className="facturas-seg-tab__count">{facturasEnriquecidas.length}</span>
-                        </button>
-                    </div>
-
-                    {activeTab === 'bitacora' && canRegisterPago && (
-                        <button
-                            type="button"
-                            className="facturas-btn facturas-btn--primary facturas-btn--sm"
-                            onClick={() => openPagoModal(null)}
-                            disabled={ppdFacturas.length === 0}
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                            <span>Nuevo Complemento</span>
-                        </button>
-                    )}
-                </div>
-
-                
-                {activeTab === 'facturas' && (
-                    <>
                         <section className="facturas-filters-card" aria-label="Filtros de facturas">
                             <div className="facturas-chips-row">
                                 <span className="facturas-chips-row__label">Vista rápida:</span>
@@ -1656,7 +1531,7 @@ function Facturas() {
                                         type="text"
                                         className="facturas-search-input"
                                         aria-label="Buscar facturas"
-                                        placeholder="Buscar por UUID fiscal, empresa, proveedor o RFC..."
+                                        placeholder="Buscar por UUID fiscal, empresa, proveedor, RFC o forma de pago..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
                                     />
@@ -1937,22 +1812,33 @@ function Facturas() {
                                                                 </button>
 
                                                                 {isAdmin && (
-                                                                    <button
-                                                                        type="button"
-                                                                        className="facturas-btn facturas-btn--danger facturas-btn--sm"
-                                                                        title="Eliminar factura"
-                                                                        aria-label="Eliminar factura"
-                                                                        onClick={() => {
-                                                                            setFacturaToDelete(factura);
-                                                                            setDeleteModalOpen(true);
-                                                                        }}
-                                                                        disabled={actionLoading}
-                                                                    >
-                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                            <polyline points="3 6 5 6 21 6" />
-                                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                                        </svg>
-                                                                    </button>
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="facturas-btn facturas-btn--secondary facturas-btn--sm"
+                                                                            onClick={() => handleOpenEditFactura(factura)}
+                                                                            disabled={actionLoading}
+                                                                            title="Editar factura"
+                                                                        >
+                                                                            Editar
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="facturas-btn facturas-btn--danger facturas-btn--sm"
+                                                                            title="Eliminar factura"
+                                                                            aria-label="Eliminar factura"
+                                                                            onClick={() => {
+                                                                                setFacturaToDelete(factura);
+                                                                                setDeleteModalOpen(true);
+                                                                            }}
+                                                                            disabled={actionLoading}
+                                                                        >
+                                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                <polyline points="3 6 5 6 21 6" />
+                                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </>
                                                                 )}
                                                             </div>
                                                         </td>
@@ -2134,362 +2020,26 @@ function Facturas() {
                                 </div>
                             </div>
                         )}
-                    </>
-                )}
 
-                {/* ══════════════════════════════════════════════════
-                    TAB 2: BITÁCORA GLOBAL DE PAGOS (AUDITORÍA REP)
-                   ══════════════════════════════════════════════════ */}
-                {activeTab === 'bitacora' && (
-                    <>
-                        <section className="facturas-filters-card" aria-label="Filtros de bitácora global de pagos">
-                            <div className="facturas-search-wrap">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="facturas-search-icon">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                </svg>
-                                <input
-                                    type="text"
-                                    name="busqueda"
-                                    className="facturas-search-input"
-                                    aria-label="Buscar complementos"
-                                    placeholder="Buscar por UUID, empresa, proveedor o No. de pago..."
-                                    value={logFilters.busqueda}
-                                    onChange={(e) => setLogFilters((prev) => ({ ...prev, busqueda: e.target.value }))}
-                                />
-                                {logFilters.busqueda && (
-                                    <button
-                                        type="button"
-                                        className="facturas-search-clear"
-                                        onClick={() => setLogFilters((prev) => ({ ...prev, busqueda: '' }))}
-                                        aria-label="Limpiar búsqueda"
-                                    >
-                                        ✕
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="facturas-filters-grid facturas-filters-grid--log">
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-empresa">Empresa</label>
-                                    <select
-                                        id="b-empresa"
-                                        className="facturas-select"
-                                        style={{ minWidth: 0 }}
-                                        value={logFilters.empresa}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, empresa: e.target.value }))}
-                                    >
-                                        <option value="">Todas</option>
-                                        {opcionesLog.empresas.map((v) => <option key={v} value={v}>{v}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-proveedor">Proveedor</label>
-                                    <select
-                                        id="b-proveedor"
-                                        className="facturas-select"
-                                        style={{ minWidth: 0 }}
-                                        value={logFilters.proveedor}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, proveedor: e.target.value }))}
-                                    >
-                                        <option value="">Todos</option>
-                                        {opcionesLog.proveedores.map((v) => <option key={v} value={v}>{v}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-forma">Forma de pago</label>
-                                    <select
-                                        id="b-forma"
-                                        className="facturas-select"
-                                        style={{ minWidth: 0 }}
-                                        value={logFilters.formaPago}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, formaPago: e.target.value }))}
-                                    >
-                                        <option value="">Todas</option>
-                                        {opcionesLog.formas.map((v) => <option key={v} value={v}>{v}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-saldo">Saldo</label>
-                                    <select
-                                        id="b-saldo"
-                                        className="facturas-select"
-                                        style={{ minWidth: 0 }}
-                                        value={logFilters.saldo}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, saldo: e.target.value }))}
-                                    >
-                                        <option value="">Todos</option>
-                                        <option value="pendiente">Con saldo pendiente</option>
-                                        <option value="liquidado">Liquidado</option>
-                                        <option value="sin_dato">Sin saldo registrado</option>
-                                    </select>
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-archivos">Archivos REP</label>
-                                    <select
-                                        id="b-archivos"
-                                        className="facturas-select"
-                                        style={{ minWidth: 0 }}
-                                        value={logFilters.archivos}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, archivos: e.target.value }))}
-                                    >
-                                        <option value="">Todos</option>
-                                        <option value="completos">Con PDF y XML</option>
-                                        <option value="con_pdf">Con PDF</option>
-                                        <option value="con_xml">Con XML</option>
-                                        <option value="sin_pdf">Sin PDF</option>
-                                        <option value="sin_xml">Sin XML</option>
-                                        <option value="sin_archivos">Sin archivos</option>
-                                    </select>
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-desde">Pagado desde</label>
-                                    <input
-                                        id="b-desde"
-                                        type="date"
-                                        max={logFilters.hasta}
-                                        className="facturas-input"
-                                        value={logFilters.desde}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, desde: e.target.value }))}
-                                    />
-                                </div>
-
-                                <div className="facturas-form-group">
-                                    <label className="facturas-label" htmlFor="b-hasta">Pagado hasta</label>
-                                    <input
-                                        id="b-hasta"
-                                        type="date"
-                                        min={logFilters.desde}
-                                        className="facturas-input"
-                                        value={logFilters.hasta}
-                                        onChange={(e) => setLogFilters((prev) => ({ ...prev, hasta: e.target.value }))}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="facturas-filters-footer">
-                                <span className="facturas-filters-footer__count" aria-live="polite">
-                                    {complementosFiltrados.length === complementos.length
-                                        ? `${complementos.length} complemento(s)`
-                                        : `${complementosFiltrados.length} de ${complementos.length} complemento(s)`}
-                                </span>
-                                {filtrosLogActivos > 0 && (
-                                    <button
-                                        type="button"
-                                        className="facturas-btn facturas-btn--secondary facturas-btn--xs"
-                                        onClick={() => setLogFilters(initialLogFilters)}
-                                    >
-                                        Limpiar filtros ({filtrosLogActivos})
-                                    </button>
-                                )}
-                            </div>
-                        </section>
-
-                        <div className="facturas-table-wrap">
-                            <table className="facturas-table">
-                                <thead>
-                                    <tr>
-                                        <SortHeader label="Factura / Empresa" sortKey="empresa" sort={sortLog} onSort={toggleSortLog} />
-                                        <SortHeader label="No. pago" sortKey="num_pago" sort={sortLog} onSort={toggleSortLog} className="facturas-hide-mobile" />
-                                        <SortHeader label="Fecha" sortKey="fecha_pago" sort={sortLog} onSort={toggleSortLog} className="facturas-hide-mobile" />
-                                        <SortHeader label="Pago" sortKey="monto_pago" sort={sortLog} onSort={toggleSortLog} />
-                                        <SortHeader label="Saldo" sortKey="falta_pagar" sort={sortLog} onSort={toggleSortLog} />
-                                        <th className="facturas-hide-mobile">Forma de pago</th>
-                                        <th className="facturas-hide-mobile">Archivos</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr>
-                                            <td colSpan="8" style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
-                                                Cargando bitácora de complementos...
-                                            </td>
-                                        </tr>
-                                    ) : visiblesLog.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="8" style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'rgba(148, 163, 184, 0.7)' }}>
-                                                {filtrosLogActivos > 0
-                                                    ? 'No se encontraron complementos que coincidan con los filtros aplicados.'
-                                                    : 'No hay complementos de pago registrados.'}
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        visiblesLog.map((item) => {
-                                            const liquidado = item.falta_pagar != null && Number(item.falta_pagar) === 0;
-                                            return (
-                                                <tr key={item.id_detalle_factura}>
-                                                    <td>
-                                                        <div className="facturas-table__uuid">
-                                                            <span title={item.uuid_fiscal || undefined}>
-                                                                {item.uuid_fiscal ? `${item.uuid_fiscal.slice(0, 13)}...` : '—'}
-                                                            </span>
-                                                            {item.uuid_fiscal && (
-                                                                <button
-                                                                    type="button"
-                                                                    className="facturas-copy-btn"
-                                                                    title="Copiar UUID completo"
-                                                                    onClick={() => handleCopyUuid(item.uuid_fiscal)}
-                                                                >
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                                    </svg>
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                        <div className="facturas-table__sub">
-                                                            {item.empresa || '—'} · {item.proveedor || '—'}
-                                                        </div>
-                                                        <div className="facturas-show-mobile facturas-table__sub">
-                                                            Pago #{item.num_pago || '—'} · {mostrarFechaCorta(item.fecha_pago)}
-                                                        </div>
-                                                    </td>
-                                                    <td className="facturas-hide-mobile">{item.num_pago || '—'}</td>
-                                                    <td className="facturas-hide-mobile" style={{ whiteSpace: 'nowrap' }}>{mostrarFechaCorta(item.fecha_pago)}</td>
-                                                    <td>
-                                                        <span className="facturas-table__total">
-                                                            {formatoMoneda(item.monto_pago ?? 0)}
-                                                        </span>
-                                                        {item.forma_pago && isMobile && (
-                                                            <div className="facturas-table__sub">{item.forma_pago}</div>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        <div style={{ fontWeight: 700, color: liquidado ? '#6ee7b7' : '#fcd34d' }}>
-                                                            {item.falta_pagar == null || item.falta_pagar === ''
-                                                                ? '—'
-                                                                : formatoMoneda(item.falta_pagar)}
-                                                        </div>
-                                                        {liquidado && (
-                                                            <span className="facturas-badge facturas-badge--ok" style={{ marginTop: '4px' }}>Liquidado</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="facturas-hide-mobile">{item.forma_pago || '—'}</td>
-                                                    <td className="facturas-hide-mobile">
-                                                        <div className="facturas-actions-cluster">
-                                                            {item.url_pdf && (
-                                                                <button type="button" className="facturas-btn facturas-btn--pdf facturas-btn--xs" onClick={() => openComplementoFile(item, 'pdf')}>
-                                                                    PDF
-                                                                </button>
-                                                            )}
-                                                            {item.url_xml && (
-                                                                <button type="button" className="facturas-btn facturas-btn--xml facturas-btn--xs" onClick={() => openComplementoFile(item, 'xml')}>
-                                                                    XML
-                                                                </button>
-                                                            )}
-                                                            {!item.url_pdf && !item.url_xml && (
-                                                                <span className="facturas-badge facturas-badge--nopdf">Sin archivos</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div className="facturas-actions-cluster">
-                                                            <button
-                                                                type="button"
-                                                                className="facturas-btn facturas-btn--violet facturas-btn--sm"
-                                                                onClick={() => irAFacturaDesdeBitacora(item.id_factura)}
-                                                            >
-                                                                Ver en Factura
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="facturas-btn facturas-btn--secondary facturas-btn--sm"
-                                                                onClick={() => setPagoDetalle(item)}
-                                                            >
-                                                                Detalles
-                                                            </button>
-                                                            {isAdmin && (
-                                                                <>
-                                                                    {!isMobile && (
-                                                                        <button
-                                                                            type="button"
-                                                                            className="facturas-btn facturas-btn--secondary facturas-btn--sm"
-                                                                            onClick={() => openEditPago(item)}
-                                                                        >
-                                                                            Editar
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        className="facturas-btn facturas-btn--danger facturas-btn--sm"
-                                                                        onClick={() => setPagoToDelete(item)}
-                                                                        disabled={deletingPagoId === item.id_detalle_factura}
-                                                                    >
-                                                                        {deletingPagoId === item.id_detalle_factura ? 'Eliminando...' : 'Eliminar'}
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {complementosFiltrados.length > 0 && (
-                            <div className="facturas-pagination">
-                                <div className="facturas-pagination__size">
-                                    <label className="facturas-label" htmlFor="log-page-size">Filas por página:</label>
-                                    <select
-                                        id="log-page-size"
-                                        className="facturas-select facturas-select--sm"
-                                        value={pageSizeLog}
-                                        onChange={(e) => setPageSizeLog(Number(e.target.value))}
-                                    >
-                                        {PAGE_SIZES.map((size) => (
-                                            <option key={size} value={size}>{size}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <span className="facturas-pagination__info">
-                                    {inicioLog + 1}-{Math.min(inicioLog + pageSizeLog, complementosFiltrados.length)} de {complementosFiltrados.length}
-                                </span>
-                                <div className="facturas-pagination__nav">
-                                    {safePageLog > 1 && (
-                                        <>
-                                            <button type="button" className="facturas-btn facturas-btn--secondary facturas-btn--sm" onClick={() => setPageLog(1)} aria-label="Primera página">«</button>
-                                            <button type="button" className="facturas-btn facturas-btn--secondary facturas-btn--sm" onClick={() => setPageLog(safePageLog - 1)}>Anterior</button>
-                                        </>
-                                    )}
-                                    <span className="facturas-pagination__page">Página {safePageLog} de {totalPagesLog}</span>
-                                    {safePageLog < totalPagesLog && (
-                                        <>
-                                            <button type="button" className="facturas-btn facturas-btn--secondary facturas-btn--sm" onClick={() => setPageLog(safePageLog + 1)}>Siguiente</button>
-                                            <button type="button" className="facturas-btn facturas-btn--secondary facturas-btn--sm" onClick={() => setPageLog(totalPagesLog)} aria-label="Última página">»</button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* ══════════════════════════════════════════════════
-                    MODAL: REGISTRAR FACTURA FISCAL (FLUJO CONTINUO)
-                   ══════════════════════════════════════════════════ */}
+                
                 {modalOpen && (
-                    <div className="facturas-modal-overlay" onClick={() => setModalOpen(false)}>
-                        <div className="facturas-modal" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Registrar Factura Fiscal">
+                    <div className="facturas-modal-overlay" onClick={() => !actionLoading && closeFacturaModal()}>
+                        <div className="facturas-modal" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={editingFactura ? 'Editar Factura Fiscal' : 'Registrar Factura Fiscal'}>
                             <div className="facturas-modal__header">
                                 <div>
-                                    <h2 className="facturas-modal__title">Registrar Factura Fiscal</h2>
+                                    <h2 className="facturas-modal__title">
+                                        {editingFactura ? 'Editar Factura Fiscal' : 'Registrar Factura Fiscal'}
+                                    </h2>
                                     <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                                        Sube primero el XML CFDI para autollenar o captura manualmente
+                                        {editingFactura
+                                            ? 'Modifica los datos fiscales o reemplaza los comprobantes PDF/XML'
+                                            : 'Sube primero el XML CFDI para autollenar o captura manualmente'}
                                     </span>
                                 </div>
                                 <button
                                     type="button"
                                     className="facturas-modal__close"
-                                    onClick={() => setModalOpen(false)}
+                                    onClick={closeFacturaModal}
                                     disabled={actionLoading}
                                     aria-label="Cerrar"
                                 >
@@ -2541,7 +2091,9 @@ function Facturas() {
                                                 <span className="facturas-dropzone__sub">
                                                     {archivoXml
                                                         ? `${(archivoXml.size / 1024).toFixed(1)} KB (Autollenado)`
-                                                        : 'Clic para .xml (Autollena el formulario)'}
+                                                        : editingFactura?.archivo_xml_url
+                                                            ? 'Ya hay un XML. Selecciona otro para reemplazarlo'
+                                                            : 'Clic para .xml (Autollena el formulario)'}
                                                 </span>
                                             </div>
                                             {archivoXml && (
@@ -2584,7 +2136,9 @@ function Facturas() {
                                                 <span className="facturas-dropzone__sub">
                                                     {archivoPdf
                                                         ? `${(archivoPdf.size / 1024).toFixed(1)} KB (Listo)`
-                                                        : 'Clic para seleccionar archivo .pdf'}
+                                                        : editingFactura?.archivo_url
+                                                            ? 'Ya hay un PDF. Selecciona otro para reemplazarlo'
+                                                            : 'Clic para seleccionar archivo .pdf'}
                                                 </span>
                                             </div>
                                             {archivoPdf && (
@@ -2615,17 +2169,17 @@ function Facturas() {
                                         required
                                     >
                                         <option value="">
-                                            {comprasSinFactura.length === 0
+                                            {comprasDisponiblesModal.length === 0
                                                 ? '-- No hay compras pendientes de facturar --'
                                                 : '-- Seleccionar Compra --'}
                                         </option>
-                                        {comprasSinFactura.map((c) => (
+                                        {comprasDisponiblesModal.map((c) => (
                                             <option key={c.id_compra} value={c.id_compra}>
                                                 Compra #{c.id_compra} — {c.empresa || 'Empresa'} ({c.proveedor || 'Proveedor'}) - {c.fecha_compra ? new Date(c.fecha_compra).toLocaleDateString('es-MX') : ''}
                                             </option>
                                         ))}
                                     </select>
-                                    {comprasSinFactura.length === 0 && (
+                                    {!editingFactura && comprasSinFactura.length === 0 && (
                                         <span style={{ color: '#fbbf24', fontSize: '0.78rem', marginTop: '0.35rem', display: 'block' }}>
                                             Todas las compras registradas ya cuentan con factura asociada.
                                         </span>
@@ -2793,21 +2347,21 @@ function Facturas() {
                                     <button
                                         type="button"
                                         className="facturas-btn facturas-btn--secondary"
-                                        onClick={() => setModalOpen(false)}
+                                        onClick={closeFacturaModal}
                                         disabled={actionLoading}
                                     >
                                         Cancelar
                                     </button>
                                     <button
                                         type="submit"
-                                        className={`facturas-btn ${metodoPago === 'PPD' ? 'facturas-btn--secondary' : 'facturas-btn--primary'}`}
+                                        className={`facturas-btn ${!editingFactura && metodoPago === 'PPD' ? 'facturas-btn--secondary' : 'facturas-btn--primary'}`}
                                         disabled={actionLoading || !puedeGuardar}
                                         onClick={() => { continueToPagoRef.current = false; }}
                                         title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                     >
-                                        {actionLoading ? 'Guardando...' : 'Guardar Factura'}
+                                        {actionLoading ? 'Guardando...' : editingFactura ? 'Actualizar Factura' : 'Guardar Factura'}
                                     </button>
-                                    {metodoPago === 'PPD' && canRegisterPago && (
+                                    {!editingFactura && metodoPago === 'PPD' && canRegisterPago && (
                                         <button
                                             type="submit"
                                             className="facturas-btn facturas-btn--primary"
@@ -2815,7 +2369,7 @@ function Facturas() {
                                             onClick={() => { continueToPagoRef.current = true; }}
                                             title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                         >
-                                            {actionLoading ? 'Guardando...' : 'Guardar y Registrar 1er Pago →'}
+                                            {actionLoading ? 'Guardando...' : 'Guardar y Registrar 1er Pago'}
                                         </button>
                                     )}
                                 </div>
@@ -2870,7 +2424,7 @@ function Facturas() {
                                             className="facturas-btn facturas-btn--primary facturas-btn--sm"
                                             onClick={() => liquidarSaldoTotal(facturaBannerActual.saldo)}
                                         >
-                                            ⚡ Liquidar saldo total ({formatoMoneda(facturaBannerActual.saldo)})
+                                            Liquidar saldo total ({formatoMoneda(facturaBannerActual.saldo)})
                                         </button>
                                     )}
                                 </div>
@@ -3138,7 +2692,7 @@ function Facturas() {
                                         rel="noopener noreferrer"
                                         className="facturas-btn facturas-btn--secondary facturas-btn--sm"
                                     >
-                                        Pestaña nueva ↗
+                                        Pestaña nueva
                                     </a>
                                     <button
                                         type="button"
@@ -3273,7 +2827,7 @@ function Facturas() {
                 {/* ── Modal: Detalles Completos de Factura ── */}
                 {facturaDetalle && (
                     <div className="facturas-modal-overlay" onClick={() => setFacturaDetalle(null)}>
-                        <div className="facturas-modal" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="facturas-modal facturas-modal--detail" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalles de Factura Fiscal">
                             <div className="facturas-modal__header">
                                 <div>
                                     <h2 className="facturas-modal__title">Detalles de Factura Fiscal</h2>
@@ -3282,118 +2836,120 @@ function Facturas() {
                                 <button type="button" className="facturas-modal__close" onClick={() => setFacturaDetalle(null)} aria-label="Cerrar modal">✕</button>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '70vh', overflowY: 'auto' }}>
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">UUID Fiscal (Folio Digital)</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
-                                        <span style={{ fontFamily: 'monospace', fontSize: '0.84rem', color: '#f1f5f9', wordBreak: 'break-all' }}>
-                                            {facturaDetalle.uuid_fiscal || '—'}
-                                        </span>
-                                        {facturaDetalle.uuid_fiscal && (
-                                            <button type="button" className="facturas-copy-btn" onClick={() => handleCopyUuid(facturaDetalle.uuid_fiscal)} title="Copiar UUID">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
+                            <div className="facturas-detail-scroll">
+                                <div className="facturas-detail-scroll__inner">
                                     <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Empresa Receptora</span>
-                                        <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{facturaDetalle.empresa || 'Empresa'}</div>
-                                        <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>RFC: {facturaDetalle.rfc_receptor || 'No especificado'}</span>
-                                    </div>
-                                    <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Proveedor Emisor</span>
-                                        <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{facturaDetalle.proveedor || 'Proveedor'}</div>
-                                        <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>RFC: {facturaDetalle.rfc_emisor || 'No especificado'}</span>
-                                    </div>
-                                </div>
-
-                                <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
-                                    <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Compra Vinculada</span>
-                                        <div style={{ fontWeight: 600, color: '#38bdf8', marginTop: '2px' }}>Compra #{facturaDetalle.id_compra}</div>
-                                        {facturaDetalle.fecha_compra && (
-                                            <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
-                                                Fecha compra: {new Date(facturaDetalle.fecha_compra).toLocaleDateString('es-MX')}
+                                        <span className="facturas-detail-card__label">UUID Fiscal (Folio Digital)</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
+                                            <span style={{ fontFamily: 'monospace', fontSize: '0.84rem', color: '#f1f5f9', wordBreak: 'break-all' }}>
+                                                {facturaDetalle.uuid_fiscal || '—'}
                                             </span>
-                                        )}
-                                    </div>
-                                    <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Fecha de Emisión</span>
-                                        <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>
-                                            {facturaDetalle.fecha_emision ? new Date(facturaDetalle.fecha_emision).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+                                            {facturaDetalle.uuid_fiscal && (
+                                                <button type="button" className="facturas-copy-btn" onClick={() => handleCopyUuid(facturaDetalle.uuid_fiscal)} title="Copiar UUID">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="facturas-detail-card" style={{ background: 'rgba(30, 41, 59, 0.7)' }}>
-                                    <span className="facturas-detail-card__label">Desglose Fiscal y Avance</span>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.86rem' }}>
-                                        <span>Subtotal:</span>
-                                        <span style={{ fontWeight: 600 }}>{formatoMoneda(facturaDetalle.monto_subtotal || 0)}</span>
+                                    <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Empresa Receptora</span>
+                                            <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{facturaDetalle.empresa || 'Empresa'}</div>
+                                            <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>RFC: {facturaDetalle.rfc_receptor || 'No especificado'}</span>
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Proveedor Emisor</span>
+                                            <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{facturaDetalle.proveedor || 'Proveedor'}</div>
+                                            <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>RFC: {facturaDetalle.rfc_emisor || 'No especificado'}</span>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.86rem' }}>
-                                        <span>IVA:</span>
-                                        <span style={{ fontWeight: 600, color: '#67e8f9' }}>+{formatoMoneda(facturaDetalle.monto_iva || 0)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '1rem', fontWeight: 700, color: '#34d399' }}>
-                                        <span>Total Facturado:</span>
-                                        <span>{formatoMoneda(facturaDetalle.total)}</span>
-                                    </div>
-                                    {facturaDetalle.metodo_pago === 'PPD' && (
-                                        <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.86rem' }}>
-                                                <span>Total abonado ({facturaDetalle.numPagos} pago(s)):</span>
-                                                <span style={{ fontWeight: 600, color: '#6ee7b7' }}>{formatoMoneda(facturaDetalle.pagado)}</span>
+
+                                    <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Compra Vinculada</span>
+                                            <div style={{ fontWeight: 600, color: '#38bdf8', marginTop: '2px' }}>Compra #{facturaDetalle.id_compra}</div>
+                                            {facturaDetalle.fecha_compra && (
+                                                <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
+                                                    Fecha compra: {new Date(facturaDetalle.fecha_compra).toLocaleDateString('es-MX')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Fecha de Emisión</span>
+                                            <div style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>
+                                                {facturaDetalle.fecha_emision ? new Date(facturaDetalle.fecha_emision).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.9rem', fontWeight: 700, color: facturaDetalle.saldo > 0 ? '#fcd34d' : '#6ee7b7' }}>
-                                                <span>Saldo pendiente:</span>
-                                                <span>{formatoMoneda(facturaDetalle.saldo)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="facturas-detail-card" style={{ background: 'rgba(30, 41, 59, 0.7)' }}>
+                                        <span className="facturas-detail-card__label">Desglose Fiscal y Avance</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.86rem' }}>
+                                            <span>Subtotal:</span>
+                                            <span style={{ fontWeight: 600 }}>{formatoMoneda(facturaDetalle.monto_subtotal || 0)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.86rem' }}>
+                                            <span>IVA:</span>
+                                            <span style={{ fontWeight: 600, color: '#67e8f9' }}>+{formatoMoneda(facturaDetalle.monto_iva || 0)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '1rem', fontWeight: 700, color: '#34d399' }}>
+                                            <span>Total Facturado:</span>
+                                            <span>{formatoMoneda(facturaDetalle.total)}</span>
+                                        </div>
+                                        {facturaDetalle.metodo_pago === 'PPD' && (
+                                            <>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.86rem' }}>
+                                                    <span>Total abonado ({facturaDetalle.numPagos} pago(s)):</span>
+                                                    <span style={{ fontWeight: 600, color: '#6ee7b7' }}>{formatoMoneda(facturaDetalle.pagado)}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.9rem', fontWeight: 700, color: facturaDetalle.saldo > 0 ? '#fcd34d' : '#6ee7b7' }}>
+                                                    <span>Saldo pendiente:</span>
+                                                    <span>{formatoMoneda(facturaDetalle.saldo)}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Método de Pago</span>
+                                            <div style={{ marginTop: '4px' }}>
+                                                <span className={`facturas-badge ${facturaDetalle.metodo_pago === 'PUE' ? 'facturas-badge--pue' : 'facturas-badge--ppd'}`}>
+                                                    {facturaDetalle.metodo_pago === 'PUE' ? 'PUE - Pago único' : 'PPD - En parcialidades'}
+                                                </span>
                                             </div>
-                                        </>
-                                    )}
-                                </div>
-
-                                <div className="facturas-grid-2" style={{ gap: '0.75rem' }}>
-                                    <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Método de Pago</span>
-                                        <div style={{ marginTop: '4px' }}>
-                                            <span className={`facturas-badge ${facturaDetalle.metodo_pago === 'PUE' ? 'facturas-badge--pue' : 'facturas-badge--ppd'}`}>
-                                                {facturaDetalle.metodo_pago === 'PUE' ? 'PUE - Pago único' : 'PPD - En parcialidades'}
-                                            </span>
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Uso de CFDI</span>
+                                            <div style={{ marginTop: '4px' }}>
+                                                <span className="facturas-badge facturas-badge--cfdi">
+                                                    {facturaDetalle.uso_cfdi || 'G01'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="facturas-detail-card">
-                                        <span className="facturas-detail-card__label">Uso de CFDI</span>
-                                        <div style={{ marginTop: '4px' }}>
-                                            <span className="facturas-badge facturas-badge--cfdi">
-                                                {facturaDetalle.uso_cfdi || 'G01'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">Archivos Digitales Adjuntos</span>
-                                    <div style={{ display: 'flex', gap: '0.6rem', marginTop: '8px', flexWrap: 'wrap' }}>
-                                        {facturaDetalle.archivo_url && (
-                                            <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => handleVerPdf(facturaDetalle)} disabled={actionLoading}>
-                                                Ver Documento PDF
-                                            </button>
-                                        )}
-                                        {facturaDetalle.archivo_xml_url && (
-                                            <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => handleVerXml(facturaDetalle)} disabled={actionLoading}>
-                                                Ver / Descargar XML
-                                            </button>
-                                        )}
-                                        {!facturaDetalle.archivo_url && !facturaDetalle.archivo_xml_url && (
-                                            <span className="facturas-badge facturas-badge--nopdf">Sin archivos digitales adjuntos</span>
-                                        )}
+                                    <div className="facturas-detail-card">
+                                        <span className="facturas-detail-card__label">Archivos Digitales Adjuntos</span>
+                                        <div style={{ display: 'flex', gap: '0.6rem', marginTop: '8px', flexWrap: 'wrap' }}>
+                                            {facturaDetalle.archivo_url && (
+                                                <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => handleVerPdf(facturaDetalle)} disabled={actionLoading}>
+                                                    Ver Documento PDF
+                                                </button>
+                                            )}
+                                            {facturaDetalle.archivo_xml_url && (
+                                                <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => handleVerXml(facturaDetalle)} disabled={actionLoading}>
+                                                    Ver / Descargar XML
+                                                </button>
+                                            )}
+                                            {!facturaDetalle.archivo_url && !facturaDetalle.archivo_xml_url && (
+                                                <span className="facturas-badge facturas-badge--nopdf">Sin archivos digitales adjuntos</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -3412,6 +2968,15 @@ function Facturas() {
                                         + Abonar a esta factura
                                     </button>
                                 )}
+                                {isAdmin && (
+                                    <button
+                                        type="button"
+                                        className="facturas-btn facturas-btn--secondary"
+                                        onClick={() => handleOpenEditFactura(facturaDetalle)}
+                                    >
+                                        Editar
+                                    </button>
+                                )}
                                 <button type="button" className="facturas-btn facturas-btn--secondary" onClick={() => setFacturaDetalle(null)}>
                                     Cerrar
                                 </button>
@@ -3423,7 +2988,7 @@ function Facturas() {
                 {/* ── Modal: Detalle de Complemento de Pago ── */}
                 {pagoDetalle && (
                     <div className="facturas-modal-overlay" onClick={() => setPagoDetalle(null)}>
-                        <div className="facturas-modal" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalle del complemento de pago">
+                        <div className="facturas-modal facturas-modal--detail" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Detalle del complemento de pago">
                             <div className="facturas-modal__header">
                                 <div>
                                     <h2 className="facturas-modal__title">Detalle del complemento</h2>
@@ -3434,78 +2999,82 @@ function Facturas() {
                                 <button type="button" className="facturas-modal__close" onClick={() => setPagoDetalle(null)} aria-label="Cerrar">✕</button>
                             </div>
 
-                            <div className="facturas-detail-grid">
-                                <div className="facturas-detail-card facturas-detail-card--full">
-                                    <span className="facturas-detail-card__label">UUID fiscal</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
-                                        <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#f1f5f9', wordBreak: 'break-all' }}>
-                                            {pagoDetalle.uuid_fiscal || '—'}
-                                        </span>
-                                        {pagoDetalle.uuid_fiscal && (
-                                            <button type="button" className="facturas-copy-btn" title="Copiar UUID" onClick={() => handleCopyUuid(pagoDetalle.uuid_fiscal)}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                            <div className="facturas-detail-scroll">
+                                <div className="facturas-detail-scroll__inner">
+                                    <div className="facturas-detail-grid">
+                                        <div className="facturas-detail-card facturas-detail-card--full">
+                                            <span className="facturas-detail-card__label">UUID fiscal</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
+                                                <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#f1f5f9', wordBreak: 'break-all' }}>
+                                                    {pagoDetalle.uuid_fiscal || '—'}
+                                                </span>
+                                                {pagoDetalle.uuid_fiscal && (
+                                                    <button type="button" className="facturas-copy-btn" title="Copiar UUID" onClick={() => handleCopyUuid(pagoDetalle.uuid_fiscal)}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
 
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">Empresa</span>
-                                    <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.empresa || '—'}</span>
-                                </div>
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">Proveedor</span>
-                                    <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.proveedor || '—'}</span>
-                                </div>
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">Número de pago</span>
-                                    <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.num_pago || '—'}</span>
-                                </div>
-                                <div className="facturas-detail-card">
-                                    <span className="facturas-detail-card__label">Forma de pago</span>
-                                    <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.forma_pago || '—'}</span>
-                                </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Empresa</span>
+                                            <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.empresa || '—'}</span>
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Proveedor</span>
+                                            <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.proveedor || '—'}</span>
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Número de pago</span>
+                                            <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.num_pago || '—'}</span>
+                                        </div>
+                                        <div className="facturas-detail-card">
+                                            <span className="facturas-detail-card__label">Forma de pago</span>
+                                            <span style={{ fontWeight: 600, color: '#f1f5f9', marginTop: '2px' }}>{pagoDetalle.forma_pago || '—'}</span>
+                                        </div>
 
-                                <div className="facturas-detail-card facturas-detail-card--full">
-                                    <span className="facturas-detail-card__label">Desglose del pago</span>
-                                    <div className="facturas-resumen__row">
-                                        <span>Saldo anterior</span>
-                                        <span>{formatoMoneda(pagoDetalle.saldo_anterior)}</span>
-                                    </div>
-                                    <div className="facturas-resumen__row">
-                                        <span>Monto pagado</span>
-                                        <span style={{ color: '#34d399' }}>{formatoMoneda(pagoDetalle.monto_pago)}</span>
-                                    </div>
-                                    <div className="facturas-resumen__row facturas-resumen__row--total">
-                                        <span>Falta por pagar</span>
-                                        <span>
-                                            {formatoMoneda(pagoDetalle.falta_pagar)}
-                                            {pagoDetalle.falta_pagar != null && Number(pagoDetalle.falta_pagar) === 0 && (
-                                                <span className="facturas-badge facturas-badge--ok" style={{ marginLeft: '6px' }}>Liquidado</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                </div>
+                                        <div className="facturas-detail-card facturas-detail-card--full">
+                                            <span className="facturas-detail-card__label">Desglose del pago</span>
+                                            <div className="facturas-resumen__row">
+                                                <span>Saldo anterior</span>
+                                                <span>{formatoMoneda(pagoDetalle.saldo_anterior)}</span>
+                                            </div>
+                                            <div className="facturas-resumen__row">
+                                                <span>Monto pagado</span>
+                                                <span style={{ color: '#34d399' }}>{formatoMoneda(pagoDetalle.monto_pago)}</span>
+                                            </div>
+                                            <div className="facturas-resumen__row facturas-resumen__row--total">
+                                                <span>Falta por pagar</span>
+                                                <span>
+                                                    {formatoMoneda(pagoDetalle.falta_pagar)}
+                                                    {pagoDetalle.falta_pagar != null && Number(pagoDetalle.falta_pagar) === 0 && (
+                                                        <span className="facturas-badge facturas-badge--ok" style={{ marginLeft: '6px' }}>Liquidado</span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
 
-                                <div className="facturas-detail-card facturas-detail-card--full">
-                                    <span className="facturas-detail-card__label">Comprobantes REP</span>
-                                    <div className="facturas-actions-cluster" style={{ marginTop: '8px' }}>
-                                        {pagoDetalle.url_pdf && (
-                                            <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => openComplementoFile(pagoDetalle, 'pdf')}>
-                                                Abrir PDF
-                                            </button>
-                                        )}
-                                        {pagoDetalle.url_xml && (
-                                            <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => openComplementoFile(pagoDetalle, 'xml')}>
-                                                Abrir XML
-                                            </button>
-                                        )}
-                                        {!pagoDetalle.url_pdf && !pagoDetalle.url_xml && (
-                                            <span className="facturas-badge facturas-badge--nopdf">Sin archivos</span>
-                                        )}
+                                        <div className="facturas-detail-card facturas-detail-card--full">
+                                            <span className="facturas-detail-card__label">Comprobantes REP</span>
+                                            <div className="facturas-actions-cluster" style={{ marginTop: '8px' }}>
+                                                {pagoDetalle.url_pdf && (
+                                                    <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => openComplementoFile(pagoDetalle, 'pdf')}>
+                                                        Abrir PDF
+                                                    </button>
+                                                )}
+                                                {pagoDetalle.url_xml && (
+                                                    <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => openComplementoFile(pagoDetalle, 'xml')}>
+                                                        Abrir XML
+                                                    </button>
+                                                )}
+                                                {!pagoDetalle.url_pdf && !pagoDetalle.url_xml && (
+                                                    <span className="facturas-badge facturas-badge--nopdf">Sin archivos</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

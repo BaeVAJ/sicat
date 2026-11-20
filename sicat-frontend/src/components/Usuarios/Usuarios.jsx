@@ -60,6 +60,8 @@ function Usuarios() {
     const [detailUser, setDetailUser] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
 
+    const [idEmpresa, setIdEmpresa] = useState('');
+
     const [filters, setFilters] = useState({
         usuario:'',
         rol:'',
@@ -165,6 +167,7 @@ function Usuarios() {
         setMostrarContrasena(false);
         showMessage('', '');
         setModalOpen(true);
+        setIdEmpresa('');
     };
 
     const handleOpenEdit = (user) => {
@@ -350,6 +353,16 @@ function Usuarios() {
         }
     }
 
+    const departamentoFilter = useMemo(() => {
+
+        if (!idEmpresa) return departamentos;
+        return departamentos.filter((d) => {
+            if (idEmpresa !== String(d.id_empresa)) return false;
+            if(idEmpresa && String(d.id_empresa) !== String(idEmpresa)) return false;
+            return true;
+        });
+    }, [departamentos, idEmpresa]);
+
     const usuariosFiltrados = useMemo(() => {
         const lista = usuarios.filter((u) => {
             const q = search.toLowerCase();
@@ -415,12 +428,31 @@ function Usuarios() {
     const isAdmin = currentUser?.rol === 'admin';
     const hasFilters = search || filterRol !== 'ALL' || filterDepartamento !== 'ALL' || filterEstatus !== 'ALL';
 
+    const handleDepartamentoChange = (v) => {
+        if(!v) { 
+            setIdDepartamento('');
+            return;
+        }
+        const selectedDept = departamentos.find((d) => String(d.id_departamento) === v);
+        if(selectedDept && !idEmpresa) setIdEmpresa(String(selectedDept.id_empresa));
+        if(idEmpresa !== String(selectedDept?.id_empresa)) setIdEmpresa(String(selectedDept?.id_empresa));
+        setIdDepartamento(v);
+    };
+
+    const handleEmpresaChange = (v) => {
+        setIdEmpresa(v);
+        if(idDepartamento){
+           const departamentoElegido = departamentos.find((d) => String(d.id_departamento) === idDepartamento);
+           if(departamentoElegido && String(departamentoElegido.id_empresa) !== v){
+                setIdDepartamento('');
+           }
+        }
+    }
+
     return (
         <Layout>
             <div className="usr-page">
-
-                {/* ── HERO ── */}
-                <section className="usr-hero">
+                <div className="usr-hero">
                     <div className="usr-hero__content">
                         <div className="usr-hero__icon">
                             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -454,7 +486,7 @@ function Usuarios() {
                             </button>
                         )}
                     </div>
-                </section>
+                </div>
 
                 {/* ── KPIs ── */}
                 {!loading && (
@@ -596,7 +628,6 @@ function Usuarios() {
                     </div>
                 </div>
 
-                {/* ── CONTENIDO ── */}
                 {loading ? (
                     <div className="usr-state">
                         <div className="usr-spinner"></div>
@@ -883,11 +914,23 @@ function Usuarios() {
                                         </select>
                                     </div>
 
-                                    <div className="usr-form__group usr-form__group--full">
+                                    <div className="usr-form__group usr-form__group">
+                                        <label>Empresa Asignada</label>
+                                        <select value={idEmpresa} onChange={(e) => handleEmpresaChange(e.target.value)} required>
+                                            <option value="">-- Sin Empresa Asignada --</option>
+                                            {empresas.map((d) => (
+                                                <option key={d.id_empresa} value={String(d.id_empresa)}>
+                                                    {empresaMap[d.id_empresa] ? `${empresaMap[d.id_empresa]}` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="usr-form__group usr-form__group">
                                         <label>Departamento Asignado</label>
-                                        <select value={idDepartamento} onChange={(e) => setIdDepartamento(e.target.value)}>
+                                        <select value={idDepartamento} onChange={(e) => handleDepartamentoChange(e.target.value)} required>
                                             <option value="">-- Sin Departamento Asignado --</option>
-                                            {departamentos.map((d) => (
+                                            {departamentoFilter.map((d) => (
                                                 <option key={d.id_departamento} value={String(d.id_departamento)}>
                                                     {d.nombre} {empresaMap[d.id_empresa] ? `(${empresaMap[d.id_empresa]})` : ''}
                                                 </option>
@@ -1042,7 +1085,6 @@ function Usuarios() {
                             <p className="usr-hint">
                                 Si el usuario tiene tickets o asignaciones asociadas, la integridad de la BD <strong>impedirá la eliminación</strong>. En ese caso, se <strong>suspenderá automáticamente</strong>.
                             </p>
-
                             <div className="usr-modal__footer usr-modal__footer--center">
                                 <button type="button" className="usr-btn usr-btn--secondary" onClick={() => setDeleteModalOpen(false)} disabled={actionLoading}>
                                     Cancelar

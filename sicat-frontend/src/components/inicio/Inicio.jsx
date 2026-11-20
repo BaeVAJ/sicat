@@ -288,7 +288,7 @@ function Inicio() {
                                             <div
                                                 key={t.id_ticket}
                                                 className="simple-item"
-                                                onClick={() => navigate('/tickets')}
+                                                onClick={() => navigate('/tickets?ticket='+t.id_ticket)}
                                             >
                                                 <div className="simple-item__left">
                                                     <span className="simple-item__id">#{t.id_ticket}</span>

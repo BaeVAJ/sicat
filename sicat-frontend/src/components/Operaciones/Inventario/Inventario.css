@@ -73,7 +73,7 @@
     border-radius: 10px;
     border: none;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     white-space: nowrap;
 }
@@ -121,9 +121,7 @@
 
 .inv-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-.inv-btn__spin { animation: invSpin 0.75s linear infinite; }
-
-@keyframes invSpin { to { transform: rotate(360deg); } }
+.inv-btn__spin { animation: spin 0.75s linear infinite; }
 
 /* ---------- KPIs ---------- */
 .inv-kpis {
@@ -135,14 +133,13 @@
 
 .inv-kpi {
     background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(16px);
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: 14px;
     padding: 1.15rem 1.25rem;
     display: flex;
     align-items: center;
     gap: 1rem;
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .inv-kpi:hover {
@@ -242,14 +239,6 @@
 .inv-alert__content { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
 .inv-alert__content svg { flex-shrink: 0; }
 
-.inv-alert__close {
-    background: transparent; border: none; padding: 4px; border-radius: 6px;
-    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-    color: currentColor; opacity: 0.7; transition: all 0.2s ease; flex-shrink: 0;
-}
-
-.inv-alert__close:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
-
 .inv-alert--error   { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.28); color: #fca5a5; }
 .inv-alert--success { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.28); color: #6ee7b7; }
 .inv-alert--warning { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.28); color: #fcd34d; }
@@ -295,7 +284,7 @@
     background: rgba(255, 255, 255, 0.08); border: none; color: #94a3b8;
     width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .inv-search-clear:hover { background: rgba(255, 255, 255, 0.2); color: #f1f5f9; }
@@ -324,8 +313,7 @@
 
 /* ---------- Table ---------- */
 .inv-table-wrap {
-    background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.07);
     border-radius: 16px; overflow: hidden;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
@@ -412,18 +400,6 @@
 .inv-stepper__input:focus { background: rgba(14, 165, 233, 0.12); }
 .inv-stepper__input:disabled { color: rgba(203, 213, 225, 0.6); }
 
-/* Barra de nivel de existencia */
-.inv-stock-bar {
-    width: 104px; height: 5px; border-radius: 3px;
-    background: rgba(255, 255, 255, 0.06);
-    margin-top: 6px; overflow: hidden;
-}
-
-.inv-stock-bar__fill { height: 100%; border-radius: 3px; transition: width 0.35s ease; }
-.inv-stock-bar__fill--ok  { background: linear-gradient(90deg, #059669, #34d399); }
-.inv-stock-bar__fill--low { background: linear-gradient(90deg, #d97706, #fbbf24); }
-.inv-stock-bar__fill--out { background: linear-gradient(90deg, #dc2626, #f87171); }
-
 /* Badges de estado */
 .inv-badge {
     display: inline-flex; align-items: center; gap: 0.4rem;
@@ -449,7 +425,7 @@
     width: 36px; height: 36px;
     border: 3px solid rgba(14, 165, 233, 0.15);
     border-top-color: #0ea5e9; border-radius: 50%;
-    animation: invSpin 0.75s linear infinite;
+    animation: spin 0.75s linear infinite;
 }
 
 .inv-empty {
@@ -496,7 +472,7 @@
     color: rgba(148, 163, 184, 0.7);
     width: 32px; height: 32px; border-radius: 8px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .inv-modal__close:hover:not(:disabled) {
@@ -538,9 +514,6 @@
 
 .inv-input:hover:not(:disabled):not(:focus) {
     box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
-}
-.inv-input:hover:not(:disabled) {
-    transform: translateY(-1px);
 }
 
 .inv-input:focus {
@@ -638,5 +611,4 @@
     }
 
     .inv-table td[data-label="Disponible"] { flex-wrap: wrap; }
-    .inv-stock-bar { width: 100%; }
 }

@@ -211,6 +211,175 @@ export async function create(req, res) {
   }
 }
 
+// PUT /api/facturas/:id
+export async function update(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'ID de factura inválido' });
+  }
+
+  try {
+    const { rows: currentRows } = await pool.query(
+      'SELECT * FROM FACTURA WHERE id_factura = $1',
+      [id]
+    );
+    if (!currentRows[0]) {
+      return res.status(404).json({ error: 'Factura no encontrada' });
+    }
+    const existing = currentRows[0];
+
+    const {
+      id_compra,
+      uuid_fiscal,
+      rfc_emisor,
+      rfc_receptor,
+      fecha_emision,
+      monto_subtotal,
+      monto_iva,
+      metodo_pago,
+      uso_cfdi,
+    } = req.body;
+
+    const compraFinal = id_compra != null && id_compra !== ''
+      ? Number(id_compra)
+      : Number(existing.id_compra);
+    if (!Number.isInteger(compraFinal) || compraFinal <= 0) {
+      return res.status(400).json({ error: 'Debes seleccionar una compra asociada válida', campo: 'id_compra' });
+    }
+
+    const uuidFinal = (uuid_fiscal ?? existing.uuid_fiscal ?? '').toString().trim();
+    if (!uuidFinal) {
+      return res.status(400).json({ error: 'El UUID fiscal es obligatorio', campo: 'uuid_fiscal' });
+    }
+
+    const subtotal = monto_subtotal === undefined || monto_subtotal === null || monto_subtotal === ''
+      ? Number(existing.monto_subtotal || 0)
+      : Number(monto_subtotal);
+    const iva = monto_iva === undefined || monto_iva === null || monto_iva === ''
+      ? Number(existing.monto_iva || 0)
+      : Number(monto_iva);
+
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      return res.status(400).json({ error: 'El subtotal debe ser un número mayor o igual a cero', campo: 'monto_subtotal' });
+    }
+    if (!Number.isFinite(iva) || iva < 0) {
+      return res.status(400).json({ error: 'El IVA debe ser un número mayor o igual a cero', campo: 'monto_iva' });
+    }
+    const total = Number((subtotal + iva).toFixed(2));
+    if (total <= 0) {
+      return res.status(400).json({ error: 'El total de la factura debe ser mayor a cero', campo: 'monto_subtotal' });
+    }
+
+    const metodo = (metodo_pago || existing.metodo_pago || 'PUE').toUpperCase();
+    let estadoFinal = 'PAGADO';
+    if (metodo === 'PPD') {
+      const { rows: pagosRows } = await pool.query(
+        'SELECT COALESCE(SUM(monto_pago), 0) AS pagado FROM DETALLES_FACTURA WHERE id_factura = $1',
+        [id]
+      );
+      const totalPagado = Number(pagosRows[0]?.pagado) || 0;
+      if (totalPagado >= total) estadoFinal = 'PAGADO';
+      else if (totalPagado > 0) estadoFinal = 'PAGO_PARCIAL';
+      else estadoFinal = 'PENDIENTE';
+    }
+
+    const files = req.files || {};
+    const pdfFile = (files.archivo_pdf && files.archivo_pdf[0]) || (files.archivo && files.archivo[0]);
+    const xmlFile = files.archivo_xml && files.archivo_xml[0];
+
+    let archivo_url = existing.archivo_url;
+    let archivo_xml_url = existing.archivo_xml_url;
+    let compressionStats = null;
+
+    if (pdfFile) {
+      const uploadPdfResult = await subirPdfFactura(pdfFile.buffer, pdfFile.originalname);
+      archivo_url = uploadPdfResult.url;
+      compressionStats = {
+        originalSize: uploadPdfResult.originalSize,
+        compressedSize: uploadPdfResult.compressedSize,
+      };
+    }
+
+    if (xmlFile) {
+      const uploadXmlResult = await subirXmlFactura(xmlFile.buffer, xmlFile.originalname);
+      archivo_xml_url = uploadXmlResult.url;
+    }
+
+    const rfcEmisorFinal = rfc_emisor === undefined
+      ? existing.rfc_emisor
+      : (rfc_emisor ? rfc_emisor.trim().toUpperCase() : null);
+    const rfcReceptorFinal = rfc_receptor === undefined
+      ? existing.rfc_receptor
+      : (rfc_receptor ? rfc_receptor.trim().toUpperCase() : null);
+    const fechaEmisionFinal = fecha_emision || existing.fecha_emision;
+    const usoCfdiFinal = (uso_cfdi || existing.uso_cfdi || 'G01').trim().toUpperCase();
+
+    const { rows } = await pool.query(`
+      UPDATE FACTURA
+      SET id_compra = $1,
+          uuid_fiscal = $2,
+          rfc_emisor = $3,
+          rfc_receptor = $4,
+          fecha_emision = $5,
+          monto_subtotal = $6,
+          monto_iva = $7,
+          metodo_pago = $8,
+          uso_cfdi = $9,
+          archivo_url = $10,
+          archivo_xml_url = $11,
+          estado = $12
+      WHERE id_factura = $13
+      RETURNING *
+    `, [
+      compraFinal,
+      uuidFinal,
+      rfcEmisorFinal,
+      rfcReceptorFinal,
+      fechaEmisionFinal,
+      subtotal,
+      iva,
+      metodo,
+      usoCfdiFinal,
+      archivo_url,
+      archivo_xml_url,
+      estadoFinal,
+      id,
+    ]);
+
+    if (pdfFile && existing.archivo_url && existing.archivo_url !== archivo_url) {
+      eliminarArchivoFactura(existing.archivo_url).catch((err) =>
+        console.warn('Error eliminando PDF anterior en Supabase:', err.message)
+      );
+    }
+    if (xmlFile && existing.archivo_xml_url && existing.archivo_xml_url !== archivo_xml_url) {
+      eliminarArchivoFactura(existing.archivo_xml_url).catch((err) =>
+        console.warn('Error eliminando XML anterior en Supabase:', err.message)
+      );
+    }
+
+    const { rows: enriched } = await pool.query(`
+      SELECT f.*, c.fecha_compra, e.nombre AS empresa, p.nombre AS proveedor, f.estado
+      FROM FACTURA f
+      JOIN COMPRA    c ON f.id_compra    = c.id_compra
+      JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
+      JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
+      WHERE f.id_factura = $1
+    `, [id]);
+
+    res.json({
+      ...(enriched[0] || rows[0]),
+      total,
+      ...(compressionStats ? { compressionStats } : {}),
+    });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ya existe una factura con ese UUID fiscal o compra asociada' });
+    }
+    console.error('Error al actualizar factura:', err);
+    res.status(500).json({ error: err.message || 'Error al actualizar la factura' });
+  }
+}
+
 // DELETE /api/facturas/:id
 export async function eliminar(req, res) {
   const { id } = req.params;

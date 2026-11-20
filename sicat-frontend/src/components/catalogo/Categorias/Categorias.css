@@ -71,7 +71,7 @@
     font-family: inherit;
     border-radius: 9px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid transparent;
     outline: none;
     text-decoration: none;
@@ -137,14 +137,13 @@
 
 .cat-kpi {
     background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(16px);
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: 14px;
     padding: 1.15rem 1.25rem;
     display: flex;
     align-items: center;
     gap: 1rem;
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     cursor:pointer;
 }
 
@@ -211,30 +210,6 @@
     line-height: 1.15;
 }
 
-/* ---------- Alerts ---------- */
-.cat-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 1.15rem;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-    font-size: 0.86rem;
-    animation: catFadeIn 0.25s ease-out;
-}
-
-.cat-alert--error {
-    background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #fca5a5;
-}
-
-.cat-alert--success {
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #6ee7b7;
-}
-
 /* ---------- Controls / Search Bar ---------- */
 .cat-controls {
     display: flex;
@@ -243,7 +218,6 @@
     margin-bottom: 1.25rem;
     flex-wrap: wrap;
     background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(14px);
     border: 1px solid rgba(148, 163, 184, 0.12);
     padding: 0.9rem 1.1rem;
     border-radius: 13px;
@@ -275,7 +249,7 @@
     font-size: 0.84rem;
     font-family: inherit;
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .cat-search__input:focus {
@@ -303,7 +277,7 @@
     background-repeat: no-repeat;
     background-position: right 0.6rem center;
     background-size: 14px;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .cat-select:focus {
@@ -319,7 +293,6 @@
 /* ---------- Table Container ---------- */
 .cat-table-wrapper {
     background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(18px);
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: 14px;
     overflow: hidden;
@@ -432,7 +405,7 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
     color: #94a3b8;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .cat-action-btn:hover {
@@ -445,7 +418,7 @@
 .cat-action-btn--edit:hover:not(:disabled) {
     background:rgba(2, 132, 199, 0.3);
     color:#7dd3fc;
-    border-color: 2px solid rgba(2,132, 199, 0.5);
+    border-color: rgba(2, 132, 199, 0.5);
     transform: translateY(-1px);
 }
 .cat-action-btn--edit {
@@ -462,7 +435,7 @@
 .cat-action-btn--delete:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.3);
     color:#fee2e2;
-    border-color:2px solid rgba(239, 68, 68, 0.5);
+    border-color: rgba(239, 68, 68, 0.5);
     transform: translateY(-1px);
 }
 
@@ -559,7 +532,7 @@
     padding: 0.35rem;
     border-radius: 7px;
     display: flex;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .cat-modal__close:hover {
@@ -612,7 +585,7 @@
     font-size: 0.84rem;
     font-family: inherit;
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
     box-sizing: border-box;
 }
 
@@ -649,15 +622,10 @@
     border: 3px solid rgba(99, 102, 241, 0.15);
     border-top-color: #a78bfa;
     border-radius: 50%;
-    animation: comprasSpin 0.75s linear infinite;
+    animation: spin 0.75s linear infinite;
 }
 
 /* Animations */
-@keyframes catFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 @keyframes catOverlayIn {
     from { opacity: 0; }
     to { opacity: 1; }
