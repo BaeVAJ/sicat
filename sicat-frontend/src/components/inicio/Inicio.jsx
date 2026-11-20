@@ -125,6 +125,7 @@ function Inicio() {
 
                 if (resAlertas.status === 'fulfilled' && Array.isArray(resAlertas.value.data)) {
                     setAlertasStock(resAlertas.value.data);
+                    console.log('Alertas de stock:', resAlertas.value.data);
                 }
                 if (resTickets.status === 'fulfilled' && Array.isArray(resTickets.value.data)) {
                     setTickets(resTickets.value.data);
@@ -331,7 +332,7 @@ function Inicio() {
                                                 <div
                                                     key={i.id_inventario}
                                                     className="simple-item"
-                                                    onClick={() => navigate('/inventario')}
+                                                    onClick={() => navigate('/inventario?producto='+i.producto+'&departamento='+i.id_departamento)}
                                                 >
                                                     <div className="simple-item__left">
                                                         <span className="simple-item__id">#{i.id_producto}</span>
@@ -379,7 +380,7 @@ function Inicio() {
                                             <div
                                                 key={p.id_pedido}
                                                 className="simple-item"
-                                                onClick={() => navigate('/asignaciones')}
+                                                onClick={() => navigate('/asignaciones?tab=solicitudes')}
                                             >
                                                 <div className="simple-item__left">
                                                     <span className="simple-item__id">#{p.id_pedido}</span>

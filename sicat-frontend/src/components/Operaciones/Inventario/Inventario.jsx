@@ -4,6 +4,7 @@ y el inventario no se actualiza, salir y volver a entrar a la cuenta
 */
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import Layout from '../../layout/Layout';
@@ -29,6 +30,7 @@ function SortHeader({ label, sortKey, sort, onSort, className }) {
 function Inventario() {
     const { usuario } = useAuth();
     const isAdmin = usuario?.rol === 'admin';
+    const [searchParams] = useSearchParams();
 
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -494,6 +496,22 @@ function Inventario() {
             </button>
         </div>
     )
+
+    const inventarioRecivido = useCallback(()=>{
+        const prod = searchParams.get('producto');
+        const dep = searchParams.get('departamento');
+        
+        if(!prod && !dep) return;
+        
+        setSearch(prod);
+        setFilterDepartamento(dep || 'ALL');
+    }, [searchParams]);
+
+    useEffect(()=>{
+        inventarioRecivido();
+    }, [inventarioRecivido]);
+
+
 
     return (
         <Layout>

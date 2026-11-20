@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
 import { subscribeToEvents } from '../../../api/events';
@@ -24,6 +24,7 @@ function SortHeader({ label, sortKey, sort, onSort, className }) {
 function Asignaciones() {
     const { usuario } = useAuth();
     const location = useLocation();
+    const searchParams = useSearchParams()[0];
 
     const [asignaciones, setAsignaciones] = useState([]);
     const [inventario, setInventario] = useState([]);
@@ -90,6 +91,11 @@ function Asignaciones() {
             setCreateModalOpen(true);
         });
     }, [location.state, inventario, departamentos]);
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        setActiveTab(tab === 'solicitudes' ? 'solicitudes' : 'asignaciones');
+    }, [searchParams]);
 
     async function fetchData() {
         setLoading(true);   
@@ -602,7 +608,7 @@ function Asignaciones() {
                         ) : (
                             <div className="asig-request-list">
                                 {pendingPedidos.map((pedido) => (
-                                    <div     className="asig-request-card" key={pedido.id_pedido}>
+                                    <div className="asig-request-card" key={pedido.id_pedido}>
                                         <header className="asig-request-card__header">
                                             <div className="asig-request-card__id-group">
                                                 <span className="asig-request-card__id">#{pedido.id_pedido}</span>
