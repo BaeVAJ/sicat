@@ -52,6 +52,8 @@ function Compras() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const navigate = useNavigate();
 
+    const [showResults, setShowResults] = useState(false);
+
     const canManage = usuario?.rol === 'admin' || usuario?.rol === 'gerente';
 
     const [filters, setFilters] = useState({
@@ -660,10 +662,45 @@ function Compras() {
                                             {formDetalle.map((line, idx) => (
                                                 <tr key={idx}>
                                                     <td>
-                                                        <select className="compras-input" value={formDetalle[idx].id_producto} onChange={(e) => handleLineChange(idx, 'id_producto', e.target.value)}>
-                                                            <option value="">Seleccionar...</option>
-                                                            {productos.map(p => <option key={p.id_producto} value={String(p.id_producto)}>{p.nombre}</option>)}
-                                                        </select>
+
+                                                            {/*hacer que cuando se escriba el nombre de un producto se muestre las opciones disponibles y si no existe se cree desde aca */}
+                                                        <div className="solic-form--input-group">
+                                <input
+                                    className="compras-input"
+                                    type="text"
+                                    id="proucto"
+                                    autoComplete="off"
+                                    value={(formDetalle[idx].id_producto) ? productos.find(p => String(p.id_producto) === String(formDetalle[idx].id_producto))?.nombre || '' : ''}
+                                    onChange={(e) => {
+                                        handleLineChange(idx, 'id_producto', e.target.value);
+                                    }}
+                                    onFocus={() => setShowResults(true)}
+                                    onBlur={() => setTimeout(() => setShowResults(false), 160)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape') setShowResults(false);
+                                    }}
+                                    required
+                                    placeholder="Escribe el material"
+                                />
+
+                                {productos.length > 0 && showResults && (
+                                    <ul className="search-results" role="listbox" aria-label="Sugerencias de materiales">
+                                        {productos.map((item) => (
+                                            <li
+                                                key={item.producto}
+                                                className="search-result-item"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                    handleLineChange(idx, 'id_producto', item.id_producto);
+                                                    setShowResults(false);
+                                                }}
+                                            >
+                                                {item.nombre} {item.marca ? ` - ${item.marca}` : ''} {item.modelo ? ` - ${item.modelo}` : ''}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
                                                     </td>
                                                     <td><input type="number" className="compras-input compras-input--val" min="1" value={formDetalle[idx].cantidad} onChange={(e) => handleLineChange(idx, 'cantidad', e.target.value)} /></td>
                                                     <td><input type="number" className="compras-input" min="0" step="0.01" value={formDetalle[idx].precio_unitario} onChange={(e) => handleLineChange(idx, 'precio_unitario', e.target.value)} /></td>
