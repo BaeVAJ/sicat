@@ -2352,15 +2352,19 @@ function Facturas() {
                                     >
                                         Cancelar
                                     </button>
-                                    <button
+                                    {editingFactura && (
+                                        <button
                                         type="submit"
                                         className={`facturas-btn ${!editingFactura && metodoPago === 'PPD' ? 'facturas-btn--secondary' : 'facturas-btn--primary'}`}
                                         disabled={actionLoading || !puedeGuardar}
                                         onClick={() => { continueToPagoRef.current = false; }}
                                         title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                     >
-                                        {actionLoading ? 'Guardando...' : editingFactura ? 'Actualizar Factura' : 'Guardar Factura'}
+                                        {actionLoading ? 'Guardando...' : 'Actualizar Factura'}
+
                                     </button>
+                                    )}
+                                    
                                     {!editingFactura && metodoPago === 'PPD' && canRegisterPago && (
                                         <button
                                             type="submit"
@@ -2369,7 +2373,7 @@ function Facturas() {
                                             onClick={() => { continueToPagoRef.current = true; }}
                                             title={puedeGuardar ? undefined : 'Selecciona una compra, un UUID y montos válidos'}
                                         >
-                                            {actionLoading ? 'Guardando...' : 'Guardar y Registrar 1er Pago'}
+                                            {actionLoading ? 'Guardando...' : 'Guardar Factura PPD'}
                                         </button>
                                     )}
                                 </div>
