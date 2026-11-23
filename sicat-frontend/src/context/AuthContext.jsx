@@ -4,28 +4,21 @@ import client from '../api/client';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario]   = useState(null);
+  const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   const cargarUsuario = async () => {
-        try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
-                credentials: 'include',
-            });
-            if (!res.ok) {
-                setUsuario(null);
-                return;
-            }
-            const data = await res.json();
-            setUsuario(data);
-        } catch {
-            setUsuario(null);
-        } finally {
-            setCargando(false);
-        }
-    };
-    
-    async function login(correo, contrasena, maxIntentos = 2) {
+    try {
+      const { data } = await client.get('/auth/me');
+      setUsuario(data);
+    } catch {
+      setUsuario(null);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  async function login(correo, contrasena, maxIntentos = 2) {
     for (let intento = 1; intento <= maxIntentos; intento++) {
       try {
         const { data } = await client.post('/auth/login', { correo, contrasena });
@@ -53,13 +46,23 @@ export function AuthProvider({ children }) {
       }
     }
   }
-  
+
+  async function logout() {
+    try {
+      await client.post('/auth/logout');
+    } catch {
+      // Incluso si falla o la sesión ya expiró, limpiar el estado local
+    } finally {
+      setUsuario(null);
+    }
+  }
+
   useEffect(() => {
     cargarUsuario();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, cargarUsuario, login }}>
+    <AuthContext.Provider value={{ usuario, cargando, cargarUsuario, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -398,6 +398,11 @@
     color:#a78bfa;
     border: 2px solid rgba(139, 92, 246, 0.25);
 }
+.prov-badge--nulo{
+    background:rgba(246, 92, 92, 0.15);
+    color:#fa8b8b;
+    border: 2px solid rgba(246, 92, 92, 0.25);
+}
 .prov-link{
     color:#bfdbfe;
     text-decoration:none;

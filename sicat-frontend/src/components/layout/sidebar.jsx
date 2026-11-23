@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import  client  from '../../api/client';
 import './sidebar.css';
 
 
@@ -261,7 +260,7 @@ function GrupoMenu({ grupo, rol, onNavigate }) {
 }
 
 function Sidebar() {
-    const { usuario } = useAuth();
+    const { usuario, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -283,9 +282,9 @@ function Sidebar() {
             .toUpperCase()
         : '?';
 
-    const handleLogout = () => {
-        client.post('/auth/logout');
-        navigate('/Login');
+    const handleLogout = async () => {
+        await logout();
+        navigate('/Login', { replace: true });
     };
 
     const handleCloseMobile = () => {

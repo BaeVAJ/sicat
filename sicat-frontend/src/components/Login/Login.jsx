@@ -126,6 +126,12 @@ function Login() {
       } else if (status === 405) {
         setIsServerStarting(false);
         setError('Error 405 (Method Not Allowed): El servidor web estático rechazó la petición POST.');
+      } else if (status === 429) {
+        setIsServerStarting(false);
+        setError(
+          errorMsg ||
+            'Demasiados intentos de inicio de sesión. Espera unos minutos e intenta nuevamente.'
+        );
       } else {
         setIsServerStarting(false);
         setError(errorMsg || 'Error al conectar con el servidor.');

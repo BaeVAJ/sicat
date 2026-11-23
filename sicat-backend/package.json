@@ -9,7 +9,8 @@
     "migrate:material": "node src/db/migrate_material_requests.js",
     "migrate:complementos": "node src/db/migrate_complementos_pago.js",
     "migrate:ppd": "node src/db/migrate_ppd_estado_cuenta.js",
-    "migrate:factura-estado": "node src/db/migrate_factura_estado_trigger.js"
+    "migrate:factura-estado": "node src/db/migrate_factura_estado_trigger.js",
+    "migrate:sesiones": "node src/db/migrate_sesiones.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
@@ -19,6 +20,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.5",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
     "pdf-lib": "^1.17.1",

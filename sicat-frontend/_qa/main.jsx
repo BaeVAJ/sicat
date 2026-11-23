@@ -79,6 +79,12 @@ const steps = [
 ];
 
 const norm = (html) => html
+  .replace(/class="([^"]*)"/g, (_, c) => `class="${c.trim().replace(/\s+/g, ' ')}"`)
+  .replace(/ role="button" tabindex="0"/g, '')
+  .replace(/ accept="[^"]*"/g, '')
+  .replace(/ data-continue="true"/g, '')
+  .replace(/ aria-label="[^"]*"/g, '')
+  .replace(/ title="Quitar (PDF|XML)"/g, '')
   .replace(/\s+/g, ' ')
   .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, 'UUID')
   .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g, 'DT');

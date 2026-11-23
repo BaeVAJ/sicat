@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth.routes.js';
 import asignacionRoutes from './routes/asignacion.routes.js';
@@ -16,9 +17,13 @@ import proveedorRoutes from './routes/proveedor.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import usuarioRoutes from './routes/usuario.routes.js';
 import { verificarToken } from './middlewares/auth.middleware.js';
+import { csrfProtection } from './middlewares/csrf.middleware.js';
+import { apiRateLimiter } from './middlewares/rateLimit.middleware.js';
 import { stream as eventStream } from './controllers/events.controller.js';
-import cookieParser from 'cookie-parser';
+import { iniciarLimpiezaPeriodicaSesiones } from './services/session.service.js';
 import { enviarErrorInterno } from './utils/errorHandler.js';
+import { isDevelopment, isOriginAllowed } from './utils/origins.js';
+
 dotenv.config();
 
 const app = express();
@@ -27,44 +32,50 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-const allowedOrigins = ['https://sicat.22670030.workers.dev'];
-if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
-}
-if (process.env.EXTRA_CORS_ORIGINS) {
-  process.env.EXTRA_CORS_ORIGINS.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean)
-    .forEach((origin) => allowedOrigins.push(origin));
-}
-
-//permite conexion desde preview de cloudflare workers
-const previewRegex = /^https:\/\/[a-z0-9-]+-sicat\.22670030\.workers\.dev$/;
-
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  if (!isDevelopment()) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
+  const ruta = (req.originalUrl || '').split('?')[0];
+  if (
+    ruta.startsWith('/api/') &&
+    ruta !== '/api/health' &&
+    ruta !== '/api/events/stream'
+  ) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+  }
+
   next();
 });
 
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // Postman, curl, etc.
-    if (allowedOrigins.includes(origin) || previewRegex.test(origin)) {
-      return cb(null, true); // refleja el origen exacto
-    }
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // Postman, curl, etc.
+      if (isOriginAllowed(origin)) {
+        return cb(null, true); // refleja el origen exacto
+      }
 
-    const corsErr = new Error('Origen no permitido por CORS');
-    corsErr.status = 403;
-    corsErr.isCorsError = true;
-    return cb(corsErr);
-  },
-  credentials: true,
-}));
+      const corsErr = new Error('Origen no permitido por CORS');
+      corsErr.status = 403;
+      corsErr.isCorsError = true;
+      return cb(corsErr);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+
+app.use('/api', apiRateLimiter);
+app.use('/api', csrfProtection);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', sistema: 'SICAT' });
@@ -102,6 +113,8 @@ app.use((err, _req, res, _next) => {
   }
   return enviarErrorInterno(res, err, 'express.global');
 });
+
+iniciarLimpiezaPeriodicaSesiones();
 
 app.listen(PORT, () => {
   console.log(`SICAT backend corriendo en http://localhost:${PORT}`);

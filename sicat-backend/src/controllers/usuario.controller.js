@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import pool from '../db/pool.js';
-import { enviarErrorInterno } from '../utils/errorHandler.js';
+import { cerrarStreamsUsuario } from './events.controller.js';
+import { revocarTodasLasSesiones } from '../services/session.service.js';
+import { enviarErrorInterno, esEnteroPositivo } from '../utils/errorHandler.js';
 
 const ESTATUS_VALIDOS = ['activo', 'inactivo', 'suspendido'];
 const ROLES_VALIDOS = ['admin', 'gerente', 'usuario'];
@@ -126,6 +128,10 @@ export async function update(req, res) {
     const { id } = req.params;
     const { nombre, correo, contrasena, rol, id_departamento, estatus_empleado } = req.body;
 
+    if (!esEnteroPositivo(id)) {
+        return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
     if (!nombre || !correo) {
         return res.status(400).json({ error: 'Nombre y correo son requeridos' });
     }
@@ -143,9 +149,20 @@ export async function update(req, res) {
     }
 
     try {
+        const { rows: prevRows } = await pool.query(
+            `SELECT rol, estatus_empleado FROM USUARIOS WHERE id_usuario = $1`,
+            [id]
+        );
+        const previo = prevRows[0];
+        if (!previo) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
         // Construimos el SET dinámicamente para no romper con/sin contraseña y con/sin estatus
         const campos = [];
         const params = [];
+        const nuevoRol = rol || 'usuario';
+        const cambioContrasena = Boolean(contrasena && contrasena.trim() !== '');
 
         campos.push(`nombre = $${params.length + 1}`);
         params.push(nombre.trim());
@@ -154,12 +171,12 @@ export async function update(req, res) {
         params.push(correo.trim().toLowerCase());
 
         campos.push(`rol = $${params.length + 1}`);
-        params.push(rol || 'usuario');
+        params.push(nuevoRol);
 
         campos.push(`id_departamento = $${params.length + 1}`);
         params.push(id_departamento ? Number(id_departamento) : null);
 
-        if (contrasena && contrasena.trim() !== '') {
+        if (cambioContrasena) {
             const hash = await bcrypt.hash(contrasena, 10);
             campos.push(`contrasena = $${params.length + 1}`);
             params.push(hash);
@@ -181,6 +198,18 @@ export async function update(req, res) {
         const { rows } = await pool.query(query, params);
         if (!rows[0]) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const cambioRol = nuevoRol !== previo.rol;
+        const estatusResultante =
+            estatus_empleado !== undefined && estatus_empleado !== null
+                ? estatus_empleado
+                : previo.estatus_empleado;
+        const cuentaDesactivada = estatusResultante !== 'activo';
+
+        if (cambioContrasena || cambioRol || cuentaDesactivada) {
+            await revocarTodasLasSesiones(Number(id));
+            cerrarStreamsUsuario(Number(id));
         }
 
         const resQuery = await pool.query(`
@@ -212,6 +241,10 @@ export async function update(req, res) {
 export async function remove(req, res) {
     const { id } = req.params;
 
+    if (!esEnteroPositivo(id)) {
+        return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
     if (req.usuario && req.usuario.id_usuario === Number(id)) {
         return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta de usuario activa' });
     }
@@ -221,6 +254,7 @@ export async function remove(req, res) {
         if (!rowCount) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
+        cerrarStreamsUsuario(Number(id));
         res.json({ mensaje: 'Usuario eliminado correctamente' });
     } catch (err) {
         if (err.code === '23503') {
@@ -229,5 +263,29 @@ export async function remove(req, res) {
             });
         }
         return enviarErrorInterno(res, err, 'usuario.remove');
+    }
+}
+
+export async function revocarSesiones(req, res) {
+    const { id } = req.params;
+    if (!esEnteroPositivo(id)) {
+        return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    try {
+        const idUsuario = Number(id);
+        const { rows } = await pool.query(
+            `SELECT id_usuario FROM USUARIOS WHERE id_usuario = $1`,
+            [idUsuario]
+        );
+        if (!rows[0]) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const revocadas = await revocarTodasLasSesiones(idUsuario);
+        cerrarStreamsUsuario(idUsuario);
+        return res.json({ mensaje: 'Sesiones del usuario revocadas', revocadas });
+    } catch (err) {
+        return enviarErrorInterno(res, err, 'usuario.revocarSesiones');
     }
 }

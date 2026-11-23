@@ -487,7 +487,7 @@ function Proveedores() {
                                     </tr>
                                 ) : (
                                     filteredProveedores.map((prov) => {
-                                        const tipoKey = (prov.tipo_pago || 'transferencia').toLowerCase();
+                                        const tipoKey = (prov.tipo_pago || 'nulo').toLowerCase();
                                         const initial = (prov.nombre || 'P').charAt(0).toUpperCase();
 
                                         return (
@@ -528,7 +528,7 @@ function Proveedores() {
                                                 </td>
                                                 <td>
                                                     <span className={`prov-badge prov-badge--${tipoKey}`} onClick={() => setFilterPago(prov.tipo_pago)}>
-                                                        {prov.tipo_pago || 'Transferencia'}
+                                                        {prov.tipo_pago || 'Sin especificar'}
                                                     </span>
                                                 </td>
                                                 {canManage && (

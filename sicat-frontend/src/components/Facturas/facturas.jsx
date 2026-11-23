@@ -14,6 +14,8 @@ import {
 } from './facturasUtils';
 import './facturas.css';
 
+import {useSearchParams} from "react-router-dom";
+
 const MULTIPART = { headers: { 'Content-Type': 'multipart/form-data' } };
 const asArray = (data) => (Array.isArray(data) ? data : []);
 const errorDe = (err, fallback) => err.response?.data?.error || fallback;
@@ -68,6 +70,8 @@ function Facturas() {
     const messageTimer = useRef(null);
     const replaceDocInputRef = useRef(null);
     const pendingReplaceRef = useRef(null);
+
+    const searchParams = useSearchParams();
 
     const notifySuccess = useCallback((text, timeout = 4500) => {
         setError('');
@@ -912,7 +916,6 @@ function Facturas() {
                         onEditar={openEditPago}
                     />
                 )}
-
                 <input
                     type="file"
                     ref={replaceDocInputRef}
