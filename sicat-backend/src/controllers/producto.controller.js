@@ -1,4 +1,5 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 // GET /api/productos
 export async function getAll(req, res) {
@@ -11,7 +12,7 @@ export async function getAll(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'producto.getAll');
   }
 }
 
@@ -30,7 +31,7 @@ export async function getById(req, res) {
     }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'producto.getById');
   }
 }
 
@@ -64,7 +65,7 @@ export async function create(req, res) {
 
     res.status(201).json(enriched[0] || rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return enviarErrorInterno(res, error, 'producto.create');
   }
 }
 
@@ -105,7 +106,7 @@ export async function update(req, res) {
 
     res.json(enriched[0] || rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'producto.update');
   }
 }
 
@@ -118,6 +119,9 @@ export async function remove(req, res) {
     }
     res.json({ mensaje: 'Producto eliminado correctamente', id_producto: req.params.id });
   } catch (err) {
-    res.status(500).json({ error: 'Elementos asociados al producto. No se pudo eliminar el producto.' });
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'Elementos asociados al producto. No se pudo eliminar el producto.' });
+    }
+    return enviarErrorInterno(res, err, 'producto.remove');
   }
 }

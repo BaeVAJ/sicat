@@ -1,9 +1,11 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 export async function getAll(req, res) {
   try {
     const isManager = ['admin', 'gerente'].includes(req.usuario?.rol);
+    const params = isManager ? [] : [Number(req.usuario?.id_departamento) || 0];
     const { rows } = await pool.query(`
       SELECT pm.*, d.nombre AS departamento, pr.nombre AS producto,
              pr.marca, pr.modelo, c.tipo AS tipo_producto,
@@ -13,11 +15,11 @@ export async function getAll(req, res) {
       LEFT JOIN PRODUCTO pr ON pm.id_producto = pr.id_producto
       LEFT JOIN CATEGORIA c ON pr.id_categoria = c.id_categoria
       JOIN EMPRESA       e ON d.id_empresa        = e.id_empresa
-      ${isManager ? '' : `WHERE pm.id_departamento = ${Number(req.usuario?.id_departamento) || 0}`}
+      ${isManager ? '' : 'WHERE pm.id_departamento = $1'}
       ORDER BY pm.urgente DESC, pm.fecha_solicitud DESC
-    `);
+    `, params);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'pedido.getAll'); }
 }
 
 export async function create(req, res) {
@@ -44,10 +46,18 @@ export async function create(req, res) {
     `, [department, descripcion_material.trim(), cantidad, urgente ?? false]);
     publish('material-request.created', rows[0]);
     res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'pedido.create'); }
 }
 
 export async function atender(req, res) {
+  const puedeAtender =
+    ['admin', 'gerente'].includes(req.usuario?.rol) ||
+    Number(req.usuario?.id_departamento) === 1;
+
+  if (!puedeAtender) {
+    return res.status(403).json({ error: 'No tienes permisos para atender solicitudes de material' });
+  }
+
   try {
     const { rows } = await pool.query(`
       UPDATE PEDIDO_MATERIAL SET estatus = 'ENTREGADO'
@@ -56,5 +66,5 @@ export async function atender(req, res) {
     if (!rows[0]) return res.status(404).json({ error: 'Pedido no encontrado' });
     publish('material-request.updated', rows[0]);
     res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'pedido.atender'); }
 }

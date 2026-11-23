@@ -1,4 +1,5 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno, esEnteroPositivo, esEnteroNoNegativo } from '../utils/errorHandler.js';
 
 export async function getAll(req, res) {
   try {
@@ -29,7 +30,7 @@ export async function getAll(req, res) {
 
     const { rows } = await pool.query(query, params);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'compra.getAll'); }
 }
 
 export async function getById(req, res) {
@@ -52,13 +53,47 @@ export async function getById(req, res) {
        WHERE dc.id_compra = $1`, [req.params.id]
     );
     res.json({ ...compra, detalle });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'compra.getById'); }
 }
 
 // detalle: [{ id_producto, cantidad, precio_unitario, id_departamento }]
 export async function create(req, res) {
-  const { id_proveedor, id_empresa, fecha_compra, detalle } = req.body;
-  if (!detalle?.length) return res.status(400).json({ error: 'El detalle es requerido' });
+  const { id_proveedor, id_empresa, fecha_compra, detalle } = req.body || {};
+  if (!esEnteroPositivo(id_proveedor)) {
+    return res.status(400).json({ error: 'El proveedor es obligatorio y debe ser válido' });
+  }
+  if (!esEnteroPositivo(id_empresa)) {
+    return res.status(400).json({ error: 'La empresa es obligatoria y debe ser válida' });
+  }
+  if (!Array.isArray(detalle) || detalle.length === 0) {
+    return res.status(400).json({ error: 'El detalle es requerido' });
+  }
+
+  for (const item of detalle) {
+    if (!item || !esEnteroPositivo(item.id_producto)) {
+      return res.status(400).json({ error: 'Cada línea debe incluir un producto válido' });
+    }
+    if (!esEnteroPositivo(item.cantidad)) {
+      return res.status(400).json({ error: 'La cantidad debe ser un entero positivo' });
+    }
+    const precio = Number(item.precio_unitario);
+    if (
+      item.precio_unitario === '' ||
+      item.precio_unitario == null ||
+      typeof item.precio_unitario === 'boolean' ||
+      !Number.isFinite(precio) ||
+      precio < 0
+    ) {
+      return res.status(400).json({ error: 'El precio unitario debe ser un número mayor o igual a 0' });
+    }
+    if (item.id_departamento != null && !esEnteroPositivo(item.id_departamento)) {
+      return res.status(400).json({ error: 'El departamento de cada línea debe ser válido' });
+    }
+    if (item.recibidos != null && !esEnteroNoNegativo(item.recibidos)) {
+      return res.status(400).json({ error: 'La cantidad recibida debe ser un entero mayor o igual a 0' });
+    }
+  }
+
   const departamentoUsuario = Number(req.usuario?.id_departamento);
   const esSistemas = departamentoUsuario === 1;
   if (!esSistemas && detalle.some((item) => Number(item.id_departamento) !== departamentoUsuario)) {
@@ -67,22 +102,30 @@ export async function create(req, res) {
     });
   }
 
+  const detalleNormalizado = detalle.map((d) => ({
+    id_producto: Number(d.id_producto),
+    cantidad: Number(d.cantidad),
+    precio_unitario: Number(d.precio_unitario),
+    id_departamento: d.id_departamento != null ? Number(d.id_departamento) : null,
+    recibidos: d.recibidos == null ? null : Number(d.recibidos),
+  }));
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const total = detalle.reduce((s, d) => s + d.cantidad * d.precio_unitario, 0);
+    const total = detalleNormalizado.reduce((s, d) => s + d.cantidad * d.precio_unitario, 0);
 
     const { rows: [compra] } = await client.query(
       `INSERT INTO COMPRA (id_proveedor, id_empresa, fecha_compra, total)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-      [id_proveedor, id_empresa, fecha_compra || new Date(), total.toFixed(2)]
+      [Number(id_proveedor), Number(id_empresa), fecha_compra || new Date(), total.toFixed(2)]
     );
 
-    for (const d of detalle) {
+    for (const d of detalleNormalizado) {
       await client.query(
-        `INSERT INTO DETALLE_COMPRA (id_compra, id_producto, cantidad, precio_unitario, id_departamento)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario, d.id_departamento || null]
+        `INSERT INTO DETALLE_COMPRA (id_compra, id_producto, cantidad, precio_unitario, id_departamento, recibidos)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [compra.id_compra, d.id_producto, d.cantidad, d.precio_unitario, d.id_departamento, d.recibidos]
       );
       // Verificar si ya existe en inventario para ese producto y departamento
       const { rows: invExistente } = await client.query(
@@ -91,7 +134,7 @@ export async function create(req, res) {
          WHERE id_producto = $1 AND (
            (id_departamento = $2) OR ($2::int IS NULL AND id_departamento IS NULL)
          )`,
-        [d.id_producto, d.id_departamento || null]
+        [d.id_producto, d.id_departamento]
       );
 
       if (invExistente.length > 0) {
@@ -105,44 +148,48 @@ export async function create(req, res) {
         await client.query(
           `INSERT INTO INVENTARIO (id_producto, id_departamento, cantidad_disponible, cantidad_minima)
            VALUES ($1, $2, $3, 1)`,
-          [d.id_producto, d.id_departamento || null, d.cantidad]
+          [d.id_producto, d.id_departamento, d.cantidad]
         );
       }
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ ...compra, detalle });
+    res.status(201).json({ ...compra, detalle: detalleNormalizado });
   } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    await client.query('ROLLBACK').catch(() => {});
+    return enviarErrorInterno(res, err, 'compra.create');
   } finally { client.release(); }
 }
 
 export async function remove(req, res) {
+  const client = await pool.connect();
   try {
-    const client = await pool.connect();
     await client.query('BEGIN');
-    const { rows } = await client.query(  `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
-    if (!rows || rows.length === 0 || rows[0].length === 0 || rows[0] === undefined || !rows[0]) {
-      res.status(404).json({ error: 'Compra no encontrada' })
+    const { rows } = await client.query(
+      `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`,
+      [req.params.id]
+    );
+    if (!rows || rows.length === 0) {
       await client.query('ROLLBACK');
-      return 
+      return res.status(404).json({ error: 'Compra no encontrada' });
     }
 
-    for(const d of rows){
+    for (const d of rows) {
       await client.query(
         `UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_producto = $2 AND id_departamento = $3`,
         [d.cantidad, d.id_producto, d.id_departamento]
-      )
+      );
     }
 
     await client.query(`DELETE FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
     await client.query(`DELETE FROM COMPRA WHERE id_compra = $1 RETURNING *`, [req.params.id]);
 
     await client.query('COMMIT');
-    res.json({mensaje:'Compra eliminada correctamente'});
+    res.json({ mensaje: 'Compra eliminada correctamente' });
   } catch (err) {
-    res.status(500).json({ error: err.message })
-    await client.query('ROLLBACK')
+    await client.query('ROLLBACK').catch(() => {});
+    return enviarErrorInterno(res, err, 'compra.remove');
+  } finally {
+    client.release();
   }
 }

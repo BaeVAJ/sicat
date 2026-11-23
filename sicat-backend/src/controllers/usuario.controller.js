@@ -1,7 +1,10 @@
 import bcrypt from 'bcryptjs';
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 const ESTATUS_VALIDOS = ['activo', 'inactivo', 'suspendido'];
+const ROLES_VALIDOS = ['admin', 'gerente', 'usuario'];
+const MIN_PASSWORD_LEN = 8;
 
 export async function getAll(req, res) {
     try {
@@ -23,7 +26,7 @@ export async function getAll(req, res) {
         `);
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'usuario.getAll');
     }
 }
 
@@ -51,7 +54,7 @@ export async function getById(req, res) {
         }
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'usuario.getById');
     }
 }
 
@@ -60,6 +63,14 @@ export async function create(req, res) {
 
     if (!nombre || !correo || !contrasena) {
         return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios' });
+    }
+
+    if (String(contrasena).length < MIN_PASSWORD_LEN) {
+        return res.status(400).json({ error: `La contraseña debe tener al menos ${MIN_PASSWORD_LEN} caracteres` });
+    }
+
+    if (rol !== undefined && rol !== null && rol !== '' && !ROLES_VALIDOS.includes(rol)) {
+        return res.status(400).json({ error: 'Rol inválido. Debe ser admin, gerente o usuario.' });
     }
 
     if (estatus_empleado !== undefined && !ESTATUS_VALIDOS.includes(estatus_empleado)) {
@@ -107,7 +118,7 @@ export async function create(req, res) {
         if (err.code === '23505') {
             return res.status(409).json({ error: 'El correo ya se encuentra registrado' });
         }
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'usuario.create');
     }
 }
 
@@ -117,6 +128,14 @@ export async function update(req, res) {
 
     if (!nombre || !correo) {
         return res.status(400).json({ error: 'Nombre y correo son requeridos' });
+    }
+
+    if (rol !== undefined && rol !== null && rol !== '' && !ROLES_VALIDOS.includes(rol)) {
+        return res.status(400).json({ error: 'Rol inválido. Debe ser admin, gerente o usuario.' });
+    }
+
+    if (contrasena && contrasena.trim() !== '' && String(contrasena).length < MIN_PASSWORD_LEN) {
+        return res.status(400).json({ error: `La contraseña debe tener al menos ${MIN_PASSWORD_LEN} caracteres` });
     }
 
     if (estatus_empleado !== undefined && estatus_empleado !== null && !ESTATUS_VALIDOS.includes(estatus_empleado)) {
@@ -186,7 +205,7 @@ export async function update(req, res) {
         if (err.code === '23505') {
             return res.status(409).json({ error: 'El correo ya se encuentra registrado por otro usuario' });
         }
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'usuario.update');
     }
 }
 
@@ -209,6 +228,6 @@ export async function remove(req, res) {
                 error: 'No se puede eliminar el usuario porque tiene tickets, asignaciones o registros asociados.' 
             });
         }
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'usuario.remove');
     }
 }

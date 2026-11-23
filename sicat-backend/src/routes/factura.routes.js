@@ -5,6 +5,8 @@ import {
   getComplementos, getComplementosByFactura, createComplementoPago,
   updateComplementoPago, getUrlComplemento, deleteComplementoPago, getFormasPago,
   getEstadoCuentaPpd, getSiguientePago,
+  reemplazarDocumentoFactura, eliminarDocumentoFactura,
+  reemplazarDocumentoComplemento, eliminarDocumentoComplemento,
 } from '../controllers/factura.controller.js';
 import { verificarToken, verificarRol } from '../middlewares/auth.middleware.js';
 
@@ -13,85 +15,65 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 25 * 1024 * 1024, // 25 MB
+    files: 2,
   },
   fileFilter: (req, file, cb) => {
     const original = (file.originalname || '').toLowerCase();
     const mimetype = (file.mimetype || '').toLowerCase();
 
-    const isPdf = mimetype === 'application/pdf' || original.endsWith('.pdf');
+    const isPdf = original.endsWith('.pdf') && mimetype === 'application/pdf';
     const isXml =
-      mimetype === 'text/xml' ||
-      mimetype === 'application/xml' ||
-      original.endsWith('.xml');
+      original.endsWith('.xml') &&
+      (mimetype === 'text/xml' || mimetype === 'application/xml');
 
-    if (isPdf || isXml) {
+    let valido = false;
+    if (file.fieldname === 'archivo_pdf') {
+      valido = isPdf;
+    } else if (file.fieldname === 'archivo_xml') {
+      valido = isXml;
+    } else if (file.fieldname === 'archivo') {
+      valido = isPdf || isXml;
+    }
+
+    if (valido) {
       cb(null, true);
     } else {
-      cb(new Error('Solo se permiten archivos en formato PDF (.pdf) o XML (.xml)'), false);
+      const err = new Error('Solo se permiten archivos válidos en formato PDF (.pdf) o XML (.xml)');
+      err.status = 400;
+      cb(err, false);
     }
   },
 });
 
+const uploadDocs = upload.fields([
+  { name: 'archivo_pdf', maxCount: 1 },
+  { name: 'archivo_xml', maxCount: 1 },
+  { name: 'archivo', maxCount: 1 },
+]);
+
 const router = Router();
 
-router.get('/buscar', verificarToken, buscar);
-router.get('/ppd/estado-cuenta', verificarToken, getEstadoCuentaPpd);
-router.get('/formas-pago', verificarToken, getFormasPago);
-router.get('/complementos', verificarToken, getComplementos);
-router.get('/complementos/:id/url', verificarToken, getUrlComplemento);
-router.get('/:id/complementos/siguiente', verificarToken, getSiguientePago);
-router.get('/:id/complementos', verificarToken, getComplementosByFactura);
-router.get('/:id/url', verificarToken, getUrlPdf);
-router.get('/', verificarToken, getAll);
+router.get('/buscar', verificarToken, verificarRol('admin', 'gerente'), buscar);
+router.get('/ppd/estado-cuenta', verificarToken, verificarRol('admin', 'gerente'), getEstadoCuentaPpd);
+router.get('/formas-pago', verificarToken, verificarRol('admin', 'gerente'), getFormasPago);
+router.get('/complementos', verificarToken, verificarRol('admin', 'gerente'), getComplementos);
+router.get('/complementos/:id/url', verificarToken, verificarRol('admin', 'gerente'), getUrlComplemento);
+router.get('/:id/complementos/siguiente', verificarToken, verificarRol('admin', 'gerente'), getSiguientePago);
+router.get('/:id/complementos', verificarToken, verificarRol('admin', 'gerente'), getComplementosByFactura);
+router.get('/:id/url', verificarToken, verificarRol('admin', 'gerente'), getUrlPdf);
+router.get('/', verificarToken, verificarRol('admin', 'gerente'), getAll);
 
 // Acepta archivo_pdf, archivo_xml y archivo (retrocompatibilidad)
-router.post(
-  '/',
-  verificarToken,
-  verificarRol('admin'),
-  upload.fields([
-    { name: 'archivo_pdf', maxCount: 1 },
-    { name: 'archivo_xml', maxCount: 1 },
-    { name: 'archivo', maxCount: 1 },
-  ]),
-  create
-);
+router.post('/', verificarToken, verificarRol('admin'), uploadDocs, create);
+router.post('/:id/complementos', verificarToken, verificarRol('admin'), uploadDocs, createComplementoPago);
 
-router.post(
-  '/:id/complementos',
-  verificarToken,
-  verificarRol('admin'),
-  upload.fields([
-    { name: 'archivo_pdf', maxCount: 1 },
-    { name: 'archivo_xml', maxCount: 1 },
-    { name: 'archivo', maxCount: 1 },
-  ]),
-  createComplementoPago
-);
+router.patch('/complementos/:id/documento/:tipo', verificarToken, verificarRol('admin'), uploadDocs, reemplazarDocumentoComplemento);
+router.delete('/complementos/:id/documento/:tipo', verificarToken, verificarRol('admin'), eliminarDocumentoComplemento);
+router.put('/complementos/:id', verificarToken, verificarRol('admin'), uploadDocs, updateComplementoPago);
 
-router.put(
-  '/complementos/:id',
-  verificarToken,
-  verificarRol('admin'),
-  upload.fields([
-    { name: 'archivo_pdf', maxCount: 1 },
-    { name: 'archivo_xml', maxCount: 1 },
-    { name: 'archivo', maxCount: 1 },
-  ]),
-  updateComplementoPago
-);
-
-router.put(
-  '/:id',
-  verificarToken,
-  verificarRol('admin'),
-  upload.fields([
-    { name: 'archivo_pdf', maxCount: 1 },
-    { name: 'archivo_xml', maxCount: 1 },
-    { name: 'archivo', maxCount: 1 },
-  ]),
-  update
-);
+router.patch('/:id/documento/:tipo', verificarToken, verificarRol('admin'), uploadDocs, reemplazarDocumentoFactura);
+router.delete('/:id/documento/:tipo', verificarToken, verificarRol('admin'), eliminarDocumentoFactura);
+router.put('/:id', verificarToken, verificarRol('admin'), uploadDocs, update);
 
 router.delete('/complementos/:id', verificarToken, verificarRol('admin'), deleteComplementoPago);
 router.delete('/:id', verificarToken, verificarRol('admin'), eliminar);

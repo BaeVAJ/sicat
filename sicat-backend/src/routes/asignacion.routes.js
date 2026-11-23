@@ -3,7 +3,7 @@ import { getAll, create, devolver } from '../controllers/asignacion.controller.j
 import { verificarToken, verificarRol } from '../middlewares/auth.middleware.js';
 
 const router = Router();
-router.get('/',     verificarToken, getAll);
+router.get('/',     verificarToken, verificarRol('admin', 'gerente'), getAll);
 router.post('/',    verificarToken, verificarRol('admin', 'gerente'), create);
 router.patch('/:id/devolver',   verificarToken, verificarRol('admin', 'gerente'), devolver);
 

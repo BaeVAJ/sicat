@@ -1,5 +1,6 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
+import { enviarErrorInterno, crearErrorDominio } from '../utils/errorHandler.js';
 
 
 export async function getAll(req, res) {
@@ -21,7 +22,7 @@ export async function getAll(req, res) {
       ORDER BY a.fecha_asignacion DESC
     `);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'asignacion.getAll'); }
 }
 
 export async function create(req, res) {
@@ -39,8 +40,8 @@ export async function create(req, res) {
        LEFT JOIN CATEGORIA c ON c.id_categoria = p.id_categoria
        WHERE i.id_inventario = $1 FOR UPDATE OF i`, [id_inventario]
     );
-    if (!inv) throw new Error('Inventario de origen no encontrado');
-    if (inv.id_departamento !== 1) throw new Error('Solo el inventario de Sistemas puede asignarse');
+    if (!inv) throw crearErrorDominio('Inventario de origen no encontrado', 400);
+    if (inv.id_departamento !== 1) throw crearErrorDominio('Solo el inventario de Sistemas puede asignarse', 400);
 
     let cantidad = cantidadSolicitada;
     let pedido = null;
@@ -49,14 +50,14 @@ export async function create(req, res) {
         'SELECT * FROM PEDIDO_MATERIAL WHERE id_pedido = $1 FOR UPDATE', [id_pedido]
       );
       pedido = rows[0];
-      if (!pedido) throw new Error('Solicitud no encontrada');
-      if (pedido.estatus !== 'PENDIENTE') throw new Error('La solicitud ya fue atendida');
+      if (!pedido) throw crearErrorDominio('Solicitud no encontrada', 400);
+      if (pedido.estatus !== 'PENDIENTE') throw crearErrorDominio('La solicitud ya fue atendida', 400);
       cantidad = Number(pedido.cantidad_solicitada);
-      if (pedido.id_departamento === 1) throw new Error('Sistemas no puede solicitar material a sí mismo');
+      if (pedido.id_departamento === 1) throw crearErrorDominio('Sistemas no puede solicitar material a sí mismo', 400);
     }
-    if (!Number.isInteger(cantidad) || cantidad < 1) throw new Error('La cantidad debe ser un entero positivo');
-    if (inv.cantidad_disponible < cantidad && inv.cantidad_disponible > 0) throw new Error('Stock insuficiente para atender la solicitud');
-    if (inv.cantidad_disponible === 0) throw new Error('No hay stock disponible para asignar');
+    if (!Number.isInteger(cantidad) || cantidad < 1) throw crearErrorDominio('La cantidad debe ser un entero positivo', 400);
+    if (inv.cantidad_disponible < cantidad && inv.cantidad_disponible > 0) throw crearErrorDominio('Stock insuficiente para atender la solicitud', 400);
+    if (inv.cantidad_disponible === 0) throw crearErrorDominio('No hay stock disponible para asignar', 400);
 
     // 2. Descontar la cantidad asignada del inventario de Sistemas.
     await client.query(
@@ -65,8 +66,8 @@ export async function create(req, res) {
     );
 
     const destDeptoId = Number(id_departamento);
-    if (!destDeptoId) throw new Error('El departamento destino es obligatorio');
-    if (destDeptoId === 1) throw new Error('Sistemas no puede ser el departamento destino');
+    if (!destDeptoId) throw crearErrorDominio('El departamento destino es obligatorio', 400);
+    if (destDeptoId === 1) throw crearErrorDominio('Sistemas no puede ser el departamento destino', 400);
 
     // Ya no se actualiza destinatario de inventario,
 
@@ -87,8 +88,8 @@ export async function create(req, res) {
     publish('assignment.created', asig);
     res.status(201).json(asig);
   } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(400).json({ error: err.message });
+    await client.query('ROLLBACK').catch(() => {});
+    return enviarErrorInterno(res, err, 'asignacion.create');
   } finally { client.release(); }
 }
 
@@ -113,9 +114,9 @@ export async function devolver(req, res) {
       WHERE a.id_asignacion = $1
     `, [req.params.id]);
 */
-    if (!asig) throw new Error('Asignación no encontrada');
-    if (asig.estatus === 'DEVUELTO') throw new Error('Ya fue devuelta');
-    if (!asig.es_devolvible) throw new Error('Esta asignación fue registrada como no devolvible');
+    if (!asig) throw crearErrorDominio('Asignación no encontrada', 400);
+    if (asig.estatus === 'DEVUELTO') throw crearErrorDominio('Ya fue devuelta', 400);
+    if (!asig.es_devolvible) throw crearErrorDominio('Esta asignación fue registrada como no devolvible', 400);
     const cantidad = Number(asig.cantidad) || 1;
 
     // 1. Marcar como devuelto
@@ -137,7 +138,7 @@ export async function devolver(req, res) {
     publish('assignment.returned', { id_asignacion: req.params.id });
     res.json({ mensaje: 'Devolución registrada correctamente' });
   } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(400).json({ error: err.message });
+    await client.query('ROLLBACK').catch(() => {});
+    return enviarErrorInterno(res, err, 'asignacion.devolver');
   } finally { client.release(); }
 }

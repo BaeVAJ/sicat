@@ -1,4 +1,5 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 // GET /api/proveedores
 export async function getAll(req, res) {
@@ -6,7 +7,7 @@ export async function getAll(req, res) {
     const { rows } = await pool.query('SELECT * FROM PROVEEDOR ORDER BY id_proveedor');
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'proveedor.getAll');
   }
 }
 
@@ -19,7 +20,7 @@ export async function getById(req, res) {
     }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'proveedor.getById');
   }
 }
 
@@ -50,7 +51,7 @@ export async function create(req, res) {
     if (error.code === '23505') {
       return res.status(400).json({ error: 'Ya existe un proveedor registrado con ese correo electrónico' });
     }
-    res.status(500).json({ error: error.message });
+    return enviarErrorInterno(res, error, 'proveedor.create');
   }
 }
 
@@ -88,7 +89,7 @@ export async function update(req, res) {
     if (err.code === '23505') {
       return res.status(400).json({ error: 'Ya existe un proveedor registrado con ese correo electrónico' });
     }
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'proveedor.update');
   }
 }
 
@@ -104,6 +105,6 @@ export async function remove(req, res) {
     if (err.code === '23503') {
       return res.status(400).json({ error: 'No se puede eliminar el proveedor porque tiene compras o facturas asociadas' });
     }
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'proveedor.remove');
   }
 }

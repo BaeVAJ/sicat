@@ -1,15 +1,11 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 const DEPARTAMENTO_SISTEMAS = 1;
 
 function enviarErrorServidor(res, err, contexto) {
-  console.error(`Error en inventario (${contexto}):`, err);
-  return res.status(500).json({
-    error: 'Error interno del servidor',
-    detalle: err?.message ?? String(err),
-    codigo: err?.code ?? null,
-  });
+  return enviarErrorInterno(res, err, `inventario.${contexto}`);
 }
 
 const esEnteroPositivo = (v) => Number.isInteger(Number(v)) && Number(v) > 0 && String(v).trim() !== '';
@@ -27,15 +23,19 @@ function validarCantidades(res, campos) {
 
 export async function getAll(req, res){
   try {
-    const {rows} = await pool.query(`
+    const departamentoUsuario = Number(req.usuario?.id_departamento) || 0;
+    const puedeVerTodo =
+      req.usuario?.rol === 'admin' || departamentoUsuario === DEPARTAMENTO_SISTEMAS;
+    const { rows } = await pool.query(`
       SELECT i.*, pr.nombre AS producto, pr.marca, pr.modelo, d.nombre AS departamento, e.nombre AS empresa
       FROM INVENTARIO i
       JOIN PRODUCTO pr ON i.id_producto = pr.id_producto
       JOIN DEPARTAMENTO d ON i.id_departamento = d.id_departamento
       JOIN EMPRESA e ON d.id_empresa = e.id_empresa
+      ${puedeVerTodo ? '' : 'WHERE i.id_departamento IN ($1, $2)'}
       ORDER BY e.nombre
-      `)
-      res.json(rows);
+    `, puedeVerTodo ? [] : [DEPARTAMENTO_SISTEMAS, departamentoUsuario]);
+    res.json(rows);
   } catch (err){
     enviarErrorServidor(res, err, 'getAll');
   }

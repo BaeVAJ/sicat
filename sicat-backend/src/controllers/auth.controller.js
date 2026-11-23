@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 export async function login(req, res) {
     const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000; 
@@ -52,7 +53,7 @@ export async function login(req, res) {
         const { contrasena: _, ...datos } = usuario;
         res.json({ usuario: datos });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return enviarErrorInterno(res, error, 'auth.login');
     }
 }
 
@@ -67,7 +68,7 @@ export async function me(req, res) {
         );
         res.json(rows[0]);
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        return enviarErrorInterno(res, error, 'auth.me');
     }
 }
 
@@ -75,6 +76,12 @@ export async function registrar(req, res) {
     const { nombre, correo, contrasena, rol, id_departamento, estatus_empleado } = req.body;
     if (!nombre || !correo || !contrasena) {
         return res.status(400).json({ error: 'LOS CAMPOS NOMBRE, CONTRASENA Y CORREO SON REQUERIDOS' })
+    }
+    if (String(contrasena).length < 8) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
+    if (rol !== undefined && rol !== null && rol !== '' && !['admin', 'gerente', 'usuario'].includes(rol)) {
+        return res.status(400).json({ error: 'Rol inválido' });
     }
 
     const estatusFinal = estatus_empleado || 'activo';
@@ -92,7 +99,7 @@ export async function registrar(req, res) {
         if (err.code == '23505') {
             return res.status(409).json({ error: 'EL CORREO YA A SIDO REGISTRADO' });
         }
-        res.status(500).json({ error: err.message })
+        return enviarErrorInterno(res, err, 'auth.registrar');
     }
 }
 export async function logout(req, res){

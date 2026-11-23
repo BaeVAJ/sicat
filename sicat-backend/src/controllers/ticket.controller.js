@@ -1,5 +1,6 @@
 import pool from '../db/pool.js';
 import { publish } from '../services/eventBus.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 // Helper: Verifica si el usuario pertenece al departamento de Sistemas
 async function esUsuarioSistemas(id_usuario) {
@@ -46,7 +47,7 @@ export async function getAll(req, res) {
 
     const { rows } = await pool.query(query, params);
     res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'ticket.getAll'); }
 }
 
 // POST /api/tickets
@@ -54,7 +55,7 @@ export async function getAll(req, res) {
 // Si es administrador, puede crear tickets para otros departamentos.
 export async function create(req, res) {
   const { id_departamento, descripcion, urgente, fecha_limite } = req.body;
-  const id_usuario = req.usuario?.id_usuario || req.body.id_usuario || null;
+  const id_usuario = req.usuario?.id_usuario ?? null;
   const rol = req.usuario?.rol;
   const esUrgente = Boolean(urgente);
 
@@ -109,7 +110,7 @@ export async function create(req, res) {
 
     publish('ticket.created', rows[0]);
     res.status(201).json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'ticket.create'); }
 }
 
 
@@ -128,7 +129,22 @@ export async function actualizarEstado(req, res) {
     });
   }
 
+  const ESTADOS_VALIDOS = ['PENDIENTE', 'EN_PROCESO', 'SOLUCIONADO'];
   const { estado, fecha_solucion } = req.body;
+
+  if (typeof estado !== 'string' || !ESTADOS_VALIDOS.includes(estado)) {
+    return res.status(400).json({
+      error: 'Estado inválido. Valores permitidos: PENDIENTE, EN_PROCESO, SOLUCIONADO'
+    });
+  }
+
+  if (fecha_solucion !== undefined && fecha_solucion !== null && fecha_solucion !== '') {
+    const fechaStr = String(fecha_solucion);
+    if (!/^\d{4}-\d{2}-\d{2}/.test(fechaStr) || Number.isNaN(new Date(fechaStr).getTime())) {
+      return res.status(400).json({ error: 'La fecha de solución no es válida' });
+    }
+  }
+
   try {
     const { rows } = await pool.query(`
       UPDATE TICKETS
@@ -138,5 +154,5 @@ export async function actualizarEstado(req, res) {
     if (!rows[0]) return res.status(404).json({ error: 'Ticket no encontrado' });
     publish('ticket.updated', rows[0]);
     res.json(rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { return enviarErrorInterno(res, err, 'ticket.actualizarEstado'); }
 }

@@ -1,11 +1,12 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 export async function getAll(req, res) {
     try {
         const { rows } = await pool.query('SELECT * FROM EMPRESA ORDER BY id_empresa');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'empresa.getAll');
     }
 }
 
@@ -17,7 +18,7 @@ export async function getById(req, res) {
         }
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'empresa.getById');
     }
 }
 
@@ -34,7 +35,7 @@ export async function create(req, res) {
         );
         res.status(201).json(rows[0]);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return enviarErrorInterno(res, error, 'empresa.create');
     }
 }
 
@@ -55,7 +56,7 @@ export async function update(req, res) {
         }
         res.json(rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'empresa.update');
     }
 }
 
@@ -67,6 +68,6 @@ export async function remove(req, res) {
         }
         res.json({ mensaje: 'Empresa eliminada correctamente' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return enviarErrorInterno(res, err, 'empresa.remove');
     }
 }

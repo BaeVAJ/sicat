@@ -42,19 +42,59 @@ export function extraerPathArchivo(pathOrUrl) {
 }
 
 /**
+ * Valida la firma mágica de un archivo PDF antes de procesarlo o subirlo.
+ */
+export function validarBufferPdf(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 5 || buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    const err = new Error('El archivo no corresponde a un PDF válido');
+    err.status = 400;
+    throw err;
+  }
+}
+
+/**
+ * Valida que el buffer XML sea texto estructurado seguro sin DTD/ENTITY ni contenido script/XHTML.
+ */
+export function validarBufferXml(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    const err = new Error('El archivo XML está vacío o no es válido');
+    err.status = 400;
+    throw err;
+  }
+  const contenido = buffer.toString('utf8').replace(/^\uFEFF/, '').trim();
+  if (!contenido.startsWith('<') || !contenido.endsWith('>')) {
+    const err = new Error('El archivo no tiene estructura XML válida');
+    err.status = 400;
+    throw err;
+  }
+  if (/<!\s*(doctype|entity)\b/i.test(contenido)) {
+    const err = new Error('El XML contiene declaraciones DTD o ENTITY no permitidas');
+    err.status = 400;
+    throw err;
+  }
+  if (/<\s*script\b/i.test(contenido) || /http:\/\/www\.w3\.org\/1999\/xhtml/i.test(contenido)) {
+    const err = new Error('El XML contiene elementos HTML/script no permitidos');
+    err.status = 400;
+    throw err;
+  }
+}
+
+/**
  * Genera una URL firmada temporal para acceder a un archivo de un bucket privado
  * @param {string} pathOrUrl - Ruta o URL guardada
  * @param {number} expiresIn - Segundos de validez (por defecto 1 hora)
+ * @param {{ download?: boolean | string }} [options]
  * @returns {Promise<string>}
  */
-export async function obtenerUrlFirmada(pathOrUrl, expiresIn = 3600) {
+export async function obtenerUrlFirmada(pathOrUrl, expiresIn = 3600, options = {}) {
   const path = extraerPathArchivo(pathOrUrl);
   if (!path) return '';
 
   const client = getSupabaseClient();
+  const signedOptions = options.download ? { download: options.download } : undefined;
   const { data, error } = await client.storage
     .from(BUCKET_NAME)
-    .createSignedUrl(path, expiresIn);
+    .createSignedUrl(path, expiresIn, signedOptions);
 
   if (error) {
     console.error('[Supabase Signed URL Error]:', error.message);
@@ -116,6 +156,7 @@ export async function comprimirPdf(buffer) {
  * @returns {Promise<{ url: string, path: string, originalSize: number, compressedSize: number }>}
  */
 export async function subirPdfFactura(buffer, originalName = 'factura.pdf') {
+  validarBufferPdf(buffer);
   const client = getSupabaseClient();
   const { buffer: optimizedBuffer, originalSize, compressedSize } = await comprimirPdf(buffer);
 
@@ -150,6 +191,7 @@ export async function subirPdfFactura(buffer, originalName = 'factura.pdf') {
  * @returns {Promise<{ url: string, path: string, size: number }>}
  */
 export async function subirXmlFactura(buffer, originalName = 'factura.xml') {
+  validarBufferXml(buffer);
   const client = getSupabaseClient();
 
   const cleanName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');

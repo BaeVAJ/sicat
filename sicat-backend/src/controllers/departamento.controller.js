@@ -1,4 +1,5 @@
-import pool from '../db/pool.js'
+import pool from '../db/pool.js';
+import { enviarErrorInterno, esEnteroPositivo } from '../utils/errorHandler.js';
 
 export async function getAll(req, res){
     try{
@@ -9,7 +10,7 @@ export async function getAll(req, res){
             ON d.id_empresa = e.id_empresa`);
         res.json(rows);
     } catch (err){
-        res.status(500).json({error:err.message})
+        return enviarErrorInterno(res, err, 'departamento.getAll');
     }
 }
 
@@ -22,38 +23,43 @@ export async function getById(req, res){
         }
         res.json(rows[0]);
     } catch(err){
-        res.status(500).json({error: err.message});
+        return enviarErrorInterno(res, err, 'departamento.getById');
     }
 }
 
 export async function create(req, res){
-    const body = req.body;
-    const keys = Object.keys(body);
-    const vals = Object.values(body);
-    const cols = keys.join(', ');
-    
-    // CORREGIDO: el .join(', ') va fuera del map y reparamos la lógica
-    const phs = keys.map((_, i) => '$' + (i + 1)).join(', ');
+    const { nombre, id_empresa } = req.body || {};
+    if (typeof nombre !== 'string' || !nombre.trim()) {
+        return res.status(400).json({ error: 'El nombre del departamento es obligatorio' });
+    }
+    if (!esEnteroPositivo(id_empresa)) {
+        return res.status(400).json({ error: 'El id_empresa debe ser un entero positivo' });
+    }
 
     try{
-        // CORREGIDO: RETURNING en lugar de RETURNIGN
-        const {rows} = await pool.query(`
-            INSERT INTO DEPARTAMENTO (${cols}) VALUES (${phs}) RETURNING *`, vals);
+        const {rows} = await pool.query(
+            `INSERT INTO DEPARTAMENTO (nombre, id_empresa) VALUES ($1, $2) RETURNING *`,
+            [nombre.trim(), Number(id_empresa)]
+        );
         res.status(201).json(rows[0]);
     }catch (error){
-        res.status(500).json({error:error.message});
+        return enviarErrorInterno(res, error, 'departamento.create');
     }
 }
 
 export async function update(req, res){
-    const body = req.body;
-    const keys = Object.keys(body);
-    const vals = Object.values(body);
-    const sets = keys.map((k,i) => `${k} = $${i + 1}`).join(', ');
-    
+    const { nombre, id_empresa } = req.body || {};
+    if (typeof nombre !== 'string' || !nombre.trim()) {
+        return res.status(400).json({ error: 'El nombre del departamento es obligatorio' });
+    }
+    if (!esEnteroPositivo(id_empresa)) {
+        return res.status(400).json({ error: 'El id_empresa debe ser un entero positivo' });
+    }
+
      try{
-        const { rows }= await pool.query(`UPDATE DEPARTAMENTO SET ${sets} WHERE id_departamento = $${keys.length + 1} RETURNING *`,
-            [...vals, req.params.id]
+        const { rows }= await pool.query(
+            `UPDATE DEPARTAMENTO SET nombre = $1, id_empresa = $2 WHERE id_departamento = $3 RETURNING *`,
+            [nombre.trim(), Number(id_empresa), req.params.id]
         );
         
         if(!rows[0]){
@@ -61,7 +67,7 @@ export async function update(req, res){
         }
         res.json(rows[0]);
      }catch(err){
-        res.status(500).json({error:err.message})
+        return enviarErrorInterno(res, err, 'departamento.update');
      }
 }
 
@@ -73,6 +79,6 @@ export async function remove(req, res){
         }
         res.json({mensaje:'Departamento eliminado correctamente'});
     }catch(err){
-        res.status(500).json({error:err.message})
+        return enviarErrorInterno(res, err, 'departamento.remove');
     }
 }

@@ -1,10 +1,13 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno, esEnteroPositivo } from '../utils/errorHandler.js';
 import {
   subirPdfFactura,
   subirXmlFactura,
   eliminarArchivoFactura,
   obtenerUrlFirmada,
 } from '../services/supabaseStorage.js';
+
+const esFlagActivo = (v) => v === true || v === 'true' || v === '1';
 
 // GET /api/facturas
 export async function getAll(req, res) {
@@ -19,7 +22,7 @@ export async function getAll(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'factura.getAll');
   }
 }
 
@@ -49,7 +52,7 @@ export async function buscar(req, res) {
     `, vals);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'factura.buscar');
   }
 }
 
@@ -86,7 +89,7 @@ export async function getUrlPdf(req, res) {
 
     if (archivo_xml_url) {
       try {
-        xmlSignedUrl = await obtenerUrlFirmada(archivo_xml_url, 3600);
+        xmlSignedUrl = await obtenerUrlFirmada(archivo_xml_url, 3600, { download: true });
       } catch (e) {
         console.warn('Error firmando URL de XML:', e.message);
       }
@@ -103,8 +106,7 @@ export async function getUrlPdf(req, res) {
       uuid_fiscal,
     });
   } catch (err) {
-    console.error('Error al generar URL firmada de factura:', err);
-    res.status(500).json({ error: err.message || 'Error al obtener acceso a los archivos' });
+    return enviarErrorInterno(res, err, 'factura.getUrlPdf', 'Error al obtener acceso a los archivos');
   }
 }
 
@@ -141,8 +143,8 @@ export async function create(req, res) {
   const metodo = metodo_pago || 'PUE';
   const estadoFinal = metodo === 'PUE' ? 'PAGADO' : 'PENDIENTE';
 
-  let archivo_url = req.body.archivo_url || null;
-  let archivo_xml_url = req.body.archivo_xml_url || null;
+  let archivo_url = null;
+  let archivo_xml_url = null;
   let compressionStats = null;
 
   try {
@@ -206,8 +208,7 @@ export async function create(req, res) {
       compressionStats,
     });
   } catch (err) {
-    console.error('Error al registrar factura:', err);
-    res.status(500).json({ error: err.message || 'Error al registrar la factura' });
+    return enviarErrorInterno(res, err, 'factura.create', 'Error al registrar la factura');
   }
 }
 
@@ -298,11 +299,15 @@ export async function update(req, res) {
         originalSize: uploadPdfResult.originalSize,
         compressedSize: uploadPdfResult.compressedSize,
       };
+    } else if (esFlagActivo(req.body.eliminar_pdf)) {
+      archivo_url = null;
     }
 
     if (xmlFile) {
       const uploadXmlResult = await subirXmlFactura(xmlFile.buffer, xmlFile.originalname);
       archivo_xml_url = uploadXmlResult.url;
+    } else if (esFlagActivo(req.body.eliminar_xml)) {
+      archivo_xml_url = null;
     }
 
     const rfcEmisorFinal = rfc_emisor === undefined
@@ -346,12 +351,12 @@ export async function update(req, res) {
       id,
     ]);
 
-    if (pdfFile && existing.archivo_url && existing.archivo_url !== archivo_url) {
+    if (existing.archivo_url && existing.archivo_url !== archivo_url) {
       eliminarArchivoFactura(existing.archivo_url).catch((err) =>
         console.warn('Error eliminando PDF anterior en Supabase:', err.message)
       );
     }
-    if (xmlFile && existing.archivo_xml_url && existing.archivo_xml_url !== archivo_xml_url) {
+    if (existing.archivo_xml_url && existing.archivo_xml_url !== archivo_xml_url) {
       eliminarArchivoFactura(existing.archivo_xml_url).catch((err) =>
         console.warn('Error eliminando XML anterior en Supabase:', err.message)
       );
@@ -375,8 +380,7 @@ export async function update(req, res) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe una factura con ese UUID fiscal o compra asociada' });
     }
-    console.error('Error al actualizar factura:', err);
-    res.status(500).json({ error: err.message || 'Error al actualizar la factura' });
+    return enviarErrorInterno(res, err, 'factura.update', 'Error al actualizar la factura');
   }
 }
 
@@ -428,8 +432,7 @@ export async function eliminar(req, res) {
 
     res.json({ message: 'Factura y archivos adjuntos eliminados correctamente', id_factura: id });
   } catch (err) {
-    console.error('Error al eliminar factura:', err);
-    res.status(500).json({ error: err.message || 'Error al eliminar la factura' });
+    return enviarErrorInterno(res, err, 'factura.eliminar', 'Error al eliminar la factura');
   }
 }
 
@@ -447,7 +450,7 @@ export async function getComplementos(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al cargar los complementos de pago' });
+    return enviarErrorInterno(res, err, 'factura.getComplementos', 'Error al cargar los complementos de pago');
   }
 }
 
@@ -464,7 +467,7 @@ export async function getComplementosByFactura(req, res) {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al cargar los complementos de pago' });
+    return enviarErrorInterno(res, err, 'factura.getComplementosByFactura', 'Error al cargar los complementos de pago');
   }
 }
 
@@ -512,7 +515,7 @@ export async function getEstadoCuentaPpd(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al obtener el estado de cuenta PPD' });
+    return enviarErrorInterno(res, err, 'factura.getEstadoCuentaPpd', 'Error al obtener el estado de cuenta PPD');
   }
 }
 
@@ -535,7 +538,7 @@ export async function getSiguientePago(req, res) {
       num_pagos: resumen.num_pagos,
     });
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message || 'Error al calcular el siguiente pago' });
+    return enviarErrorInterno(res, err, 'factura.getSiguientePago', 'Error al calcular el siguiente pago');
   }
 }
 
@@ -549,7 +552,7 @@ export async function getFormasPago(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al obtener las formas de pago' });
+    return enviarErrorInterno(res, err, 'factura.getFormasPago', 'Error al obtener las formas de pago');
   }
 }
 
@@ -715,11 +718,7 @@ export async function createComplementoPago(req, res) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe ese número de pago para la factura', campo: 'num_pago' });
     }
-    console.error('Error al crear complemento de pago:', err);
-    res.status(err.status || 500).json({
-      error: err.message || 'Error al crear el complemento de pago',
-      ...(err.campo ? { campo: err.campo } : {}),
-    });
+    return enviarErrorInterno(res, err, 'factura.createComplementoPago', 'Error al crear el complemento de pago');
   }
 }
 
@@ -758,6 +757,14 @@ export async function updateComplementoPago(req, res) {
     const faltaPagar = saldoAnterior == null ? null : Math.max(saldoAnterior - monto, 0);
 
     const uploaded = await subirArchivosComplemento(req, currentRows[0]);
+    const { pdfFile, xmlFile } = obtenerArchivosComplemento(req);
+    if (!pdfFile && esFlagActivo(req.body.eliminar_pdf)) {
+      uploaded.url_pdf = null;
+    }
+    if (!xmlFile && esFlagActivo(req.body.eliminar_xml)) {
+      uploaded.url_xml = null;
+    }
+
     const { rows } = await pool.query(`
       UPDATE DETALLES_FACTURA
       SET num_pago = $1, codigo_pago = $2, fecha_pago = $3, saldo_anterior = $4,
@@ -787,11 +794,7 @@ export async function updateComplementoPago(req, res) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ya existe ese número de pago para la factura', campo: 'num_pago' });
     }
-    console.error('Error al actualizar complemento de pago:', err);
-    res.status(err.status || 500).json({
-      error: err.message || 'Error al actualizar el complemento de pago',
-      ...(err.campo ? { campo: err.campo } : {}),
-    });
+    return enviarErrorInterno(res, err, 'factura.updateComplementoPago', 'Error al actualizar el complemento de pago');
   }
 }
 
@@ -804,14 +807,14 @@ export async function getUrlComplemento(req, res) {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Complemento de pago no encontrado' });
     const pdfUrl = rows[0].url_pdf ? await obtenerUrlFirmada(rows[0].url_pdf, 3600) : null;
-    const xmlUrl = rows[0].url_xml ? await obtenerUrlFirmada(rows[0].url_xml, 3600) : null;
+    const xmlUrl = rows[0].url_xml ? await obtenerUrlFirmada(rows[0].url_xml, 3600, { download: true }) : null;
     res.json({
       url: req.query.tipo === 'xml' ? xmlUrl || pdfUrl : pdfUrl || xmlUrl,
       pdf_url: pdfUrl,
       xml_url: xmlUrl,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al generar el enlace del complemento' });
+    return enviarErrorInterno(res, err, 'factura.getUrlComplemento', 'Error al generar el enlace del complemento');
   }
 }
 
@@ -826,6 +829,192 @@ export async function deleteComplementoPago(req, res) {
     [rows[0].url_pdf, rows[0].url_xml].filter(Boolean).forEach((path) => eliminarArchivoFactura(path));
     res.json({ message: 'Complemento de pago eliminado correctamente' });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Error al eliminar el complemento de pago' });
+    return enviarErrorInterno(res, err, 'factura.deleteComplementoPago', 'Error al eliminar el complemento de pago');
+  }
+}
+
+function normalizarTipoDocumento(tipoParam) {
+  const tipo = String(tipoParam || '').trim().toLowerCase();
+  if (tipo !== 'pdf' && tipo !== 'xml') {
+    const err = new Error('Tipo de documento inválido. Usa "pdf" o "xml".');
+    err.status = 400;
+    throw err;
+  }
+  return tipo;
+}
+
+function extraerArchivoPorTipo(req, tipo) {
+  const files = req.files || {};
+  const file =
+    tipo === 'pdf'
+      ? files.archivo_pdf?.[0] || files.archivo?.[0]
+      : files.archivo_xml?.[0] || files.archivo?.[0];
+  if (!file) {
+    const err = new Error(`Debes seleccionar un archivo ${tipo.toUpperCase()} válido`);
+    err.status = 400;
+    throw err;
+  }
+  return file;
+}
+
+async function obtenerFacturaEnriquecida(idFactura) {
+  const { rows } = await pool.query(`
+    SELECT f.*, c.fecha_compra, e.nombre AS empresa, p.nombre AS proveedor, f.estado
+    FROM FACTURA f
+    JOIN COMPRA    c ON f.id_compra    = c.id_compra
+    JOIN EMPRESA   e ON c.id_empresa   = e.id_empresa
+    JOIN PROVEEDOR p ON c.id_proveedor = p.id_proveedor
+    WHERE f.id_factura = $1
+  `, [idFactura]);
+  return rows[0] || null;
+}
+
+// PATCH /api/facturas/:id/documento/:tipo
+export async function reemplazarDocumentoFactura(req, res) {
+  try {
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'ID de factura inválido' });
+    }
+    const id = Number(req.params.id);
+    const tipo = normalizarTipoDocumento(req.params.tipo);
+    const file = extraerArchivoPorTipo(req, tipo);
+
+    const { rows } = await pool.query(
+      'SELECT id_factura, archivo_url, archivo_xml_url FROM FACTURA WHERE id_factura = $1',
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const columna = tipo === 'pdf' ? 'archivo_url' : 'archivo_xml_url';
+    const anterior = rows[0][columna];
+    const uploaded =
+      tipo === 'pdf'
+        ? await subirPdfFactura(file.buffer, file.originalname)
+        : await subirXmlFactura(file.buffer, file.originalname);
+
+    await pool.query(`UPDATE FACTURA SET ${columna} = $1 WHERE id_factura = $2`, [uploaded.url, id]);
+
+    if (anterior && anterior !== uploaded.url) {
+      eliminarArchivoFactura(anterior).catch((e) =>
+        console.warn(`Error eliminando ${tipo.toUpperCase()} anterior en Supabase:`, e.message)
+      );
+    }
+
+    const enriched = await obtenerFacturaEnriquecida(id);
+    res.json(enriched);
+  } catch (err) {
+    return enviarErrorInterno(res, err, 'factura.reemplazarDocumentoFactura', 'Error al reemplazar el documento de la factura');
+  }
+}
+
+// DELETE /api/facturas/:id/documento/:tipo
+export async function eliminarDocumentoFactura(req, res) {
+  try {
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'ID de factura inválido' });
+    }
+    const id = Number(req.params.id);
+    const tipo = normalizarTipoDocumento(req.params.tipo);
+
+    const { rows } = await pool.query(
+      'SELECT id_factura, archivo_url, archivo_xml_url FROM FACTURA WHERE id_factura = $1',
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const columna = tipo === 'pdf' ? 'archivo_url' : 'archivo_xml_url';
+    const anterior = rows[0][columna];
+    if (!anterior) {
+      return res.status(404).json({ error: `La factura no tiene un archivo ${tipo.toUpperCase()} adjunto` });
+    }
+
+    await pool.query(`UPDATE FACTURA SET ${columna} = NULL WHERE id_factura = $1`, [id]);
+
+    eliminarArchivoFactura(anterior).catch((e) =>
+      console.warn(`Error eliminando ${tipo.toUpperCase()} de factura en Supabase:`, e.message)
+    );
+
+    const enriched = await obtenerFacturaEnriquecida(id);
+    res.json(enriched);
+  } catch (err) {
+    return enviarErrorInterno(res, err, 'factura.eliminarDocumentoFactura', 'Error al eliminar el documento de la factura');
+  }
+}
+
+// PATCH /api/facturas/complementos/:id/documento/:tipo
+export async function reemplazarDocumentoComplemento(req, res) {
+  try {
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'ID de complemento inválido' });
+    }
+    const id = Number(req.params.id);
+    const tipo = normalizarTipoDocumento(req.params.tipo);
+    const file = extraerArchivoPorTipo(req, tipo);
+
+    const { rows } = await pool.query(
+      'SELECT * FROM DETALLES_FACTURA WHERE id_detalle_factura = $1',
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Complemento de pago no encontrado' });
+
+    const columna = tipo === 'pdf' ? 'url_pdf' : 'url_xml';
+    const anterior = rows[0][columna];
+    const uploaded =
+      tipo === 'pdf'
+        ? await subirPdfFactura(file.buffer, file.originalname)
+        : await subirXmlFactura(file.buffer, file.originalname);
+
+    const { rows: updated } = await pool.query(
+      `UPDATE DETALLES_FACTURA SET ${columna} = $1 WHERE id_detalle_factura = $2 RETURNING *`,
+      [uploaded.url, id]
+    );
+
+    if (anterior && anterior !== uploaded.url) {
+      eliminarArchivoFactura(anterior).catch((e) =>
+        console.warn(`Error eliminando ${tipo.toUpperCase()} anterior del complemento en Supabase:`, e.message)
+      );
+    }
+
+    const factura = await obtenerResumenFacturaPpd(updated[0].id_factura);
+    res.json({ ...updated[0], factura });
+  } catch (err) {
+    return enviarErrorInterno(res, err, 'factura.reemplazarDocumentoComplemento', 'Error al reemplazar el documento del complemento');
+  }
+}
+
+// DELETE /api/facturas/complementos/:id/documento/:tipo
+export async function eliminarDocumentoComplemento(req, res) {
+  try {
+    if (!esEnteroPositivo(req.params.id)) {
+      return res.status(400).json({ error: 'ID de complemento inválido' });
+    }
+    const id = Number(req.params.id);
+    const tipo = normalizarTipoDocumento(req.params.tipo);
+
+    const { rows } = await pool.query(
+      'SELECT * FROM DETALLES_FACTURA WHERE id_detalle_factura = $1',
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Complemento de pago no encontrado' });
+
+    const columna = tipo === 'pdf' ? 'url_pdf' : 'url_xml';
+    const anterior = rows[0][columna];
+    if (!anterior) {
+      return res.status(404).json({ error: `El complemento no tiene un archivo ${tipo.toUpperCase()} adjunto` });
+    }
+
+    const { rows: updated } = await pool.query(
+      `UPDATE DETALLES_FACTURA SET ${columna} = NULL WHERE id_detalle_factura = $1 RETURNING *`,
+      [id]
+    );
+
+    eliminarArchivoFactura(anterior).catch((e) =>
+      console.warn(`Error eliminando ${tipo.toUpperCase()} del complemento en Supabase:`, e.message)
+    );
+
+    const factura = await obtenerResumenFacturaPpd(updated[0].id_factura);
+    res.json({ ...updated[0], factura });
+  } catch (err) {
+    return enviarErrorInterno(res, err, 'factura.eliminarDocumentoComplemento', 'Error al eliminar el documento del complemento');
   }
 }

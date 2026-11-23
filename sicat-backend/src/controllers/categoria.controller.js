@@ -1,4 +1,5 @@
 import pool from '../db/pool.js';
+import { enviarErrorInterno } from '../utils/errorHandler.js';
 
 // GET /api/categorias
 export async function getAll(req, res) {
@@ -12,7 +13,7 @@ export async function getAll(req, res) {
     `);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'categoria.getAll');
   }
 }
 
@@ -32,7 +33,7 @@ export async function getById(req, res) {
     }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'categoria.getById');
   }
 }
 
@@ -58,7 +59,7 @@ export async function create(req, res) {
     ]);
     res.status(201).json(rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return enviarErrorInterno(res, error, 'categoria.create');
   }
 }
 
@@ -92,7 +93,7 @@ export async function update(req, res) {
     }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'categoria.update');
   }
 }
 
@@ -108,6 +109,6 @@ export async function remove(req, res) {
     if (err.code === '23503') {
       return res.status(400).json({ error: 'No se puede eliminar la categoría porque contiene productos asociados' });
     }
-    res.status(500).json({ error: err.message });
+    return enviarErrorInterno(res, err, 'categoria.remove');
   }
 }
