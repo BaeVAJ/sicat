@@ -27,9 +27,7 @@ function Tickets() {
     const [userProfile, setUserProfile] = useState(null);
     const searchParams = useSearchParams()[0];
 
-    //Abrir el modal de detalles si viene desde el inicio con un ticket seleccionado, lo mismo con los pedidos pendientes
-
-    // Cargar perfil completo si departamento no está en el token inicial
+    
     useEffect(() => {
         let mounted = true;
         async function fetchProfile() {

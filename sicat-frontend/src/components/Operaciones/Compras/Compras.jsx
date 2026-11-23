@@ -38,9 +38,11 @@ function Compras() {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [formIdProveedor, setFormIdProveedor] = useState('');
+    const [formProveedorTexto, setFormProveedorTexto] = useState('');
+    const [showProveedorResults, setShowProveedorResults] = useState(false);
     const [formIdEmpresa, setFormIdEmpresa] = useState('');
     const [formFecha, setFormFecha] = useState(new Date().toISOString().split('T')[0]);
-    const [formDetalle, setFormDetalle] = useState([{ id_producto: '', cantidad: 1, precio_unitario: '', id_departamento: '' }]);
+    const [formDetalle, setFormDetalle] = useState([{ id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]);
 
     const [detailCompra, setDetailCompra] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -52,7 +54,7 @@ function Compras() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const navigate = useNavigate();
 
-    const [showResults, setShowResults] = useState(false);
+    const [activeProductRow, setActiveProductRow] = useState(null);
 
     const canManage = usuario?.rol === 'admin' || usuario?.rol === 'gerente';
 
@@ -88,7 +90,7 @@ function Compras() {
                 client.get('/empresas').catch(() => ({ data: {} })),
                 client.get('/productos').catch(() => ({ data: {} })),
                 client.get('/departamentos').catch(() => ({ data: {} })),
-                client.get('/facturas').catch(() => ({ data: {}})),
+                client.get('/facturas').catch(() => ({ data: {} })),
             ]);
             setCompras(Array.isArray(cRes.data) ? cRes.data : [])
             setProveedores(Array.isArray(pRes.data) ? pRes.data : [])
@@ -143,6 +145,8 @@ function Compras() {
                 return normalizar(item.fecha_compra);
             case 'total':
                 return normalizar(item.total);
+            case 'recibidos':
+                return normalizar(item.recibidos);
             default:
                 return item[key] ?? null;
         }
@@ -166,9 +170,9 @@ function Compras() {
             if (filterEmpresa !== 'ALL' && String(c.id_empresa) !== filterEmpresa) return false;
             if (fechaMin) {
                 if (fechaMin && fechaMin > fechaCompra) return false;
-                
+
             }
-            if (fechaMax){
+            if (fechaMax) {
                 if (fechaMax && fechaMax < fechaCompra) return false;
             }
             return true;
@@ -220,15 +224,18 @@ function Compras() {
 
     const handleOpenCreate = () => {
         setFormIdProveedor('');
+        setFormProveedorTexto('');
+        setShowProveedorResults(false);
         setFormIdEmpresa('');
         setFormFecha(new Date().toISOString().split('T')[0]);
-        setFormDetalle([{ id_producto: '', cantidad: 1, precio_unitario: '', id_departamento: '' }]);
+        setFormDetalle([{ id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]);
+        setActiveProductRow(null);
         showMessage('', '');
         setModalOpen(true);
     }
 
     const handleAddLine = () => {
-        setFormDetalle(prev => [...prev, { id_producto: '', cantidad: 1, precio_unitario: '', id_departamento: '' }]);
+        setFormDetalle(prev => [...prev, { id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]);
     }
 
     const handleLineChange = (idx, field, value) => {
@@ -237,9 +244,23 @@ function Compras() {
         );
     };
 
+    const handleLinePatch = (idx, patch) => {
+        setFormDetalle(prev =>
+            prev.map((line, i) => i === idx ? { ...line, ...patch } : line)
+        );
+    };
+
     const handleRemoveLine = (index) => {
         setFormDetalle(prev => prev.filter((_, i) => i !== index));
     }
+
+    const proveedoresSugeridos = useMemo(() => {
+        const query = normalizar(formProveedorTexto);
+        if (!query) return proveedores;
+        return proveedores.filter((p) =>
+            normalizar(`${p.nombre || ''} ${p.email || ''} ${p.telefono || ''}`).includes(query)
+        );
+    }, [proveedores, formProveedorTexto]);
 
     const formTotal = useMemo(() => {
         return formDetalle.reduce((s, d) => s + (d.cantidad || 0) * (parseFloat(d.precio_unitario) || 0), 0);
@@ -290,7 +311,8 @@ function Compras() {
                     id_producto: Number(d.id_producto),
                     cantidad: Number(d.cantidad),
                     precio_unitario: parseFloat(d.precio_unitario),
-                    id_departamento: Number(d.id_departamento)
+                    id_departamento: Number(d.id_departamento),
+                    recibidos: Number(d.recibidos)
                 })),
             };
             await client.post('/compras', payload);
@@ -435,10 +457,10 @@ function Compras() {
     )
 
     const existeFactura = useCallback((id_compra) => {
-        return facturas.some(f=> f.id_compra === id_compra);
+        return facturas.some(f => f.id_compra === id_compra);
     })
 
-    
+
 
     return (
         <Layout>
@@ -455,7 +477,7 @@ function Compras() {
                             </span>
                             Compras
                         </h1>
-                        
+
                     </span>
                     <div className="compras-header__actions">
                         <button className="compras-btn compras-btn--secondary" onClick={fetchData} disabled={loading}>
@@ -622,11 +644,58 @@ function Compras() {
                                 {alerta}
                                 <div className="compras-grid-3">
                                     <div className="compras-form__group">
-                                        <label className="compras-form-label">Proveedor <span className="compras-req"></span></label>
-                                        <select className="compras-input" value={formIdProveedor} onChange={(e) => setFormIdProveedor(e.target.value)}>
-                                            <option value="">Seleccionar...</option>
-                                            {proveedores.map(p => <option key={p.id_proveedor} value={String(p.id_proveedor)}>{p.nombre}</option>)}
-                                        </select>
+                                        <label htmlFor="proveedor-compra" className="compras-form-label">Proveedor <span className="compras-req"></span></label>
+                                        <div className="solic-form--input-group">
+                                            <input
+                                                id="proveedor-compra"
+                                                className="compras-input"
+                                                type="text"
+                                                autoComplete="off"
+                                                value={formProveedorTexto}
+                                                onChange={(e) => {
+                                                    setFormProveedorTexto(e.target.value);
+                                                    setFormIdProveedor('');
+                                                    setShowProveedorResults(true);
+                                                }}
+                                                onFocus={() => setShowProveedorResults(true)}
+                                                onBlur={() => setTimeout(() => setShowProveedorResults(false), 160)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Escape') setShowProveedorResults(false);
+                                                }}
+                                                required
+                                                placeholder="Escribe el proveedor"
+                                            />
+
+                                            {showProveedorResults && (
+                                                <ul className="search-results" role="listbox" aria-label="Sugerencias de proveedores">
+                                                    {proveedoresSugeridos.map((p) => (
+                                                        <li
+                                                            key={p.id_proveedor}
+                                                            className="search-result-item"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => {
+                                                                setFormIdProveedor(String(p.id_proveedor));
+                                                                setFormProveedorTexto(p.nombre || '');
+                                                                setShowProveedorResults(false);
+                                                            }}
+                                                        >
+                                                            {p.nombre}{p.tipo_pago ? ` - ${p.tipo_pago}` : ''}
+                                                        </li>
+                                                    ))}
+                                                    {proveedoresSugeridos.length === 0 && formProveedorTexto.trim() && (
+                                                        <li
+                                                            className="search-result-item"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => {
+                                                                // Gancho listo para crear el proveedor cuando no exista
+                                                            }}
+                                                        >
+                                                            + Crear proveedor &quot;{formProveedorTexto.trim()}&quot;
+                                                        </li>
+                                                    )}
+                                                </ul>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="compras-form__group">
                                         <label className="compras-form-label">Empresa Destino<span className="compras-req"></span></label>
@@ -652,6 +721,7 @@ function Compras() {
                                             <tr>
                                                 <th>Producto</th>
                                                 <th style={{ width: '90px' }}>Cantidad</th>
+                                                <th style={{ width: '90px' }}>Recibidos</th>
                                                 <th style={{ width: '120px' }}>Precio Unit.</th>
                                                 <th>Depto. Destino</th>
                                                 <th style={{ width: '90px' }}>Subtotal</th>
@@ -662,47 +732,76 @@ function Compras() {
                                             {formDetalle.map((line, idx) => (
                                                 <tr key={idx}>
                                                     <td>
+                                                        {/*hacer que cuando se escriba el nombre de un producto se muestre las opciones disponibles y si no existe se cree desde aca */}
+                                                        {(() => {
+                                                            const query = normalizar(line.producto_texto);
+                                                            const sugerencias = query
+                                                                ? productos.filter((item) =>
+                                                                    normalizar(`${item.nombre} ${item.marca || ''} ${item.modelo || ''}`).includes(query)
+                                                                  )
+                                                                : productos;
 
-                                                            {/*hacer que cuando se escriba el nombre de un producto se muestre las opciones disponibles y si no existe se cree desde aca */}
-                                                        <div className="solic-form--input-group">
-                                <input
-                                    className="compras-input"
-                                    type="text"
-                                    id="proucto"
-                                    autoComplete="off"
-                                    value={(formDetalle[idx].id_producto) ? productos.find(p => String(p.id_producto) === String(formDetalle[idx].id_producto))?.nombre || '' : ''}
-                                    onChange={(e) => {
-                                        handleLineChange(idx, 'id_producto', e.target.value);
-                                    }}
-                                    onFocus={() => setShowResults(true)}
-                                    onBlur={() => setTimeout(() => setShowResults(false), 160)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Escape') setShowResults(false);
-                                    }}
-                                    required
-                                    placeholder="Escribe el material"
-                                />
+                                                            return (
+                                                                <div className="solic-form--input-group">
+                                                                    <input
+                                                                        className="compras-input"
+                                                                        type="text"
+                                                                        id={`producto-${idx}`}
+                                                                        autoComplete="off"
+                                                                        value={line.producto_texto ?? ''}
+                                                                        onChange={(e) => {
+                                                                            handleLinePatch(idx, {
+                                                                                producto_texto: e.target.value,
+                                                                                id_producto: '',
+                                                                            });
+                                                                            setActiveProductRow(idx);
+                                                                        }}
+                                                                        onFocus={() => setActiveProductRow(idx)}
+                                                                        onBlur={() => setTimeout(() => setActiveProductRow((cur) => (cur === idx ? null : cur)), 160)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Escape') setActiveProductRow(null);
+                                                                        }}
+                                                                        required
+                                                                        placeholder="Escribe el material"
+                                                                    />
 
-                                {productos.length > 0 && showResults && (
-                                    <ul className="search-results" role="listbox" aria-label="Sugerencias de materiales">
-                                        {productos.map((item) => (
-                                            <li
-                                                key={item.producto}
-                                                className="search-result-item"
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={() => {
-                                                    handleLineChange(idx, 'id_producto', item.id_producto);
-                                                    setShowResults(false);
-                                                }}
-                                            >
-                                                {item.nombre} {item.marca ? ` - ${item.marca}` : ''} {item.modelo ? ` - ${item.modelo}` : ''}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
+                                                                    {activeProductRow === idx && (
+                                                                        <ul className="search-results" role="listbox" aria-label="Sugerencias de materiales">
+                                                                            {sugerencias.map((item) => (
+                                                                                <li
+                                                                                    key={item.id_producto}
+                                                                                    className="search-result-item"
+                                                                                    onMouseDown={(e) => e.preventDefault()}
+                                                                                    onClick={() => {
+                                                                                        handleLinePatch(idx, {
+                                                                                            id_producto: item.id_producto,
+                                                                                            producto_texto: item.nombre,
+                                                                                        });
+                                                                                        setActiveProductRow(null);
+                                                                                    }}
+                                                                                >
+                                                                                    {item.nombre} {item.marca ? ` - ${item.marca}` : ''} {item.modelo ? ` - ${item.modelo}` : ''}
+                                                                                </li>
+                                                                            ))}
+                                                                            {sugerencias.length === 0 && (line.producto_texto || '').trim() && (
+                                                                                <li
+                                                                                    className="search-result-item"
+                                                                                    onMouseDown={(e) => e.preventDefault()}
+                                                                                    onClick={() => {
+                                                                                        // Gancho listo para crear el producto cuando no exista
+                                                                                    }}
+                                                                                >
+                                                                                    + Crear producto &quot;{line.producto_texto.trim()}&quot;
+                                                                                </li>
+                                                                            )}
+                                                                        </ul>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td><input type="number" className="compras-input compras-input--val" min="1" value={formDetalle[idx].cantidad} onChange={(e) => handleLineChange(idx, 'cantidad', e.target.value)} /></td>
+                                                    <td><input type="number" className="compras-input compras-input--val" min="0" max={formDetalle[idx].cantidad} value={formDetalle[idx].recibidos} onChange={(e) => handleLineChange(idx, 'recibidos', e.target.value)} /></td>
                                                     <td><input type="number" className="compras-input" min="0" step="0.01" value={formDetalle[idx].precio_unitario} onChange={(e) => handleLineChange(idx, 'precio_unitario', e.target.value)} /></td>
                                                     <td>
                                                         <select name="deptoChoose" className="compras-input" value={formDetalle[idx].id_departamento} onChange={(e) => handleDepartamentoChoose(idx, e)}>
@@ -792,6 +891,7 @@ function Compras() {
                                                             <th>Modelo</th>
                                                             <th>Depto.</th>
                                                             <th>Cantidad</th>
+                                                            <th>Recibido</th>
                                                             <th>Precio Unit.</th>
                                                             <th>Subtotal</th>
                                                         </tr>
@@ -804,6 +904,7 @@ function Compras() {
                                                                 <td>{d.modelo}</td>
                                                                 <td>{departamentos.find(dep => dep.id_departamento === d.id_departamento)?.nombre || d.id_departamento}</td>
                                                                 <td>{d.cantidad}</td>
+                                                                <td>{d.recibidos}</td>
                                                                 <td>{formatMoney(d.precio_unitario)}</td>
                                                                 <td>{formatMoney(d.cantidad * d.precio_unitario)}</td>
                                                             </tr>
@@ -825,21 +926,19 @@ function Compras() {
                                             </svg>
                                             Eliminar
                                         </button>
-                                        
-                                            {!existeFactura(detailCompra.id_compra) && (
+
+                                        {!existeFactura(detailCompra.id_compra) && (
                                             <button className="compras-btn compras-btn--factura" onClick={() => navigate(`/facturas?idCompra=${detailCompra.id_compra}&pagoModalOpen=true`)}>
-                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g/><g/><path d="M10.5 11H17M7 11h.5M7 7.5h.5m-.5 7h.5m9.5 0h-1m-5.5 0h3m3.5-7h-3m-3.5 0h1M21 7v-.63c0-1.193 0-1.79-.158-2.27a3.05 3.05 0 0 0-1.881-1.937C18.493 2 17.914 2 16.755 2h-9.51c-1.159 0-1.738 0-2.206.163a3.05 3.05 0 0 0-1.881 1.936C3 4.581 3 5.177 3 6.37V15m18-4v9.374c0 .858-.985 1.314-1.608.744a.946.946 0 0 0-1.284 0l-.483.442a1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0l-.483-.442a.946.946 0 0 0-1.284 0c-.623.57-1.608.114-1.608-.744V19" stroke="currentColor"/></svg>
+                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g /><g /><path d="M10.5 11H17M7 11h.5M7 7.5h.5m-.5 7h.5m9.5 0h-1m-5.5 0h3m3.5-7h-3m-3.5 0h1M21 7v-.63c0-1.193 0-1.79-.158-2.27a3.05 3.05 0 0 0-1.881-1.937C18.493 2 17.914 2 16.755 2h-9.51c-1.159 0-1.738 0-2.206.163a3.05 3.05 0 0 0-1.881 1.936C3 4.581 3 5.177 3 6.37V15m18-4v9.374c0 .858-.985 1.314-1.608.744a.946.946 0 0 0-1.284 0l-.483.442a1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0l-.483-.442a.946.946 0 0 0-1.284 0c-.623.57-1.608.114-1.608-.744V19" stroke="currentColor" /></svg>
                                                 Crear Factura
                                             </button>
-                                            )}
-                                            {existeFactura(detailCompra.id_compra) && (
-                                                <button className="compras-btn compras-btn--factura" onClick={() => navigate(`/facturas?id_compra=${detailCompra.id_compra}`)}>
-                                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g/><g/><path d="M10.5 11H17M7 11h.5M7 7.5h.5m-.5 7h.5m9.5 0h-1m-5.5 0h3m3.5-7h-3m-3.5 0h1M21 7v-.63c0-1.193 0-1.79-.158-2.27a3.05 3.05 0 0 0-1.881-1.937C18.493 2 17.914 2 16.755 2h-9.51c-1.159 0-1.738 0-2.206.163a3.05 3.05 0 0 0-1.881 1.936C3 4.581 3 5.177 3 6.37V15m18-4v9.374c0 .858-.985 1.314-1.608.744a.946.946 0 0 0-1.284 0l-.483.442a1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0l-.483-.442a.946.946 0 0 0-1.284 0c-.623.57-1.608.114-1.608-.744V19" stroke="currentColor"/></svg>
-                                                    Ver Factura
-                                                </button>
-                                            )}
-                                        
-                                        
+                                        )}
+                                        {existeFactura(detailCompra.id_compra) && (
+                                            <button className="compras-btn compras-btn--factura" onClick={() => navigate(`/facturas?id_compra=${detailCompra.id_compra}`)}>
+                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g /><g /><path d="M10.5 11H17M7 11h.5M7 7.5h.5m-.5 7h.5m9.5 0h-1m-5.5 0h3m3.5-7h-3m-3.5 0h1M21 7v-.63c0-1.193 0-1.79-.158-2.27a3.05 3.05 0 0 0-1.881-1.937C18.493 2 17.914 2 16.755 2h-9.51c-1.159 0-1.738 0-2.206.163a3.05 3.05 0 0 0-1.881 1.936C3 4.581 3 5.177 3 6.37V15m18-4v9.374c0 .858-.985 1.314-1.608.744a.946.946 0 0 0-1.284 0l-.483.442a1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0 1.657 1.657 0 0 0-2.25 0 1.657 1.657 0 0 1-2.25 0l-.483-.442a.946.946 0 0 0-1.284 0c-.623.57-1.608.114-1.608-.744V19" stroke="currentColor" /></svg>
+                                                Ver Factura
+                                            </button>
+                                        )}
                                     </div>
                                 </>
                             )}

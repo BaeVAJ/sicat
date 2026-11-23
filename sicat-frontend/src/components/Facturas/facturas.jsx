@@ -71,7 +71,7 @@ function Facturas() {
     const replaceDocInputRef = useRef(null);
     const pendingReplaceRef = useRef(null);
 
-    const searchParams = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const notifySuccess = useCallback((text, timeout = 4500) => {
         setError('');
@@ -181,7 +181,6 @@ function Facturas() {
         return compras.filter((c) => !facturadas.has(Number(c.id_compra)) && !c.tiene_factura);
     }, [compras, facturas]);
 
-    /* ───────────── Filtros y acordeón ───────────── */
 
     const limpiarFiltros = () => {
         setQuickChip('ALL');
@@ -624,6 +623,35 @@ function Facturas() {
         deleteComplementoDoc: (pago, tipo) => setDocToDelete({ scope: 'complemento', record: pago, tipo }),
     };
 
+    useEffect(() => {
+        const newFactura = searchParams.get('pagoModalOpen');
+        const idCompraParam = searchParams.get('idCompra');
+        const idCompraFactura = searchParams.get('id_compra');
+
+        if (newFactura === 'true') {
+            if (isAdmin) {
+                const parsedId = Number(idCompraParam);
+                const initialIdCompra = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
+                void fetchCompras();
+                setFacturaDetalle(null);
+                setError('');
+                setFacturaModal({ factura: null, initialIdCompra });
+            }
+            
+            return;
+        }
+
+        if (idCompraFactura && !loading) {
+            const encontrada = facturasEnriquecidas.find(
+                (f) => Number(f.id_compra) === Number(idCompraFactura)
+            );
+            if (encontrada) {
+                setFacturaDetalle(encontrada);
+            }
+            
+        }
+    }, [searchParams, setSearchParams, facturasEnriquecidas, loading, isAdmin, fetchCompras]);
+
     return (
         <Layout>
             <div className="facturas-container">
@@ -730,6 +758,7 @@ function Facturas() {
                         <select
                             className="facturas-select"
                             aria-label="Filtrar por comprobantes"
+
                             value={filterArchivos}
                             onChange={(e) => {
                                 setFilterArchivos(e.target.value);
@@ -818,6 +847,7 @@ function Facturas() {
                 {facturaModal && (
                     <FacturaFormModal
                         factura={facturaModal.factura}
+                        initialIdCompra={facturaModal.initialIdCompra ?? null}
                         compras={comprasSinFactura}
                         canRegisterPago={canRegisterPago}
                         busy={actionLoading}

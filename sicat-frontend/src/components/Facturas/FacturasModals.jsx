@@ -15,10 +15,10 @@ const RFC = { fontSize: '0.76rem', color: '#94a3b8' };
 
 /* ═══════════════ Registrar / editar factura ═══════════════ */
 
-function formularioFactura(f) {
+function formularioFactura(f, initialIdCompra = null) {
     if (!f) {
         return {
-            idCompra: '',
+            idCompra: initialIdCompra != null ? String(initialIdCompra) : '',
             uuidFiscal: crypto.randomUUID ? crypto.randomUUID() : '',
             rfcEmisor: '',
             rfcReceptor: '',
@@ -42,9 +42,18 @@ function formularioFactura(f) {
     };
 }
 
-export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onClose, onSubmit, onError }) {
+export function FacturaFormModal({
+    factura,
+    initialIdCompra = null,
+    compras,
+    canRegisterPago,
+    busy,
+    onClose,
+    onSubmit,
+    onError,
+}) {
     const editing = Boolean(factura);
-    const [form, setForm] = useState(() => formularioFactura(factura));
+    const [form, setForm] = useState(() => formularioFactura(factura, initialIdCompra));
     const [archivoPdf, setArchivoPdf] = useState(null);
     const [archivoXml, setArchivoXml] = useState(null);
     const [eliminarPdf, setEliminarPdf] = useState(false);
