@@ -48,12 +48,6 @@ const ICONS = {
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </>
     ),
-    eye: (
-        <>
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-        </>
-    ),
     code: (
         <>
             <polyline points="16 18 22 12 16 6" />
@@ -64,6 +58,14 @@ const ICONS = {
         <>
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
+        </>
+    ),
+    replace: (
+        <>
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
         </>
     ),
     copy: (
@@ -156,10 +158,10 @@ export function SortHeader({ label, sortKey, sort, onSort, className }) {
     );
 }
 
-export function CopyButton({ onClick, title = 'Copiar UUID completo' }) {
+export function CopyButton({ onClick, title = 'Copiar UUID completo', round = true }) {
     return (
         <button type="button" className="facturas-copy-btn" title={title} aria-label={title} onClick={onClick}>
-            <Icon name="copy" size={14} round />
+            <Icon name="copy" size={14} round={round} />
         </button>
     );
 }
@@ -244,20 +246,50 @@ export function ConfirmModal({ title, busy, confirmLabel, busyLabel, onCancel, o
 }
 
 /** Zona de carga de PDF/XML. */
-export function FileDropzone({ kind, file, existing = false, emptyTitle, idleText, readyText, iconSize = 22, onSelect, onRemove }) {
+export function FileDropzone({
+    kind,
+    file,
+    existing = false,
+    markedForDelete = false,
+    emptyTitle,
+    idleText,
+    readyText,
+    iconSize = 22,
+    onSelect,
+    onRemove,
+    onDeleteExisting,
+    onUndoDelete,
+}) {
     const inputRef = useRef(null);
     const isXml = kind === 'xml';
+    const upper = kind.toUpperCase();
     const open = () => inputRef.current?.click();
+
+    const title = file
+        ? file.name
+        : existing && markedForDelete
+            ? `${upper} marcado para eliminar`
+            : existing
+                ? `${upper} guardado`
+                : emptyTitle;
 
     const subtitle = file
         ? `${(file.size / 1024).toFixed(1)} KB ${readyText}`
-        : existing
-            ? `Ya hay un ${kind.toUpperCase()}. Selecciona otro para reemplazarlo`
-            : idleText;
+        : existing && markedForDelete
+            ? `Se eliminará el ${upper} al guardar`
+            : existing
+                ? `Ya hay un ${upper}. Puedes reemplazarlo o eliminarlo`
+                : idleText;
+
+    const stateClass = file
+        ? ` facturas-dropzone--active${isXml ? '-xml' : ''}`
+        : existing && markedForDelete
+            ? ' facturas-dropzone--danger'
+            : '';
 
     return (
         <div
-            className={`facturas-dropzone${file ? ` facturas-dropzone--active${isXml ? '-xml' : ''}` : ''}`}
+            className={`facturas-dropzone${stateClass}`}
             onClick={open}
             role="button"
             tabIndex={0}
@@ -272,21 +304,25 @@ export function FileDropzone({ kind, file, existing = false, emptyTitle, idleTex
                 ref={inputRef}
                 accept={isXml ? '.xml,text/xml,application/xml' : '.pdf,application/pdf'}
                 style={{ display: 'none' }}
-                onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                    const selected = e.target.files?.[0] ?? null;
+                    e.target.value = '';
+                    onSelect(selected);
+                }}
             />
             <div className={`facturas-dropzone__icon facturas-dropzone__icon--${kind}`}>
                 <Icon name={isXml ? 'code' : 'file'} size={iconSize} />
             </div>
             <div className="facturas-dropzone__info">
-                <span className="facturas-dropzone__title">{file ? file.name : emptyTitle}</span>
+                <span className="facturas-dropzone__title">{title}</span>
                 <span className="facturas-dropzone__sub">{subtitle}</span>
             </div>
-            {file && (
+            {file ? (
                 <button
                     type="button"
                     className="facturas-dropzone__remove"
-                    title={`Quitar ${kind.toUpperCase()}`}
-                    aria-label={`Quitar ${kind.toUpperCase()}`}
+                    title={`Quitar ${upper}`}
+                    aria-label={`Quitar ${upper}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         if (inputRef.current) inputRef.current.value = '';
@@ -295,6 +331,40 @@ export function FileDropzone({ kind, file, existing = false, emptyTitle, idleTex
                 >
                     ✕
                 </button>
+            ) : existing && (
+                <div className="facturas-dropzone__actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        className="facturas-btn facturas-btn--secondary facturas-btn--xs"
+                        onClick={open}
+                        title={`Reemplazar ${upper}`}
+                    >
+                        Reemplazar
+                    </button>
+                    {markedForDelete ? (
+                        onUndoDelete && (
+                            <button
+                                type="button"
+                                className="facturas-btn facturas-btn--secondary facturas-btn--xs"
+                                onClick={onUndoDelete}
+                                title={`Cancelar eliminación de ${upper}`}
+                            >
+                                Deshacer
+                            </button>
+                        )
+                    ) : (
+                        onDeleteExisting && (
+                            <button
+                                type="button"
+                                className="facturas-btn facturas-btn--danger facturas-btn--xs"
+                                onClick={onDeleteExisting}
+                                title={`Eliminar ${upper}`}
+                            >
+                                Eliminar
+                            </button>
+                        )
+                    )}
+                </div>
             )}
         </div>
     );

@@ -27,7 +27,7 @@ export const USO_CFDI_OPCIONES = [
 
 /* ───────────── Formato ───────────── */
 
-export function normalizar(texto) {
+function normalizar(texto) {
     return String(texto ?? '')
         .toLowerCase()
         .normalize('NFD')
@@ -104,24 +104,12 @@ function dispararDescarga(href, filename, extra = {}) {
     a.remove();
 }
 
-export async function downloadFile(url, filename) {
-    try {
-        const blob = await (await fetch(url)).blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        dispararDescarga(blobUrl, filename);
-        window.URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-        console.warn('Fallback a descarga directa:', err);
-        dispararDescarga(url, filename, { target: '_blank' });
-    }
-}
-
 const escaparCsv = (valor) => {
     const texto = valor == null ? '' : String(valor);
     return /[",\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
 };
 
-export function descargarCsv(encabezados, filas, filename) {
+function descargarCsv(encabezados, filas, filename) {
     const csv = [encabezados, ...filas].map((fila) => fila.map(escaparCsv).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' }));
     dispararDescarga(url, filename);
@@ -145,32 +133,6 @@ export function exportarFacturasCsv(facturas) {
 }
 
 /* ───────────── XML (CFDI) ───────────── */
-
-export function formatXml(xmlStr) {
-    if (!xmlStr) return '';
-    try {
-        let pad = 0;
-        return xmlStr
-            .replace(/(>)(<)(\/*)/g, '$1\r\n$2$3')
-            .split('\r\n')
-            .map((node) => {
-                let indent = 0;
-                if (node.match(/.+<\/\w[^>]*>$/)) {
-                    indent = 0;
-                } else if (node.match(/^<\/\w/)) {
-                    if (pad > 0) pad -= 1;
-                } else if (node.match(/^<\w[^>]*[^/]>.*$/)) {
-                    indent = 1;
-                }
-                const linea = '  '.repeat(pad) + node;
-                pad += indent;
-                return linea;
-            })
-            .join('\n');
-    } catch {
-        return xmlStr;
-    }
-}
 
 /**
  * Extrae los datos fiscales de un CFDI. Devuelve solo los campos encontrados,
@@ -313,7 +275,7 @@ export function resumirFacturas(facturas) {
     return r;
 }
 
-export const FILTROS_CHIP = {
+const FILTROS_CHIP = {
     ALL: () => true,
     PPD_OPEN: (f) => f.metodo_pago === 'PPD' && f.saldo > 0,
     PPD_DONE: (f) => f.metodo_pago === 'PPD' && f.saldo <= 0,
@@ -322,7 +284,7 @@ export const FILTROS_CHIP = {
     INCOMPLETE: (f) => !(f.archivo_url && f.archivo_xml_url),
 };
 
-export const FILTROS_ARCHIVOS = {
+const FILTROS_ARCHIVOS = {
     ALL: () => true,
     INCOMPLETE: (pdf, xml) => !(pdf && xml),
     PDF: (pdf) => pdf,

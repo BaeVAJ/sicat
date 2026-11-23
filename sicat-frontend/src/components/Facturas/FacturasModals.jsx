@@ -1,10 +1,10 @@
 // Modales del módulo de facturas.
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Alert, CopyButton, DetailCard, Field, FileDropzone, Icon, Modal, SplitRow,
 } from './FacturasUi';
 import {
-    USO_CFDI_OPCIONES, calcularFalta, downloadFile, formatoMoneda, hoyIso, mostrarFechaCompleta,
+    USO_CFDI_OPCIONES, calcularFalta, campoACamel, formatoMoneda, hoyIso, mostrarFechaCompleta,
     obtenerFechaIso, parseCfdiXml, validarArchivo,
 } from './facturasUtils';
 
@@ -47,6 +47,8 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
     const [form, setForm] = useState(() => formularioFactura(factura));
     const [archivoPdf, setArchivoPdf] = useState(null);
     const [archivoXml, setArchivoXml] = useState(null);
+    const [eliminarPdf, setEliminarPdf] = useState(false);
+    const [eliminarXml, setEliminarXml] = useState(false);
     const [notice, setNotice] = useState('');
 
     const set = (name, transform = (v) => v) => (e) => setForm((p) => ({ ...p, [name]: transform(e.target.value) }));
@@ -68,6 +70,7 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
         const err = validarArchivo(file, 'pdf');
         if (err) return onError(err);
         setArchivoPdf(file);
+        setEliminarPdf(false);
         onError('');
     };
 
@@ -76,6 +79,7 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
         const err = validarArchivo(file, 'xml');
         if (err) return onError(err);
         setArchivoXml(file);
+        setEliminarXml(false);
         onError('');
         try {
             const campos = parseCfdiXml(await file.text());
@@ -104,7 +108,9 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
         data.append('metodo_pago', form.metodoPago);
         data.append('uso_cfdi', form.usoCfdi);
         if (archivoPdf) data.append('archivo_pdf', archivoPdf);
+        else if (editing && eliminarPdf) data.append('eliminar_pdf', 'true');
         if (archivoXml) data.append('archivo_xml', archivoXml);
+        else if (editing && eliminarXml) data.append('eliminar_xml', 'true');
 
         onSubmit(data, {
             continueToPago: e.nativeEvent.submitter?.dataset.continue === 'true',
@@ -112,6 +118,7 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
             subtotal,
             iva,
             adjuntos: [archivoPdf && 'PDF', archivoXml && 'XML'].filter(Boolean),
+            eliminados: [editing && eliminarPdf && !archivoPdf && 'PDF', editing && eliminarXml && !archivoXml && 'XML'].filter(Boolean),
         });
     };
 
@@ -125,7 +132,7 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
             subtitle={
                 <span style={HINT_SUBTITLE}>
                     {editing
-                        ? 'Modifica los datos fiscales o reemplaza los comprobantes PDF/XML'
+                        ? 'Modifica los datos fiscales o reemplaza/elimina los comprobantes PDF y XML'
                         : 'Sube primero el XML CFDI para autollenar o captura manualmente'}
                 </span>
             }
@@ -147,21 +154,27 @@ export function FacturaFormModal({ factura, compras, canRegisterPago, busy, onCl
                             kind="xml"
                             file={archivoXml}
                             existing={editing && Boolean(factura.archivo_xml_url)}
+                            markedForDelete={eliminarXml}
                             emptyTitle="Subir Archivo XML"
                             idleText="Clic para .xml (Autollena el formulario)"
                             readyText="(Autollenado)"
                             onSelect={seleccionarXml}
                             onRemove={() => { setArchivoXml(null); setNotice(''); }}
+                            onDeleteExisting={() => setEliminarXml(true)}
+                            onUndoDelete={() => setEliminarXml(false)}
                         />
                         <FileDropzone
                             kind="pdf"
                             file={archivoPdf}
                             existing={editing && Boolean(factura.archivo_url)}
+                            markedForDelete={eliminarPdf}
                             emptyTitle="Subir Documento PDF"
                             idleText="Clic para seleccionar archivo .pdf"
                             readyText="(Listo)"
                             onSelect={seleccionarPdf}
                             onRemove={() => setArchivoPdf(null)}
+                            onDeleteExisting={() => setEliminarPdf(true)}
+                            onUndoDelete={() => setEliminarPdf(false)}
                         />
                     </div>
                 </div>
@@ -301,6 +314,8 @@ export function PagoFormModal({ editing, initial, ppdFacturas, findFactura, getS
     const [form, setForm] = useState(initial);
     const [pdf, setPdf] = useState(null);
     const [xml, setXml] = useState(null);
+    const [eliminarPdf, setEliminarPdf] = useState(false);
+    const [eliminarXml, setEliminarXml] = useState(false);
     const [saving, setSaving] = useState(false);
     const [campoError, setCampoError] = useState('');
     const [error, setError] = useState('');
@@ -376,7 +391,9 @@ export function PagoFormModal({ editing, initial, ppdFacturas, findFactura, getS
             falta_pagar: form.faltaPagar,
         }).forEach(([k, v]) => data.append(k, v ?? ''));
         if (pdf) data.append('archivo_pdf', pdf);
+        else if (editing && eliminarPdf) data.append('eliminar_pdf', 'true');
         if (xml) data.append('archivo_xml', xml);
+        else if (editing && eliminarXml) data.append('eliminar_xml', 'true');
 
         setSaving(true);
         setCampoError('');
@@ -481,23 +498,29 @@ export function PagoFormModal({ editing, initial, ppdFacturas, findFactura, getS
                             kind="pdf"
                             file={pdf}
                             existing={Boolean(editing?.url_pdf)}
+                            markedForDelete={eliminarPdf}
                             emptyTitle="Documento PDF REP"
                             idleText="Clic para seleccionar archivo .pdf"
                             readyText="· listo"
                             iconSize={18}
-                            onSelect={setPdf}
+                            onSelect={(f) => { setPdf(f); if (f) setEliminarPdf(false); }}
                             onRemove={() => setPdf(null)}
+                            onDeleteExisting={() => setEliminarPdf(true)}
+                            onUndoDelete={() => setEliminarPdf(false)}
                         />
                         <FileDropzone
                             kind="xml"
                             file={xml}
                             existing={Boolean(editing?.url_xml)}
+                            markedForDelete={eliminarXml}
                             emptyTitle="Archivo XML REP"
                             idleText="Clic para seleccionar archivo .xml"
                             readyText="· listo"
                             iconSize={18}
-                            onSelect={setXml}
+                            onSelect={(f) => { setXml(f); if (f) setEliminarXml(false); }}
                             onRemove={() => setXml(null)}
+                            onDeleteExisting={() => setEliminarXml(true)}
+                            onUndoDelete={() => setEliminarXml(false)}
                         />
                     </div>
                 </div>
@@ -521,7 +544,7 @@ function UuidLine({ uuid, fontSize, onCopy }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '4px' }}>
             <span style={{ fontFamily: 'monospace', fontSize, color: '#f1f5f9', wordBreak: 'break-all' }}>{uuid || '—'}</span>
-            {uuid && <CopyButton title="Copiar UUID" onClick={() => onCopy(uuid)} />}
+            {uuid && <CopyButton title="Copiar UUID" round={false} onClick={() => onCopy(uuid)} />}
         </div>
     );
 }
@@ -541,7 +564,66 @@ const BadgeCard = ({ label, className, children }) => (
     </DetailCard>
 );
 
-export function FacturaDetailModal({ factura: f, isAdmin, canRegisterPago, busy, onClose, onCopy, onVerPdf, onVerXml, onAbonar, onEditar }) {
+function DocumentManageList({ record, pdfUrl, xmlUrl, isAdmin, busy, emptyLabel = 'Sin archivos', onOpenFile, onReplaceDoc, onDeleteDoc }) {
+    const hasPdf = Boolean(pdfUrl);
+    const hasXml = Boolean(xmlUrl);
+    if (!hasPdf && !hasXml && !isAdmin) {
+        return <span className="facturas-badge facturas-badge--nopdf">{emptyLabel}</span>;
+    }
+
+    const docs = [
+        { tipo: 'pdf', label: 'Documento PDF', openLabel: 'Abrir PDF', existe: hasPdf },
+        { tipo: 'xml', label: 'Comprobante XML', openLabel: 'Descargar XML', existe: hasXml },
+    ];
+
+    return (
+        <div className="facturas-doc-list">
+            {docs.map(({ tipo, label, openLabel, existe }) => (
+                <div key={tipo} className="facturas-doc-row">
+                    <span className="facturas-doc-row__info">
+                        <Icon name={tipo === 'pdf' ? 'file' : 'code'} size={15} round />
+                        <span>{label}</span>
+                        {!existe && <span className="facturas-badge facturas-badge--nopdf">Sin adjuntar</span>}
+                    </span>
+                    <div className="facturas-doc-row__actions">
+                        {existe && (
+                            <button
+                                type="button"
+                                className={`facturas-btn facturas-btn--${tipo} facturas-btn--xs`}
+                                onClick={() => onOpenFile(record, tipo)}
+                                disabled={busy}
+                            >
+                                {openLabel}
+                            </button>
+                        )}
+                        {isAdmin && (
+                            <button
+                                type="button"
+                                className="facturas-btn facturas-btn--secondary facturas-btn--xs"
+                                onClick={() => onReplaceDoc(record, tipo)}
+                                disabled={busy}
+                            >
+                                {existe ? 'Reemplazar' : `Subir ${tipo.toUpperCase()}`}
+                            </button>
+                        )}
+                        {isAdmin && existe && (
+                            <button
+                                type="button"
+                                className="facturas-btn facturas-btn--danger facturas-btn--xs"
+                                onClick={() => onDeleteDoc(record, tipo)}
+                                disabled={busy}
+                            >
+                                Eliminar
+                            </button>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+export function FacturaDetailModal({ factura: f, isAdmin, canRegisterPago, busy, onClose, onCopy, onOpenFile, onReplaceDoc, onDeleteDoc, onAbonar, onEditar }) {
     const esPpd = f.metodo_pago === 'PPD';
     const colorSaldo = f.saldo > 0 ? '#fcd34d' : '#6ee7b7';
 
@@ -622,21 +704,17 @@ export function FacturaDetailModal({ factura: f, isAdmin, canRegisterPago, busy,
                     </div>
 
                     <DetailCard label="Archivos Digitales Adjuntos">
-                        <div style={{ display: 'flex', gap: '0.6rem', marginTop: '8px', flexWrap: 'wrap' }}>
-                            {f.archivo_url && (
-                                <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => onVerPdf(f)} disabled={busy}>
-                                    Ver Documento PDF
-                                </button>
-                            )}
-                            {f.archivo_xml_url && (
-                                <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => onVerXml(f)} disabled={busy}>
-                                    Ver / Descargar XML
-                                </button>
-                            )}
-                            {!f.archivo_url && !f.archivo_xml_url && (
-                                <span className="facturas-badge facturas-badge--nopdf">Sin archivos digitales adjuntos</span>
-                            )}
-                        </div>
+                        <DocumentManageList
+                            record={f}
+                            pdfUrl={f.archivo_url}
+                            xmlUrl={f.archivo_xml_url}
+                            isAdmin={isAdmin}
+                            busy={busy}
+                            emptyLabel="Sin archivos digitales adjuntos"
+                            onOpenFile={onOpenFile}
+                            onReplaceDoc={onReplaceDoc}
+                            onDeleteDoc={onDeleteDoc}
+                        />
                     </DetailCard>
                 </div>
             </div>
@@ -644,7 +722,7 @@ export function FacturaDetailModal({ factura: f, isAdmin, canRegisterPago, busy,
     );
 }
 
-export function PagoDetailModal({ pago: p, isAdmin, onClose, onCopy, onOpenFile, onEditar }) {
+export function PagoDetailModal({ pago: p, isAdmin, busy, onClose, onCopy, onOpenFile, onReplaceDoc, onDeleteDoc, onEditar }) {
     const liquidado = p.falta_pagar != null && Number(p.falta_pagar) === 0;
     const datos = [
         ['Empresa', p.empresa],
@@ -658,6 +736,7 @@ export function PagoDetailModal({ pago: p, isAdmin, onClose, onCopy, onOpenFile,
             detail
             maxWidth="580px"
             title="Detalle del complemento"
+            label="Detalle del complemento de pago"
             subtitle={<span style={HINT_SUBTITLE}>Pago #{p.num_pago || '—'} · {mostrarFechaCompleta(p.fecha_pago)}</span>}
             onClose={onClose}
             footer={
@@ -697,103 +776,21 @@ export function PagoDetailModal({ pago: p, isAdmin, onClose, onCopy, onOpenFile,
                         </DetailCard>
 
                         <DetailCard label="Comprobantes REP" full>
-                            <div className="facturas-actions-cluster" style={{ marginTop: '8px' }}>
-                                {p.url_pdf && (
-                                    <button type="button" className="facturas-btn facturas-btn--pdf" onClick={() => onOpenFile(p, 'pdf')}>Abrir PDF</button>
-                                )}
-                                {p.url_xml && (
-                                    <button type="button" className="facturas-btn facturas-btn--xml" onClick={() => onOpenFile(p, 'xml')}>Abrir XML</button>
-                                )}
-                                {!p.url_pdf && !p.url_xml && <span className="facturas-badge facturas-badge--nopdf">Sin archivos</span>}
-                            </div>
+                            <DocumentManageList
+                                record={p}
+                                pdfUrl={p.url_pdf}
+                                xmlUrl={p.url_xml}
+                                isAdmin={isAdmin}
+                                busy={busy}
+                                emptyLabel="Sin archivos"
+                                onOpenFile={onOpenFile}
+                                onReplaceDoc={onReplaceDoc}
+                                onDeleteDoc={onDeleteDoc}
+                            />
                         </DetailCard>
                     </div>
                 </div>
             </div>
         </Modal>
-    );
-}
-
-/* ═══════════════ Visores ═══════════════ */
-
-export function PdfViewerModal({ preview, onClose }) {
-    return (
-        <div className="facturas-modal-overlay" onClick={onClose}>
-            <div className="facturas-pdf-viewer-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="facturas-pdf-viewer-header">
-                    <div className="facturas-pdf-viewer-title">
-                        <Icon name="file" size={18} />
-                        <span>{preview.title}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                            type="button"
-                            className="facturas-btn facturas-btn--secondary facturas-btn--sm"
-                            onClick={() => downloadFile(preview.url, preview.filename || 'Factura.pdf')}
-                            title="Descargar archivo PDF"
-                        >
-                            Descargar PDF
-                        </button>
-                        <a href={preview.url} target="_blank" rel="noopener noreferrer" className="facturas-btn facturas-btn--secondary facturas-btn--sm">
-                            Pestaña nueva
-                        </a>
-                        <button type="button" className="facturas-modal__close" onClick={onClose} aria-label="Cerrar visor">✕</button>
-                    </div>
-                </div>
-                <iframe src={preview.url} title="Visor de Factura PDF" className="facturas-pdf-viewer-frame" />
-            </div>
-        </div>
-    );
-}
-
-export function XmlViewerModal({ preview, onClose }) {
-    const [copied, setCopied] = useState(false);
-    const timer = useRef(null);
-    useEffect(() => () => clearTimeout(timer.current), []);
-
-    const copiar = () => {
-        navigator.clipboard?.writeText(preview.content);
-        setCopied(true);
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => setCopied(false), 2500);
-    };
-    const descargar = () => downloadFile(preview.downloadUrl, preview.filename);
-
-    return (
-        <div className="facturas-modal-overlay" onClick={onClose}>
-            <div className="facturas-xml-viewer-modal" onClick={(e) => e.stopPropagation()}>
-                <div className="facturas-xml-viewer-header">
-                    <div className="facturas-xml-viewer-title">
-                        <div className="facturas-dropzone__icon--xml" style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Icon name="code" />
-                        </div>
-                        <span>{preview.title}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button type="button" className="facturas-btn facturas-btn--secondary facturas-btn--sm" onClick={copiar}>
-                            {copied ? '¡Copiado!' : 'Copiar'}
-                        </button>
-                        <button type="button" className="facturas-btn facturas-btn--xml facturas-btn--sm" onClick={descargar}>
-                            Descargar XML
-                        </button>
-                        <button type="button" className="facturas-modal__close" onClick={onClose} aria-label="Cerrar visor XML">✕</button>
-                    </div>
-                </div>
-
-                <div className="facturas-xml-viewer-body">
-                    <pre className="facturas-xml-viewer-code"><code>{preview.content}</code></pre>
-                </div>
-
-                <div className="facturas-xml-viewer-footer">
-                    <div className="facturas-xml-viewer-filename">
-                        <span>Archivo: </span>
-                        <strong>{preview.filename}</strong>
-                    </div>
-                    <button type="button" className="facturas-btn facturas-btn--xml facturas-btn--sm" onClick={descargar}>
-                        Guardar Documento (.xml)
-                    </button>
-                </div>
-            </div>
-        </div>
     );
 }

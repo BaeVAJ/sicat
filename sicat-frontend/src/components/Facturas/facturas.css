@@ -59,13 +59,6 @@
     flex-wrap: wrap;
 }
 
-.facturas-nuevo-complemento-wrap{
-    display: flex;
-    align-items: center;
-    justify-content:end;
-    gap: 0.75rem;
-}
-
 /* ---------- Buttons & Micro-animations ---------- */
 .facturas-btn {
     display: inline-flex;
@@ -241,11 +234,6 @@
     color: #67e8f9;
 }
 
-.facturas-kpi-card__icon--purple {
-    background: rgba(168, 85, 247, 0.15);
-    color: #c084fc;
-}
-
 .facturas-kpi-card__val {
     font-size: 1.65rem;
     font-weight: 700;
@@ -328,14 +316,6 @@
 }
 
 /* ---------- Search & Filters Bar ---------- */
-.facturas-filters {
-    display: flex;
-    gap: 0.85rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
 .facturas-search-wrap {
     position: relative;
     flex: 2;
@@ -798,134 +778,92 @@
     border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* ---------- PDF Viewer Modal ---------- */
-.facturas-pdf-viewer-modal {
-    position: relative;
-    width: 92vw;
-    max-width: 960px;
-    height: 86vh;
-    display: flex;
-    flex-direction: column;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 18px;
-    padding: 1.25rem;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
-    animation: modalScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.facturas-pdf-viewer-header {
-    display: flex;
+/* ---------- Document Pill & Management Rows ---------- */
+.facturas-doc-pill {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.9rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.facturas-pdf-viewer-title {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-weight: 600;
-    color: #f1f5f9;
-    font-size: 0.95rem;
-}
-
-.facturas-pdf-viewer-frame {
-    width: 100%;
-    flex: 1;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    background: #090d16;
 }
 
-/* ---------- XML Viewer Modal ---------- */
-.facturas-xml-viewer-modal {
-    position: relative;
-    width: 92vw;
-    max-width: 880px;
-    height: 82vh;
+.facturas-doc-pill__action {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(203, 213, 225, 0.72);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.facturas-doc-pill__action:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+}
+
+.facturas-doc-pill__action--danger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+.facturas-doc-pill__action:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.facturas-doc-list {
     display: flex;
     flex-direction: column;
-    background: #0b0f19;
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    border-radius: 18px;
-    padding: 1.25rem;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(16, 185, 129, 0.08);
-    animation: modalScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    gap: 0.55rem;
+    margin-top: 0.65rem;
 }
 
-.facturas-xml-viewer-header {
+.facturas-doc-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.9rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     gap: 0.75rem;
     flex-wrap: wrap;
+    padding: 0.55rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.facturas-xml-viewer-title {
+.facturas-doc-row__info {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    font-weight: 600;
-    color: #f1f5f9;
-    font-size: 0.95rem;
-}
-
-.facturas-xml-viewer-body {
-    flex: 1;
-    overflow: auto;
-    background: #060910;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    position: relative;
-}
-
-.facturas-xml-viewer-body::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.facturas-xml-viewer-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-}
-
-.facturas-xml-viewer-code {
-    margin: 0;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
-    font-size: 0.81rem;
-    line-height: 1.6;
-    color: #a7f3d0;
-    white-space: pre;
-    word-wrap: normal;
-}
-
-.facturas-xml-viewer-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 0.85rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 0.5rem;
     font-size: 0.82rem;
-    color: #94a3b8;
-    gap: 0.75rem;
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.facturas-doc-row__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     flex-wrap: wrap;
 }
 
-.facturas-xml-viewer-filename {
+.facturas-dropzone--danger {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.5);
+    border-style: solid;
+}
+
+.facturas-dropzone__actions {
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    color: #cbd5e1;
-    font-family: monospace;
-    font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
 /* ---------- Detail Modal Cards & Left-Side Scrollbar ---------- */
@@ -1004,10 +942,6 @@
 
     .facturas-show-mobile {
         display: block !important;
-    }
-
-    .facturas-btn.facturas-show-mobile {
-        display: inline-flex !important;
     }
 
     .facturas-grid-2 {
@@ -1232,10 +1166,6 @@
     align-items: end;
 }
 
-.facturas-filters-grid--log {
-    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-}
-
 .facturas-filters-footer {
     display: flex;
     align-items: center;
@@ -1298,12 +1228,6 @@
     background: rgba(245, 158, 11, 0.12);
     border: 1px solid rgba(245, 158, 11, 0.32);
     color: #fcd34d;
-}
-
-.facturas-badge--info {
-    background: rgba(59, 130, 246, 0.12);
-    border: 1px solid rgba(59, 130, 246, 0.32);
-    color: #93c5fd;
 }
 
 /* ---------- Financial Progress Column ---------- */
