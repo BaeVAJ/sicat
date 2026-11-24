@@ -897,7 +897,7 @@ function Compras() {
                                             {formDetalle.map((line, idx) => (
                                                 <tr key={idx}>
                                                     <td>
-                                                        {/*hacer que cuando se escriba el nombre de un producto se muestre las opciones disponibles y si no existe se cree desde aca */}
+                                                        
                                                         {(() => {
                                                             const query = normalizar(line.producto_texto);
                                                             const sugerencias = query

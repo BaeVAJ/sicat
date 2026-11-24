@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* ── Keyframes y alertas globales compartidas ── */
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
