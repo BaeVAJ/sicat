@@ -511,7 +511,7 @@ function VerEmpresa() {
                             {usuario?.rol === 'admin' && (
                                 <button
                                     type="button"
-                                    className="depto-btn empresa-btn--primary"
+                                    className="empresa-btn empresa-btn--primary"
                                     onClick={() => handleOpenCreate()}
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
