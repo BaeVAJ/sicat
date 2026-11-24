@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
-import Layout from '../../layout/Layout';
 import './SolicitarMaterial.css';
 
 function normalizar(texto) {
@@ -50,7 +49,9 @@ function SolicitarMaterial() {
     }, [isAdmin, showMessage]);
 
     useEffect(() => {
-        void fetchData();
+        queueMicrotask(() => {
+            void fetchData();
+        });
     }, [fetchData]);
 
     const filteredMateriales = useMemo(() => {

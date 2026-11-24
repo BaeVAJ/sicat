@@ -54,16 +54,6 @@ function Asignaciones() {
 
     const [message, setMessage] = useState({type: '', text: ''});
 
-
-    const [filters, setFilters] = useState({
-        id: '',
-        producto: '',
-        departamento: '',
-        fecha_asignacion: '',
-        fecha_devolucion:'',
-        estado: '',
-        condicion:'',
-    });
     const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
 
     const showMessage = useCallback((type, text) => {
@@ -94,7 +84,9 @@ function Asignaciones() {
 
     useEffect(() => {
         const tab = searchParams.get('tab');
-        setActiveTab(tab === 'solicitudes' ? 'solicitudes' : 'asignaciones');
+        queueMicrotask(() => {
+            setActiveTab(tab === 'solicitudes' ? 'solicitudes' : 'asignaciones');
+        });
     }, [searchParams]);
 
     async function fetchData() {
@@ -198,7 +190,7 @@ function Asignaciones() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [asignaciones, search, filterEstatus, filterDepto, sort, filters]);
+    }, [asignaciones, search, filterEstatus, filterDepto, sort]);
 
     const availableInventory = useMemo(
         () => inventario.filter((inv) => Number(inv.id_departamento) === 1),

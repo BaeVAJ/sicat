@@ -61,15 +61,7 @@ function Compras() {
     const isAdmin = usuario?.rol === 'admin';
     const isGerente = usuario?.rol === 'gerente';
     const canCreate = isAdmin || isGerente;
-    const canManage = canCreate;
 
-    const [filters, setFilters] = useState({
-        id_compra: '',
-        proveedor: '',
-        empresa: '',
-        fecha_compra: '',
-        total: '',
-    });
     const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
 
     const [minFecha, setMinFecha] = useState('');
@@ -77,10 +69,6 @@ function Compras() {
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text });
-    }, []);
-
-    useEffect(() => {
-        fetchData();
     }, []);
 
     const fetchData = async () => {
@@ -122,6 +110,12 @@ function Compras() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchData();
+        });
+    }, []);
 
     const toggleSort = useCallback((key) => {
         setSort((prev) =>
@@ -203,7 +197,7 @@ function Compras() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [compras, search, filterProveedor, filterEmpresa, filters, sort, minFecha, maxFecha]);
+    }, [compras, search, filterProveedor, filterEmpresa, sort, minFecha, maxFecha]);
 
     const deptoFilter = useMemo(() => {
         const q = formIdEmpresa;
@@ -507,7 +501,7 @@ function Compras() {
         try {
             const { data } = await client.get(`/compras/${item.id_compra}`);
             setDeleteItem(data);
-        } catch (err) {
+        } catch {
             setDeleteItem({ ...item, detalle: [] });
             showMessage('error', 'No se pudo cargar el detalle de la compra.');
         }
@@ -533,17 +527,21 @@ function Compras() {
             const status = err.response?.status;
             const serverError = err.response?.data?.error;
             const errorText = typeof serverError === 'string' ? serverError : '';
-            let message = 'Error al eliminar la compra.';
+            let errorMessage = 'Error al eliminar la compra.';
 
             if (!err.response) {
-                message = 'No se pudo conectar con el servidor.';
-            } else if (errorText.includes('getaddrinfo')) {
-                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                errorMessage = 'No se pudo conectar con el servidor.';
+            } else if (status >= 400 && status < 500 && errorText) {
+                errorMessage = errorText;
+            } else {
+                if (errorText.includes('getaddrinfo')) {
+                    errorMessage = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                }
+                if (isAdmin && errorText) {
+                    errorMessage += ` [${status ?? err.code} | ${errorText || err.message}]`;
+                }
             }
-            if (isAdmin) {
-                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
-            }
-            showMessage('error', message);
+            showMessage('error', errorMessage);
         } finally {
             setActionLoading(false);
         }

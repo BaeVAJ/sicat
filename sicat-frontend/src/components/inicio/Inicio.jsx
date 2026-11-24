@@ -163,7 +163,9 @@ function Inicio() {
     }, [rol]);
 
     useEffect(() => {
-        cargarDatos();
+        queueMicrotask(() => {
+            void cargarDatos();
+        });
     }, [cargarDatos]);
 
     const ticketsPendientes = useMemo(() => {

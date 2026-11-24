@@ -34,8 +34,7 @@ function Inventario() {
 
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [, setError] = useState('');
     const [saving, setSaving] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -55,19 +54,11 @@ function Inventario() {
     const [search, setSearch] = useState('');
     const [filterEstado, setFilterEstado] = useState('ALL');
     const [filterDepartamento, setFilterDepartamento] = useState('ALL');
-    const [filterEmpresa, setFilterEmpresa] = useState('ALL');
-    const [orden, setOrden] = useState('CRITICO');
+    const [orden] = useState('CRITICO');
 
     const isSystems = Number(usuario?.id_departamento) === Number(DEPARTAMENTO_SISTEMAS);
     const canEdit = isSystems || usuario?.rol === 'gerente' || usuario?.rol === 'admin';
 
-    const [filters, setFilters] = useState({
-        material: '',
-        departamento: '',
-        marca: '',
-        disponible: '',
-        estado: '',
-    });
     const [sort, setSort] = useState({ key: 'departamento', dir: 'desc' });
 
     const [message, setMessage] = useState({type: '', text: ''});
@@ -75,7 +66,6 @@ function Inventario() {
     //eliminar productos del inventario
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
-    const [deletingItem, setDeletingItem] = useState(false);
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text});
@@ -86,13 +76,13 @@ function Inventario() {
     }, []);
 
     useEffect(() => {
-        if (message.type==='success') {
-            setTimeout(() => {
-                showMessage('','');
+        if (message.type === 'success') {
+            const t = setTimeout(() => {
+                showMessage('', '');
             }, 5000);
+            return () => clearTimeout(t);
         }
-        return;
-    }), [error, success];
+    }, [message.type, showMessage]);
 
     async function loadInventory() {
         setLoading(true);
@@ -295,9 +285,10 @@ function Inventario() {
                 return normalizar(item.producto);
             case 'departamento':
                 return normalizar(item.departamento);
-            case 'marca':
-                const texto = [item.marca, item.modelo].filter(Boolean).join(' ').trim()
+            case 'marca': {
+                const texto = [item.marca, item.modelo].filter(Boolean).join(' ').trim();
                 return texto || null;
+            }
             case 'disponible':
                 return Number(item.cantidad_disponible);
             case 'estado':
@@ -357,7 +348,7 @@ function Inventario() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [items, search, filterEstado, orden, sort, filters, filterDepartamento]);
+    }, [items, search, filterEstado, orden, sort, filterDepartamento]);
 
     const toggleSort = useCallback((key) => {
         setSort((prev) =>
@@ -503,12 +494,14 @@ function Inventario() {
         
         if(!prod && !dep) return;
         
-        setSearch(prod);
+        setSearch(prod || '');
         setFilterDepartamento(dep || 'ALL');
     }, [searchParams]);
 
     useEffect(()=>{
-        inventarioRecivido();
+        queueMicrotask(() => {
+            inventarioRecivido();
+        });
     }, [inventarioRecivido]);
 
 

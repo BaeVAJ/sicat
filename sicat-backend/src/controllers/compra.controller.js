@@ -149,9 +149,12 @@ export async function getById(req, res) {
     if (!compra) return res.status(404).json({ error: 'Compra no encontrada' });
 
     const { rows: detalle } = await pool.query(
-      `SELECT dc.*, pr.nombre, pr.marca, pr.modelo
+      `SELECT dc.*, pr.nombre, pr.marca, pr.modelo, COALESCE(i.cantidad_disponible, 0) AS inventario
        FROM DETALLE_COMPRA dc
        JOIN PRODUCTO pr ON dc.id_producto = pr.id_producto
+       LEFT JOIN INVENTARIO i
+         ON i.id_producto = dc.id_producto
+        AND ((i.id_departamento = dc.id_departamento) OR (dc.id_departamento IS NULL AND i.id_departamento IS NULL))
        WHERE dc.id_compra = $1`,
       [req.params.id]
     );
@@ -345,27 +348,75 @@ export async function remove(req, res) {
     return res.status(400).json({ error: 'ID de compra inválido' });
   }
 
+  const idCompra = Number(req.params.id);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`,
-      [req.params.id]
+
+    const { rows: [compraActual] } = await client.query(
+      `SELECT * FROM COMPRA WHERE id_compra = $1 FOR UPDATE`,
+      [idCompra]
     );
-    if (!rows || rows.length === 0) {
+    if (!compraActual) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Compra no encontrada' });
     }
 
+    const { rows: facturasVinculadas } = await client.query(
+      `SELECT 1 FROM FACTURA WHERE id_compra = $1 LIMIT 1`,
+      [idCompra]
+    );
+    if (facturasVinculadas.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'No se puede eliminar la compra porque tiene una factura asociada.',
+      });
+    }
+
+    const { rows } = await client.query(
+      `SELECT id_producto, id_departamento, cantidad FROM DETALLE_COMPRA WHERE id_compra = $1`,
+      [idCompra]
+    );
+
+    const deltas = new Map();
     for (const d of rows) {
+      acumularDelta(deltas, d.id_producto, d.id_departamento, Number(d.cantidad));
+    }
+
+    const ajustes = Array.from(deltas.values())
+      .filter((entry) => entry.delta > 0)
+      .sort(
+        (a, b) =>
+          (a.id_producto - b.id_producto) ||
+          ((a.id_departamento ?? -1) - (b.id_departamento ?? -1))
+      );
+
+    for (const entry of ajustes) {
+      const { rows: invRows } = await client.query(
+        `SELECT id_inventario, cantidad_disponible
+         FROM INVENTARIO
+         WHERE id_producto = $1 AND (
+           (id_departamento = $2) OR ($2::int IS NULL AND id_departamento IS NULL)
+         )
+         FOR UPDATE`,
+        [entry.id_producto, entry.id_departamento]
+      );
+
+      if (!invRows[0] || Number(invRows[0].cantidad_disponible) < entry.delta) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'No se puede eliminar la compra porque el inventario disponible es menor a la cantidad comprada.',
+        });
+      }
+
       await client.query(
-        `UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_producto = $2 AND id_departamento = $3`,
-        [d.cantidad, d.id_producto, d.id_departamento]
+        `UPDATE INVENTARIO SET cantidad_disponible = cantidad_disponible - $1 WHERE id_inventario = $2`,
+        [entry.delta, invRows[0].id_inventario]
       );
     }
 
-    await client.query(`DELETE FROM DETALLE_COMPRA WHERE id_compra = $1`, [req.params.id]);
-    await client.query(`DELETE FROM COMPRA WHERE id_compra = $1 RETURNING *`, [req.params.id]);
+    await client.query(`DELETE FROM DETALLE_COMPRA WHERE id_compra = $1`, [idCompra]);
+    await client.query(`DELETE FROM COMPRA WHERE id_compra = $1`, [idCompra]);
 
     await client.query('COMMIT');
     res.json({ mensaje: 'Compra eliminada correctamente' });

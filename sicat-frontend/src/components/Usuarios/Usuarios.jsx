@@ -29,9 +29,6 @@ function Usuarios() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
 
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-
     const [search, setSearch] = useState('');
     const [filterRol, setFilterRol] = useState('ALL');
     const [filterDepartamento, setFilterDepartamento] = useState('ALL');
@@ -50,7 +47,6 @@ function Usuarios() {
     const [contrasena, setContrasena] = useState('');
     const [confirmarContrasena, setConfirmarContrasena] = useState('');
     const [mostrarContrasena, setMostrarContrasena] = useState(false);
-    const [formError, setFormError] = useState('');
 
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
@@ -62,13 +58,6 @@ function Usuarios() {
 
     const [idEmpresa, setIdEmpresa] = useState('');
 
-    const [filters, setFilters] = useState({
-        usuario:'',
-        rol:'',
-        estatus:'',
-        departamento:'',
-        id:'',
-    });
     const [sort, setSort] = useState({ key: 'departamento', dir: 'desc' });
 
     const isEditingSelf =
@@ -76,9 +65,6 @@ function Usuarios() {
         selectedUser &&
         currentUser &&
         selectedUser.id_usuario === currentUser.id_usuario;
-        
-
-    useEffect(() => { fetchData(); }, []);
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text});
@@ -100,7 +86,6 @@ function Usuarios() {
 
     const fetchData = async () => {
         setLoading(true);
-        setError('');
         try {
             const [usersRes, deptRes, empRes] = await Promise.all([
                 client.get('/usuarios'),
@@ -129,6 +114,12 @@ function Usuarios() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchData();
+        });
+    }, []);
 
     const empresaMap = useMemo(() => {
         const m = {};
@@ -220,7 +211,6 @@ function Usuarios() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setFormError('');
 
         if (!nombre.trim()) return showMessage('error', 'El nombre del usuario es obligatorio.');
 
@@ -273,7 +263,7 @@ function Usuarios() {
 
     const handleConfirmDelete = async () => {
         if (!userToDelete) return;
-        setActionLoading(true); setError('');
+        setActionLoading(true);
         try {
             await client.delete(`/usuarios/${userToDelete.id_usuario}`);
             setUsuarios((p) => p.filter((u) => u.id_usuario !== userToDelete.id_usuario));
@@ -393,7 +383,7 @@ function Usuarios() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [usuarios, search, filterRol, filterDepartamento, filterEstatus, sort, filters]);
+    }, [usuarios, search, filterRol, filterDepartamento, filterEstatus, sort]);
 
     const getInitials = (name) => {
         if (!name) return 'U';

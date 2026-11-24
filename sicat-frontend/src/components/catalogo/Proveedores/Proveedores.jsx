@@ -46,18 +46,7 @@ function Proveedores() {
     const isGerente = (usuario?.rol || '').toLowerCase() === 'gerente'
     const canManage = isAdmin || isGerente;
 
-    const [filters, setFilters] = useState({
-        id: '',
-        nombre: '',
-        correo: '',
-        tipo: '',
-    });
     const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
-    
-
-    useEffect(() => {
-        fetchProveedores();
-    }, []);
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text });
@@ -88,6 +77,12 @@ function Proveedores() {
             setLoading(false);
         }
     }
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchProveedores();
+        });
+    }, []);
 
     const formatPhone = (phone) => {
         if (!phone) return '';
@@ -152,7 +147,7 @@ function Proveedores() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [proveedores, search, filterPago, filters, sort]);
+    }, [proveedores, search, filterPago, sort]);
 
     const handleOpenCreate = () => {
         setModalMode('CREATE');

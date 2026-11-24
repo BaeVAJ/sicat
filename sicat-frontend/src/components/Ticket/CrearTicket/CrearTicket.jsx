@@ -50,7 +50,7 @@ function CrearTicket() {
                         if (me?.id_departamento) depId = me.id_departamento;
                         if (me?.departamento) depNombre = me.departamento;
                     } catch {
-                        
+                        // Ignorar fallo de respaldo si /auth/me no responde
                     }
                 }
 

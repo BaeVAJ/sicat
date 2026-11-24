@@ -36,7 +36,6 @@ function Categorias() {
     const [formNombre, setFormNombre] = useState('');
     const [formTipo, setFormTipo] = useState('equipo');
     const [formDescripcion, setFormDescripcion] = useState('');
-    const [formError, setFormError] = useState('');
 
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [catToDelete, setCatToDelete] = useState(null);
@@ -45,21 +44,10 @@ function Categorias() {
 
     const [message, setMessage] = useState({type: '', text:''});
 
-    const [filters, setFilters] = useState({
-        id:"",
-        tipo:"",
-        nombre:"",
-        Descripcion:"",
-        Productos:"",
-    });
     const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text});
-    }, []);
-
-    useEffect(() => {
-        fetchCategorias();
     }, []);
 
     useEffect(() => {
@@ -116,6 +104,12 @@ function Categorias() {
         }
     };
 
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchCategorias();
+        });
+    }, []);
+
     // Filtered list
     const filteredCategorias = useMemo(() => {
         const lista = categorias.filter((c) => {
@@ -140,7 +134,7 @@ function Categorias() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [categorias, search, filterTipo, filters, sort]);
+    }, [categorias, search, filterTipo, sort]);
 
     const alerta = message.text && (
         <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">

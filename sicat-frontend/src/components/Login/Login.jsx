@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
+const BLOQUEO_KEY = 'bloqueadoHasta'; // timestamp en ms
+
 function Login() {
   const segundosBloqueo = 10; // Tiempo de bloqueo en segundos
   const navigate = useNavigate();
@@ -17,25 +19,19 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const { usuario } = useAuth();
   const isValid = correo.trim() !== '' && contrasena.trim() !== '';
-  const [intentosLogin, setIntentosLogin] = useState(0);
-  const [segundosRestantes, setSegundosRestantes] = useState(0);
-  const [isBlocked, setIsBlocked] = useState(false);
+  const [, setIntentosLogin] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(() => {
+    const hasta = Number(localStorage.getItem(BLOQUEO_KEY));
+    return Boolean(hasta && hasta > Date.now());
+  });
   const [totalBloqueos, setTotalBloqueos] = useState(0);
-  const [loadingPage, setLoadingPage] = useState(true);
+  const loadingPage = Boolean(usuario);
   
   useEffect(() => {
-      setLoadingPage(true)
-      try{
-        usuario ? navigate('/inicio') : setLoadingPage(false)
-      } catch (error) {
-        console.error('Error al cargar el usuario:', error);
-        setLoadingPage(false)
-      }
-      
-    }, [usuario, navigate]);
-  
-
-  const BLOQUEO_KEY = 'bloqueadoHasta'; // timestamp en ms
+    if (usuario) {
+      navigate('/inicio');
+    }
+  }, [usuario, navigate]);
 
   function calcularSegundos(totalBloqueos) {
     return totalBloqueos > 2 ? segundosBloqueo * totalBloqueos : segundosBloqueo;
@@ -58,8 +54,6 @@ function Login() {
     const hasta = Number(localStorage.getItem(BLOQUEO_KEY));
     if (!hasta || hasta <= Date.now()) return;
 
-    setIsBlocked(true);
-
     const id = setInterval(() => {
       const restantes = Math.ceil((hasta - Date.now()) / 1000);
       if (restantes <= 0) {
@@ -70,7 +64,6 @@ function Login() {
         localStorage.removeItem('intentos');
         localStorage.removeItem(BLOQUEO_KEY);
       } else {
-        setSegundosRestantes(restantes);
         setError(`Has excedido el número de intentos. Intenta nuevamente en ${restantes} segundos.`);
       }
     }, 1000);

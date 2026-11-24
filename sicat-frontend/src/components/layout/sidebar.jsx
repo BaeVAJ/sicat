@@ -1,5 +1,5 @@
 // src/components/layout/sidebar.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './sidebar.css';
@@ -268,9 +268,11 @@ function Sidebar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // Cerrar el menú desplegable al cambiar de ruta
-    useEffect(() => {
+    const [prevPathname, setPrevPathname] = useState(location.pathname);
+    if (prevPathname !== location.pathname) {
+        setPrevPathname(location.pathname);
         setMobileMenuOpen(false);
-    }, [location.pathname]);
+    }
 
     // Obtener iniciales del usuario
     const iniciales = usuario?.nombre

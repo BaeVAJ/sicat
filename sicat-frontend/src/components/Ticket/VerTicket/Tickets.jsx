@@ -54,16 +54,11 @@ function Tickets() {
     const [departamento, setDepartamento] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState({type: '', text: ''});
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [updatingId, setUpdatingId] = useState(null);
-    const [activeTab, setActiveTab] = useState('tickets');
-    const [pedidos, setPedidos] = useState([]);
-    const [loadingPedidos, setLoadingPedidos] = useState(false);
     const [estadoFilter, setEstadoFilter] = useState(['ALL']);
     const [search, setSearch] = useState('');
-    const [marcados, setMarcados] = useState([])
     const [checkListOpen, setCheckListOpen] = useState(false);
     const [fechasCreacionFilterOpen, setFechasCreacionFilterOpen] = useState(false)
     const [fechaDesdeCreacion, setFechaDesdeCreacion] = useState('');
@@ -107,7 +102,6 @@ function Tickets() {
         fetchTickets();
         return subscribeToEvents((type) => {
             if (type.startsWith('ticket.')) fetchTickets();
-            if (type.startsWith('material-request.')) fetchPedidos();
         });
     }, [usuario]);
 
@@ -116,28 +110,12 @@ function Tickets() {
         try {
             const { data } = await client.get('/departamentos');
             setDepartamento(Array.isArray(data) ? data : []);
-        } catch (err) {
+        } catch {
             setError('Error al cargar los departamentos');
         } finally {
             setLoading(false);
         }
     }
-
-    async function fetchPedidos() {
-        setLoadingPedidos(true);
-        try {
-            const { data } = await client.get('/pedidos');
-            setPedidos(Array.isArray(data) ? data : []);
-        } catch (err) {
-            setError(err.response?.data?.error || 'Error al cargar las solicitudes de material');
-        } finally {
-            setLoadingPedidos(false);
-        }
-    }
-
-    useEffect(() => {
-        if (activeTab === 'pedidos') fetchPedidos();
-    }, [activeTab]);
 
     
 
@@ -286,8 +264,10 @@ function Tickets() {
         setTicketDetalle(ticketD)
     }, [tickets, ticketRecibido])
 
-    useEffect(()=>{
-        ticketRecibidoDetalle()
+    useEffect(() => {
+        queueMicrotask(() => {
+            ticketRecibidoDetalle();
+        });
     }, [ticketRecibidoDetalle])
 
     return (

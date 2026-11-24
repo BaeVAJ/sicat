@@ -629,15 +629,16 @@ function Facturas() {
         const idCompraFactura = searchParams.get('id_compra');
 
         if (newFactura === 'true') {
-            if (isAdmin) {
-                const parsedId = Number(idCompraParam);
-                const initialIdCompra = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
-                void fetchCompras();
-                setFacturaDetalle(null);
-                setError('');
-                setFacturaModal({ factura: null, initialIdCompra });
-            }
-            
+            queueMicrotask(() => {
+                if (isAdmin) {
+                    const parsedId = Number(idCompraParam);
+                    const initialIdCompra = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null;
+                    void fetchCompras();
+                    setFacturaDetalle(null);
+                    setError('');
+                    setFacturaModal({ factura: null, initialIdCompra });
+                }
+            });
             return;
         }
 
@@ -646,9 +647,10 @@ function Facturas() {
                 (f) => Number(f.id_compra) === Number(idCompraFactura)
             );
             if (encontrada) {
-                setFacturaDetalle(encontrada);
+                queueMicrotask(() => {
+                    setFacturaDetalle(encontrada);
+                });
             }
-            
         }
     }, [searchParams, setSearchParams, facturasEnriquecidas, loading, isAdmin, fetchCompras]);
 

@@ -54,21 +54,10 @@ function Productos() {
 
     const [message, setMessage] = useState({type: '', text: ''});
 
-    const [filters, setFilters] = useState({
-        id: '',
-        nombre: '',
-        categoria: '',
-        marca: '',
-        modelo: '',
-    });
     const [sort, setSort] = useState({ key: 'id', dir: 'desc' });
 
     const showMessage = useCallback((type, text) => {
         setMessage({type, text});
-    }, []);
-
-    useEffect(() => {
-        fetchData();
     }, []);
 
     const fetchData = async () => {
@@ -100,6 +89,12 @@ function Productos() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchData();
+        });
+    }, []);
 
     // Mapa id_categoria -> objeto Categoría
     const categoriaMap = useMemo(() => {
@@ -304,7 +299,7 @@ function Productos() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [productos, search, filterCategoria, filterMM, categoriaMap, filters, sort]);
+    }, [productos, search, filterCategoria, filterMM, categoriaMap, sort]);
     const alerta = message.text && (
         <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
             <div className="complementos-alert__content">

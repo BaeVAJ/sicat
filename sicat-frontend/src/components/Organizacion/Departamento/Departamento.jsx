@@ -50,20 +50,11 @@ function Departamento() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deptoToDelete, setDeptoToDelete] = useState(null);
 
-    const [filters, setFilters] = useState({
-        id_departamento:'',
-        nombre:'',
-        empresa:'',
-    });
     const [sort, setSort] = useState({ key: 'id_departamento', dir: 'desc' });
     const [message, setMessage] = useState('');
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text});
-    }, []);
-
-    useEffect(() => {
-        fetchData();
     }, []);
 
     const fetchData = async () => {
@@ -96,6 +87,12 @@ function Departamento() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchData();
+        });
+    }, []);
 
     // Mapa id_empresa -> objeto Empresa
     const empresaMap = useMemo(() => {
@@ -280,7 +277,7 @@ function Departamento() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [departamentos, search, filterEmpresa, empresaMap, filters, sort]);
+    }, [departamentos, search, filterEmpresa, empresaMap, sort]);
 
     const alerta = message.text && (
         <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">

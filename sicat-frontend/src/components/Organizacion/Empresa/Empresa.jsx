@@ -51,21 +51,10 @@ function VerEmpresa() {
     const isAdmin = usuario?.rol === 'admin';
 
 
-    const [filters, setFilters] = useState({
-        id_empresa: '',
-        empresa: '',
-        rfc: '',
-        direccion: '',
-        activa: '',
-    });
     const [sort, setSort] = useState({ key: 'id_empresa', dir: 'desc' });
 
     const showMessage = useCallback((type, text) => {
         setMessage({ type, text});
-    }, []);
-
-    useEffect(() => {
-        fetchEmpresas();
     }, []);
 
     const fetchEmpresas = async () => {
@@ -94,6 +83,12 @@ function VerEmpresa() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            void fetchEmpresas();
+        });
+    }, []);
 
     // Open modal to create
     const handleOpenCreate = () => {
@@ -333,7 +328,7 @@ function VerEmpresa() {
             if (va > vb) return 1 * factor;
             return 0;
         });
-    }, [empresas, search, filterEstado, filters, sort]);
+    }, [empresas, search, filterEstado, sort]);
 
     const empresasTotal = empresas.length;
     const activasTotal = empresas.filter((e) => e.activa).length;
