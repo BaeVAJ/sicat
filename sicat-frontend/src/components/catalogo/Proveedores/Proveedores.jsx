@@ -35,7 +35,6 @@ function Proveedores() {
     const [formTelefono, setFormTelefono] = useState('');
     const [formCorreo, setFormCorreo] = useState('');
     const [formTipoPago, setFormTipoPago] = useState('');
-    const [formError, setFormError] = useState('')
 
 
     const [provToDelete, setProvToDelete] = useState(null);

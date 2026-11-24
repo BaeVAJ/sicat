@@ -39,8 +39,8 @@ export async function getById(req, res) {
 export async function create(req, res) {
   const { id_categoria, nombre, marca, modelo } = req.body;
 
-  if (!nombre || !id_categoria) {
-    return res.status(400).json({ error: 'El nombre y la categoría son obligatorios' });
+  if (!nombre) {
+    return res.status(400).json({ error: 'El nombre es obligatorio' });
   }
 
   try {
@@ -49,7 +49,7 @@ export async function create(req, res) {
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `, [
-      Number(id_categoria),
+      id_categoria ? Number(id_categoria) : null,
       nombre.trim(),
       marca ? marca.trim() : null,
       modelo ? modelo.trim() : null,

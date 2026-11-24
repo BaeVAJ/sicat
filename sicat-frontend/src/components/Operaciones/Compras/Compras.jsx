@@ -37,12 +37,14 @@ function Compras() {
     const [filterEmpresa, setFilterEmpresa] = useState('ALL');
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState('CREATE'); //CREATE || EDIT
     const [formIdProveedor, setFormIdProveedor] = useState('');
     const [formProveedorTexto, setFormProveedorTexto] = useState('');
     const [showProveedorResults, setShowProveedorResults] = useState(false);
     const [formIdEmpresa, setFormIdEmpresa] = useState('');
     const [formFecha, setFormFecha] = useState(new Date().toISOString().split('T')[0]);
     const [formDetalle, setFormDetalle] = useState([{ id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]);
+    const [idCompra, setIdCompra] = useState(null) //solo se asigna valor en modo EDIT
 
     const [detailCompra, setDetailCompra] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -56,7 +58,10 @@ function Compras() {
 
     const [activeProductRow, setActiveProductRow] = useState(null);
 
-    const canManage = usuario?.rol === 'admin' || usuario?.rol === 'gerente';
+    const isAdmin = usuario?.rol === 'admin';
+    const isGerente = usuario?.rol === 'gerente';
+    const canCreate = isAdmin || isGerente;
+    const canManage = canCreate;
 
     const [filters, setFilters] = useState({
         id_compra: '',
@@ -222,7 +227,17 @@ function Compras() {
         return new Date(d).toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: 'numeric' });
     }
 
+    const handleCloseModal = () => {
+        setModalOpen(false);
+        setModalMode('CREATE');
+        setIdCompra(null);
+        setActiveProductRow(null);
+        setShowProveedorResults(false);
+    };
+
     const handleOpenCreate = () => {
+        setModalMode('CREATE');
+        setIdCompra(null);
         setFormIdProveedor('');
         setFormProveedorTexto('');
         setShowProveedorResults(false);
@@ -232,7 +247,53 @@ function Compras() {
         setActiveProductRow(null);
         showMessage('', '');
         setModalOpen(true);
-    }
+    };
+
+    const handleOpenEdit = async (compra) => {
+        if (!isAdmin || !compra?.id_compra) return;
+
+        setActionLoading(true);
+        showMessage('', '');
+        try {
+            const { data } = await client.get(`/compras/${compra.id_compra}`);
+            const detallesArray = Array.isArray(data.detalle) ? data.detalle : [];
+
+            setDetailCompra(null);
+            setDetailLoading(false);
+            setModalMode('EDIT');
+            setIdCompra(compra.id_compra);
+            setFormIdProveedor(data.id_proveedor != null ? String(data.id_proveedor) : String(compra.id_proveedor ?? ''));
+            setFormProveedorTexto(data.proveedor ?? compra.proveedor ?? '');
+            setShowProveedorResults(false);
+            setFormIdEmpresa(data.id_empresa != null ? String(data.id_empresa) : String(compra.id_empresa ?? ''));
+            const fechaRaw = data.fecha_compra ?? compra.fecha_compra;
+            setFormFecha(
+                fechaRaw
+                    ? String(fechaRaw).slice(0, 10)
+                    : new Date().toISOString().split('T')[0]
+            );
+            setFormDetalle(
+                detallesArray.length > 0
+                    ? detallesArray.map((d) => ({
+                          id_producto: d.id_producto != null ? String(d.id_producto) : '',
+                          producto_texto: d.nombre || '',
+                          cantidad: d.cantidad ?? 1,
+                          precio_unitario: d.precio_unitario != null ? String(d.precio_unitario) : '',
+                          id_departamento: d.id_departamento != null ? String(d.id_departamento) : '',
+                          recibidos: d.recibidos ?? 0,
+                      }))
+                    : [{ id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]
+            );
+            setActiveProductRow(null);
+            setModalOpen(true);
+        } catch (err) {
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            showMessage('error', errorText || 'No se pudo cargar la compra para editar.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     const handleAddLine = () => {
         setFormDetalle(prev => [...prev, { id_producto: '', producto_texto: '', cantidad: 1, precio_unitario: '', id_departamento: '', recibidos: 0 }]);
@@ -262,6 +323,8 @@ function Compras() {
         );
     }, [proveedores, formProveedorTexto]);
 
+    
+
     const formTotal = useMemo(() => {
         return formDetalle.reduce((s, d) => s + (d.cantidad || 0) * (parseFloat(d.precio_unitario) || 0), 0);
     }, [formDetalle]);
@@ -269,6 +332,12 @@ function Compras() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         showMessage('', '');
+        const esEdicion = modalMode === 'EDIT' && idCompra != null;
+
+        if (esEdicion && !isAdmin) {
+            showMessage('error', 'Solo los administradores pueden editar compras');
+            return;
+        }
         if (!formIdProveedor) {
             showMessage('error', 'Seleccione un proveedor');
             return;
@@ -288,61 +357,146 @@ function Compras() {
                 showMessage('error', 'Seleccione un producto para cada línea');
                 return;
             }
-            if (!d.cantidad) {
-                showMessage('error', 'Ingrese la cantidad para cada línea');
+            const cant = Number(d.cantidad);
+            if (!Number.isInteger(cant) || cant <= 0) {
+                showMessage('error', 'Ingrese una cantidad entera positiva para cada línea');
                 return;
             }
-            if (!d.precio_unitario) {
-                showMessage('error', 'Ingrese la cantiad para caa línea');
+            const precio = Number(d.precio_unitario);
+            if (d.precio_unitario === '' || d.precio_unitario == null || Number.isNaN(precio) || precio < 0) {
+                showMessage('error', 'Ingrese el precio unitario para cada línea');
                 return;
             }
             if (!d.id_departamento) {
                 showMessage('error', 'Seleccione un departamento para cada línea');
                 return;
             }
+            const rec = d.recibidos === '' || d.recibidos == null ? 0 : Number(d.recibidos);
+            if (!Number.isInteger(rec) || rec < 0 || rec > cant) {
+                showMessage('error', 'La cantidad recibida debe ser un entero entre 0 y la cantidad comprada');
+                return;
+            }
         }
+
         setActionLoading(true);
         try {
             const payload = {
-                id_proveedor: formIdProveedor,
-                id_empresa: formIdEmpresa,
+                id_proveedor: Number(formIdProveedor),
+                id_empresa: Number(formIdEmpresa),
                 fecha_compra: formFecha,
                 detalle: formDetalle.map(d => ({
                     id_producto: Number(d.id_producto),
                     cantidad: Number(d.cantidad),
                     precio_unitario: parseFloat(d.precio_unitario),
                     id_departamento: Number(d.id_departamento),
-                    recibidos: Number(d.recibidos)
+                    recibidos: d.recibidos === '' || d.recibidos == null ? 0 : Number(d.recibidos),
                 })),
             };
-            await client.post('/compras', payload);
-            showMessage('success', 'Compra registrada exitosamente');
-            setModalOpen(false);
+
+            if (esEdicion) {
+                await client.put(`/compras/${idCompra}`, payload);
+                showMessage('success', `Compra #${idCompra} actualizada exitosamente`);
+            } else {
+                await client.post('/compras', payload);
+                showMessage('success', 'Compra registrada exitosamente');
+            }
+            handleCloseModal();
             fetchData();
         } catch (err) {
             const status = err.response?.status;
             const serverError = err.response?.data?.error;
             const errorText = typeof serverError === 'string' ? serverError : '';
 
-            let message = 'Error al registrar la compra. ';
+            let errorMessage = esEdicion
+                ? 'Error al actualizar la compra.'
+                : 'Error al registrar la compra.';
 
             if (!err.response) {
-                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-            } else if (errorText.includes('getaddrinfo')) {
-                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (status >= 400 && status < 500 && errorText) {
+                errorMessage = errorText;
+            } else {
+                if (errorText.includes('getaddrinfo')) {
+                    errorMessage = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                }
+                if (isAdmin && errorText) {
+                    errorMessage += ` [${status ?? err.code} | ${errorText || err.message}]`;
+                }
             }
-            if (isAdmin) {
-                message += ` [${status ?? err.code} | ${errorText || err.message}]`;
+            showMessage('error', errorMessage);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    const handleCrearProducto = async (producto) => {
+        setActionLoading(true);
+        const p = {
+            nombre: producto,
+            id_categoria: 1,
+        };
+        try {
+            const { data} = await client.post('/productos', p);
+            setProductos(prev => [...prev, data]);
+        }catch (err) {
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let errorMessage = 'Error al crear el producto.';
+            if (!err.response) {
+                errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (status >= 400 && status < 500 && errorText) {
+                errorMessage = errorText;
+            } else {
+                if (errorText.includes('getaddrinfo')) {
+                    errorMessage = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                }
             }
-            showMessage('error', message);
+            showMessage('error', errorMessage);
+        }
+        finally {
+            
+            setActionLoading(false);
+        }
+    }
+
+    const handleCrearProveedor = async (proveedor) =>{
+        const p = {
+            nombre: proveedor,
+        }
+        setActionLoading(true);
+        try {
+            const { data } = await client.post('/proveedores', p);
+            setProveedores(prev => [...prev, data]);
+        }catch (err){
+            const status = err.response?.status;
+            const serverError = err.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let errorMessage = 'Error al crear el proveedor.';
+            if (!err.response) {
+                errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (status >= 400 && status < 500 && errorText) {
+                errorMessage = errorText;
+            } else {
+                if (errorText.includes('getaddrinfo')) {
+                    errorMessage = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+                }
+            }
+            showMessage('error', errorMessage);
         } finally {
             setActionLoading(false);
         }
     }
 
     const handleDepartamentoChoose = (idx, e) => {
-        handleLineChange(idx, 'id_departamento', e.target.value);
-        setFormIdEmpresa(deptoFilter.find(d => String(d.id_departamento) === e.target.value)?.id_empresa || '');
+        const val = e.target.value;
+        handleLineChange(idx, 'id_departamento', val);
+        if (!formIdEmpresa && val) {
+            const depto = departamentos.find((d) => String(d.id_departamento) === val);
+            if (depto?.id_empresa) {
+                setFormIdEmpresa(String(depto.id_empresa));
+            }
+        }
     }
 
     const handleOpenDelete = async (item) => {
@@ -424,10 +578,6 @@ function Compras() {
         }
     }
 
-    const isAdmin = usuario?.rol === 'admin';
-    const isGerente = usuario?.rol === 'gerente';
-    const canCreate = isAdmin || isGerente;
-
     const alerta = message.text && (
         <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
             <div className="complementos-alert__content">
@@ -457,8 +607,8 @@ function Compras() {
     )
 
     const existeFactura = useCallback((id_compra) => {
-        return facturas.some(f => f.id_compra === id_compra);
-    })
+        return facturas.some(f => Number(f.id_compra) === Number(id_compra));
+    }, [facturas]);
 
 
 
@@ -477,7 +627,6 @@ function Compras() {
                             </span>
                             Compras
                         </h1>
-
                     </span>
                     <div className="compras-header__actions">
                         <button className="compras-btn compras-btn--secondary" onClick={fetchData} disabled={loading}>
@@ -609,16 +758,32 @@ function Compras() {
                                                     <button className="compras-action-btn" onClick={() => handleOpenDetail(c)} title="Ver detalle">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                                                     </button>
-                                                    <button className="compras-action-btn compras-action-btn--delete" onClick={() => handleOpenDelete(c)}>
-                                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                            <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-                                                            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-                                                            <g id="SVGRepo_iconCarrier">
-                                                                <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                </path>
-                                                            </g>
-                                                        </svg>
-                                                    </button>
+                                                    {isAdmin && (
+                                                        <>
+                                                            <button
+                                                                className="compras-action-btn"
+                                                                onClick={() => handleOpenEdit(c)}
+                                                                title="Editar compra"
+                                                                disabled={actionLoading}
+                                                            >
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                    <g strokeWidth="0" />
+                                                                    <g />
+                                                                    <path fillRule="evenodd" clipRule="evenodd" d="M21.121 2.707a3 3 0 0 0-4.242 0l-1.68 1.68-7.906 7.906a1 1 0 0 0-.263.464l-1 4a1 1 0 0 0 1.213 1.213l4-1a1 1 0 0 0 .464-.263l7.849-7.848 1.737-1.738a3 3 0 0 0 0-4.242zm-2.828 1.414a1 1 0 0 1 1.414 0l.172.172a1 1 0 0 1 0 1.414l-1.017 1.017-1.555-1.617zm-2.4 2.4 1.555 1.617-6.96 6.959-2.114.529.529-2.115zM4 8a1 1 0 0 1 1-1h5a1 1 0 1 0 0-2H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h11a3 3 0 0 0 3-3v-5a1 1 0 0 0-2 0v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="currentColor" />
+                                                                </svg>
+                                                            </button>
+                                                            <button className="compras-action-btn compras-action-btn--delete" onClick={() => handleOpenDelete(c)} title="Eliminar compra">
+                                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                                                    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                                                    <g id="SVGRepo_iconCarrier">
+                                                                        <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                        </path>
+                                                                    </g>
+                                                                </svg>
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         )}
@@ -628,7 +793,7 @@ function Compras() {
                         </table>
                     </div>)}
                 {modalOpen && (
-                    <div className="compras-modal-overlay" onClick={() => setModalOpen(false)}>
+                    <div className="compras-modal-overlay" onClick={() => !actionLoading && handleCloseModal()}>
                         <div className="compras-modal compras-modal--wide" onClick={e => e.stopPropagation()}>
                             <div className="compras-modal__header">
                                 <h2 className="compras-modal__title">
@@ -636,9 +801,9 @@ function Compras() {
                                         <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
                                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                                     </svg>
-                                    Registrar Nueva Compra
+                                    {modalMode === 'CREATE' ? 'Registrar Nueva Compra' : `Editar Compra #${idCompra}`}
                                 </h2>
-                                <button className="compras-modal__close" onClick={() => setModalOpen(false)} disabled={actionLoading}>&times;</button>
+                                <button type="button" className="compras-modal__close" onClick={handleCloseModal} disabled={actionLoading}>&times;</button>
                             </div>
                             <form className="compras-form" onSubmit={handleSubmit}>
                                 {alerta}
@@ -687,7 +852,7 @@ function Compras() {
                                                             className="search-result-item"
                                                             onMouseDown={(e) => e.preventDefault()}
                                                             onClick={() => {
-                                                                // Gancho listo para crear el proveedor cuando no exista
+                                                                handleCrearProveedor(formProveedorTexto.trim());
                                                             }}
                                                         >
                                                             + Crear proveedor &quot;{formProveedorTexto.trim()}&quot;
@@ -738,7 +903,7 @@ function Compras() {
                                                             const sugerencias = query
                                                                 ? productos.filter((item) =>
                                                                     normalizar(`${item.nombre} ${item.marca || ''} ${item.modelo || ''}`).includes(query)
-                                                                  )
+                                                                )
                                                                 : productos;
 
                                                             return (
@@ -788,7 +953,7 @@ function Compras() {
                                                                                     className="search-result-item"
                                                                                     onMouseDown={(e) => e.preventDefault()}
                                                                                     onClick={() => {
-                                                                                        // Gancho listo para crear el producto cuando no exista
+                                                                                        handleCrearProducto(line.producto_texto.trim());
                                                                                     }}
                                                                                 >
                                                                                     + Crear producto &quot;{line.producto_texto.trim()}&quot;
@@ -804,10 +969,23 @@ function Compras() {
                                                     <td><input type="number" className="compras-input compras-input--val" min="0" max={formDetalle[idx].cantidad} value={formDetalle[idx].recibidos} onChange={(e) => handleLineChange(idx, 'recibidos', e.target.value)} /></td>
                                                     <td><input type="number" className="compras-input" min="0" step="0.01" value={formDetalle[idx].precio_unitario} onChange={(e) => handleLineChange(idx, 'precio_unitario', e.target.value)} /></td>
                                                     <td>
-                                                        <select name="deptoChoose" className="compras-input" value={formDetalle[idx].id_departamento} onChange={(e) => handleDepartamentoChoose(idx, e)}>
-                                                            <option id="deptoChoose" value="">Seleccionar</option>
-                                                            {deptoFilter.map(d => <option key={d.id_departamento} value={String(d.id_departamento)}>{d.nombre} · {d.empresa}</option>)}
-                                                        </select>
+                                                        {(() => {
+                                                            const deptosLinea =
+                                                                line.id_departamento &&
+                                                                !deptoFilter.some((d) => String(d.id_departamento) === String(line.id_departamento))
+                                                                    ? [
+                                                                          ...departamentos.filter((d) => String(d.id_departamento) === String(line.id_departamento)),
+                                                                          ...deptoFilter,
+                                                                      ]
+                                                                    : deptoFilter;
+
+                                                            return (
+                                                                <select name="deptoChoose" className="compras-input" value={formDetalle[idx].id_departamento} onChange={(e) => handleDepartamentoChoose(idx, e)}>
+                                                                    <option value="">Seleccionar</option>
+                                                                    {deptosLinea.map(d => <option key={d.id_departamento} value={String(d.id_departamento)}>{d.nombre} · {d.empresa}</option>)}
+                                                                </select>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="compras-line-subtotal">{formatMoney(formDetalle[idx].cantidad * formDetalle[idx].precio_unitario)}</td>
                                                     <td>
@@ -829,12 +1007,12 @@ function Compras() {
                                     </div>
                                 </div>
                                 <div className="compras-modal__footer">
-                                    <button type="button" className="compras-btn compras-btn--secondary" onClick={() => setModalOpen(false)} disabled={actionLoading}>
+                                    <button type="button" className="compras-btn compras-btn--secondary" onClick={handleCloseModal} disabled={actionLoading}>
                                         Cancelar
                                     </button>
                                     <button type="submit" className="compras-btn compras-btn--primary" disabled={actionLoading}>
                                         {actionLoading && <span className="compras-btn__spin"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" /></svg></span>}
-                                        {actionLoading ? 'Procesando...' : "Aceptar"}
+                                        {actionLoading ? 'Procesando...' : (modalMode === 'EDIT' ? 'Guardar Cambios' : 'Aceptar')}
                                     </button>
                                 </div>
                             </form>
@@ -915,17 +1093,27 @@ function Compras() {
                                         </div>
                                     )}
                                     <div className="compras-modal__footer">
-                                        <button className="compras-btn compras-action-btn--delete" onClick={() => handleOpenDelete(detailCompra)}>
-                                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
-                                                <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
-                                                <g id="SVGRepo_iconCarrier">
-                                                    <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    </path>
-                                                </g>
-                                            </svg>
-                                            Eliminar
-                                        </button>
+                                        {isAdmin && (
+                                            <>
+                                                <button className="compras-btn compras-action-btn--delete" onClick={() => handleOpenDelete(detailCompra)}>
+                                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                                                        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                                                        <g id="SVGRepo_iconCarrier">
+                                                            <path d="M18 6L17.1991 18.0129C17.129 19.065 17.0939 19.5911 16.8667 19.99C16.6666 20.3412 16.3648 20.6235 16.0011 20.7998C15.588 21 15.0607 21 14.0062 21H9.99377C8.93927 21 8.41202 21 7.99889 20.7998C7.63517 20.6235 7.33339 20.3412 7.13332 19.99C6.90607 19.5911 6.871 19.065 6.80086 18.0129L6 6M4 6H20M16 6L15.7294 5.18807C15.4671 4.40125 15.3359 4.00784 15.0927 3.71698C14.8779 3.46013 14.6021 3.26132 14.2905 3.13878C13.9376 3 13.523 3 12.6936 3H11.3064C10.477 3 10.0624 3 9.70951 3.13878C9.39792 3.26132 9.12208 3.46013 8.90729 3.71698C8.66405 4.00784 8.53292 4.40125 8.27064 5.18807L8 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            </path>
+                                                        </g>
+                                                    </svg>
+                                                    Eliminar
+                                                </button>
+                                                <button type="button" className="compras-btn compras-btn--secondary" onClick={() => handleOpenEdit(detailCompra)} disabled={actionLoading}>
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path fillRule="evenodd" clipRule="evenodd" d="M21.121 2.707a3 3 0 0 0-4.242 0l-1.68 1.68-7.906 7.906a1 1 0 0 0-.263.464l-1 4a1 1 0 0 0 1.213 1.213l4-1a1 1 0 0 0 .464-.263l7.849-7.848 1.737-1.738a3 3 0 0 0 0-4.242zm-2.828 1.414a1 1 0 0 1 1.414 0l.172.172a1 1 0 0 1 0 1.414l-1.017 1.017-1.555-1.617zm-2.4 2.4 1.555 1.617-6.96 6.959-2.114.529.529-2.115zM4 8a1 1 0 0 1 1-1h5a1 1 0 1 0 0-2H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h11a3 3 0 0 0 3-3v-5a1 1 0 0 0-2 0v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="currentColor" />
+                                                    </svg>
+                                                    Editar
+                                                </button>
+                                            </>
+                                        )}
 
                                         {!existeFactura(detailCompra.id_compra) && (
                                             <button className="compras-btn compras-btn--factura" onClick={() => navigate(`/facturas?idCompra=${detailCompra.id_compra}&pagoModalOpen=true`)}>

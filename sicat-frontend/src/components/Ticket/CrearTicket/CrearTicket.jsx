@@ -63,7 +63,7 @@ function CrearTicket() {
                     if (depId) setIdDepartamento(String(depId));
                     if (depNombre) setMiDepartamentoNombre(depNombre);
                 }
-            } catch {
+            } catch (err) {
                 if (mounted) {
                     const status = err.response?.status;
                     const serverError = err.response?.data?.error;

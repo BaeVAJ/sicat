@@ -428,7 +428,7 @@ function Inventario() {
         setDeleteModalOpen(false);
         setItemToDelete(null);
         showMessage('','');
-        setSaving(prev => prev.filter(id => id.id_inventario !== item.id_inventario));
+        setSaving(prev => prev.filter(id => id.id_inventario !== itemToDelete?.id_inventario));
     }
 
     const deleteItem = (item) => {
