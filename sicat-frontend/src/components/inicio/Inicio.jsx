@@ -125,7 +125,6 @@ function Inicio() {
 
                 if (resAlertas.status === 'fulfilled' && Array.isArray(resAlertas.value.data)) {
                     setAlertasStock(resAlertas.value.data);
-                    console.log('Alertas de stock:', resAlertas.value.data);
                 }
                 if (resTickets.status === 'fulfilled' && Array.isArray(resTickets.value.data)) {
                     setTickets(resTickets.value.data);

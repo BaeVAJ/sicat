@@ -128,9 +128,7 @@ export async function comprimirPdf(buffer) {
     const finalSize = finalBuffer.length;
     const ratio = (((originalSize - finalSize) / originalSize) * 100).toFixed(1);
 
-    console.log(
-      `[PDF-Compresión] Original: ${(originalSize / 1024).toFixed(1)} KB | Final: ${(finalSize / 1024).toFixed(1)} KB | Ahorro: ${ratio}%`
-    );
+    
 
     return {
       buffer: finalBuffer,

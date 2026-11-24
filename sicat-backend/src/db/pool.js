@@ -25,10 +25,6 @@ function buildSslConfig() {
   if (process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true') {
     return { rejectUnauthorized: true };
   }
-
-  console.warn(
-    '[DB TLS] DB_SSL_CA/DB_SSL_CA_PATH no configurada; usando rejectUnauthorized: false por compatibilidad con el pooler de Supabase. Configura el certificado CA de Supabase para activar verificación TLS estricta.'
-  );
   return { rejectUnauthorized: false };
 }
 
@@ -46,7 +42,6 @@ pool.connect(async (err, client, release) => {
   if (err) {
     console.error('Error al conectar con la base de datos:', err.stack);
   } else {
-    console.log('¡Conexión exitosa a Supabase PostgreSQL!');
     try {
       // 1. Asegurar que la columna archivo_xml_url exista en FACTURA
       await client.query('ALTER TABLE FACTURA ADD COLUMN IF NOT EXISTS archivo_xml_url TEXT;');
