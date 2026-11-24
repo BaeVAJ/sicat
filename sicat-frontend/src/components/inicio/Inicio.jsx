@@ -15,7 +15,6 @@ function FechaOrdenada(fecha) {
     return `${day}/${month}/${year}`;
 }
 
-// ── Iconos SVG compactos ──
 const icons = {
     pending: (
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">

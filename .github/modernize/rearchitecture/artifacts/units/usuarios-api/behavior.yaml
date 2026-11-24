@@ -1,6 +1,0 @@
-unit: usuarios-api
-side_effects: [{source_loc: "sicat-backend/src/controllers/usuario.controller.js:105", effect: "Crea/actualiza usuarios con contraseña bcrypt y rol/estatus.", must_preserve: true}]
-branches:
-  - {source_loc: "sicat-backend/src/controllers/usuario.controller.js:197", condition: "se intenta borrar la propia cuenta activa", behavior: "rechaza operación", must_preserve: true}
-error_paths: [{source_loc: "sicat-backend/src/controllers/usuario.controller.js:212", trigger: "error CRUD", outcome: "JSON error", contract: "500", must_preserve: true}]
-concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/usuario.controller.js:1", scope: "una operación de usuario", isolation: "pool default", must_preserve: true}}

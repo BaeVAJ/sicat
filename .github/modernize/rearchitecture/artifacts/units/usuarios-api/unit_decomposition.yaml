@@ -1,3 +1,0 @@
-unit: usuarios-api
-commit: false
-candidate_splits: [{id: "sicat-backend/src/controllers/usuario.controller.js:1", drivers: [concern_split], rationale: "Consulta administrativa y gestión de credenciales/estatus tienen reglas diferentes.", source_slice: {file: "sicat-backend/src/controllers/usuario.controller.js", lines: [1, 230]}}]

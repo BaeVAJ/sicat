@@ -1,5 +1,0 @@
-unit: departamentos-api
-side_effects: [{source_loc: "sicat-backend/src/controllers/departamento.controller.js:36", effect: "CRUD de departamentos ligados a empresas.", must_preserve: true}]
-branches: [{source_loc: "sicat-backend/src/controllers/departamento.controller.js:15", condition: "id inexistente", behavior: "404", must_preserve: true}]
-error_paths: [{source_loc: "sicat-backend/src/controllers/departamento.controller.js:72", trigger: "error SQL", outcome: "JSON error", contract: "500", must_preserve: true}]
-concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/departamento.controller.js:1", scope: "una operación CRUD", isolation: "pool default", must_preserve: true}}

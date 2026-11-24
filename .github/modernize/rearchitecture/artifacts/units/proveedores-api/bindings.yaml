@@ -1,3 +1,0 @@
-unit: proveedores-api
-bindings: [{type: route-declaration, name: "GET/POST/PUT/DELETE /", source_loc: "sicat-backend/src/routes/proveedor.routes.js:6", target: "Express Router", must_appear_in_target: true, notes: "Eliminación admin/gerente."}]
-runtime_config: []

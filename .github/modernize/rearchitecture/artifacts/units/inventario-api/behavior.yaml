@@ -1,5 +1,0 @@
-unit: inventario-api
-side_effects: [{source_loc: "sicat-backend/src/controllers/inventario.controller.js:31", effect: "Mantiene existencia por producto/departamento y publica alertas/eventos.", must_preserve: true}]
-branches: [{source_loc: "sicat-backend/src/controllers/inventario.controller.js:98", condition: "producto duplicado en departamento", behavior: "409", must_preserve: true}]
-error_paths: [{source_loc: "sicat-backend/src/controllers/inventario.controller.js:98", trigger: "violación uq_inventario_producto_departamento", outcome: "JSON error", contract: "409", must_preserve: true}]
-concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/inventario.controller.js:1", scope: "cambio de inventario", isolation: "pool default", must_preserve: true}}

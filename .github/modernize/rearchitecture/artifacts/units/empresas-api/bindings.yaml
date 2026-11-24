@@ -1,3 +1,0 @@
-unit: empresas-api
-bindings: [{type: route-declaration, name: "GET/POST/PUT/DELETE /", source_loc: "sicat-backend/src/routes/empresa.routes.js:6", target: "Express Router", must_appear_in_target: true, notes: "Eliminar requiere admin."}]
-runtime_config: []

@@ -141,7 +141,6 @@
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-/* ---------- KPI Cards ---------- */
 .compras-kpis {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -220,7 +219,6 @@
     padding-right: 0.2rem;
 }
 
-/* ---------- Filters ---------- */
 .compras-filters {
     display: flex;
     gap: 0.85rem;
@@ -320,7 +318,6 @@
     color: #f1f5f9;
 }
 
-/* ---------- Table ---------- */
 .compras-table-wrap {
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.07);
@@ -520,7 +517,7 @@
     border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* ---------- Form Elements ---------- */
+
 .compras-form-group {
     display: flex;
     flex-direction: column;
@@ -602,7 +599,6 @@
     font-weight: 500;
 }
 
-/* ---------- Detail Lines Table (inside modal) ---------- */
 .compras-lines-section {
     margin-top: 0.5rem;
 }
@@ -701,7 +697,6 @@
     align-items: center;
 }
 
-/* ---------- Detail modal cards ---------- */
 .compras-detail-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -733,7 +728,6 @@
     margin-top: 0.25rem;
 }
 
-/* ---------- Badges ---------- */
 .compras-badge {
     display: inline-block;
     padding: 0.25rem 0.65rem;
@@ -756,7 +750,6 @@
     color: #c4b5fd;
 }
 
-/* Row actions */
 .compras-row-actions {
     display: flex;
     align-items: center;
@@ -786,8 +779,6 @@
     padding: 0.45rem 0.65rem;
     font-weight:500;
 }
-
-
 
 .compras-action-btn:hover {
     background: rgba(99, 102, 241, 0.15);
@@ -827,7 +818,6 @@
     font-weight:700;
 }
 
-/* ---------- Autocomplete Dropdown ---------- */
 .solic-form--input-group {
     position: relative;
     display: flex;
@@ -869,14 +859,12 @@
     background: rgba(139, 143, 255, 0.2);
 }
 
-/* Animations */
 @keyframes comprasOverlayFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes comprasScaleIn {
     from { opacity: 0; transform: translateY(16px) scale(0.96); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 768px) {
     .compras-container { padding: 1.25rem; }
     .compras-grid-2, .compras-grid-3 { grid-template-columns: 1fr; }

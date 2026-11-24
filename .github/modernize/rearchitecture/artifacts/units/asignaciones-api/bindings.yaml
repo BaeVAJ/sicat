@@ -1,3 +1,0 @@
-unit: asignaciones-api
-bindings: [{type: route-declaration, name: "GET/POST /; PATCH /:id/devolver", source_loc: "sicat-backend/src/routes/asignacion.routes.js:6", target: "Express Router", must_appear_in_target: true, notes: "Escrituras admin/gerente."}]
-runtime_config: []

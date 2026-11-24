@@ -1,3 +1,0 @@
-unit: asignaciones-api
-commit: false
-candidate_splits: [{id: "sicat-backend/src/controllers/asignacion.controller.js:1", drivers: [concern_split], rationale: "Crear y devolver tienen validaciones y efectos de stock diferentes.", source_slice: {file: "sicat-backend/src/controllers/asignacion.controller.js", lines: [1, 150]}}]

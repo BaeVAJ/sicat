@@ -1,5 +1,0 @@
-unit: compras-api
-side_effects: [{source_loc: "sicat-backend/src/controllers/compra.controller.js:26", effect: "Crea/consulta compras y sus detalles.", must_preserve: true}]
-branches: [{source_loc: "sicat-backend/src/controllers/compra.controller.js:42", condition: "compra inexistente", behavior: "404", must_preserve: true}]
-error_paths: [{source_loc: "sicat-backend/src/controllers/compra.controller.js:113", trigger: "error de persistencia", outcome: "JSON error", contract: "500", must_preserve: true}]
-concurrency: {model: async, tx_boundary: {source_loc: "sicat-backend/src/controllers/compra.controller.js:1", scope: "cabecera y detalles de compra", isolation: "pool default", must_preserve: true}}

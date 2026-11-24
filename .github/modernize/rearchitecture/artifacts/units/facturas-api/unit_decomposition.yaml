@@ -1,4 +1,0 @@
-unit: facturas-api
-commit: false
-candidate_splits:
-  - {id: "sicat-backend/src/controllers/factura.controller.js:1", drivers: [concern_split, data_ownership_split], rationale: "CFDI, archivos, complementos y estado PPD son subflujos con contratos propios.", source_slice: {file: "sicat-backend/src/controllers/factura.controller.js", lines: [1, 700]}}
