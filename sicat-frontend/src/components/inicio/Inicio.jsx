@@ -210,7 +210,7 @@ function Inicio() {
                 */}
                 {rol === 'admin' && (
                     <div className="simple-view">
-                        {/* KPIs Principales */}
+                        
                         <div className="simple-kpis">
                             {usuario?.id_departamento === 1 && <div className="simple-kpi" onClick={() => navigate('/tickets')}>
                                 <div className="simple-kpi__icon simple-kpi__icon--amber">{icons.ticket}</div>
@@ -260,9 +260,7 @@ function Inicio() {
                             </button>
                         </div>
 
-                        {/*
-                        Tickets que requieren atención
-                        */}
+                        
                         {ticketsPendientes.length > 0 && (
                             <div className="simple-box">
                                 <div className="simple-box__header">
@@ -299,7 +297,7 @@ function Inicio() {
                                                     <span className="simple-item__date">{FechaOrdenada(new Date(t.fecha_limite))}</span>
                                                     {t.urgente && <span className="simple-badge simple-badge--urgent">Urgente</span>}
                                                     <span className={`simple-badge simple-badge--${t.estado?.toLowerCase()}`}>
-                                                        {t.estado}
+                                                        {t.estado.replace('_', ' ')}
                                                     </span>
                                                 </div>
                                             </div>
