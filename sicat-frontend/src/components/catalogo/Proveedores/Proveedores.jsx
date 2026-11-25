@@ -175,8 +175,8 @@ function Proveedores() {
         e.preventDefault();
         showMessage('', '');
 
-        if (!formNombre || !formTelefono || !formCorreo || !formTipoPago) {
-            showMessage('error', 'Todos los campos son obligatorios');
+        if (!formNombre ) {
+            showMessage('error', 'Debes ingresar un nombre para el proveedor');
             return;
         }
 

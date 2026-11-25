@@ -130,8 +130,8 @@ const grupos = [
         icon: 'building',
         roles: ['admin'],
         enlaces: [
-            { to: '/empresas', label: 'Empresas', icon: 'building', roles: ['admin'] },
-            { to: '/departamentos', label: 'Departamentos', icon: 'department', roles: ['admin'] },
+            { to: '/empresas', label: 'Empresas', icon: 'building', roles: ['admin', 'gerente'] },
+            { to: '/departamentos', label: 'Departamentos', icon: 'department', roles: ['admin', 'gerente'] },
         ],
     },
     {
@@ -150,7 +150,7 @@ const grupos = [
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
             { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'] },
-            { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'] },
+            { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'], incluirDepartamentos: [1] },
             { to: '/solicitar-material', label: 'Solicitar material', icon: 'plus', roles: ['admin', 'gerente', 'usuario']},
             { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'] },
         ],
@@ -169,7 +169,7 @@ const grupos = [
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
             { to: '/tickets', label: 'Tickets', icon: 'ticket', roles: ['admin', 'gerente', 'usuario'] },
-            { to: '/crear-ticket', label: 'Crear Ticket', icon: 'plus', roles: [] },
+            { to: '/crear-ticket', label: 'Crear Ticket', icon: 'plus', roles: ['admin', 'gerente', 'usuario'] },
         ],
     },
     {
@@ -189,7 +189,7 @@ function GrupoMenu({ grupo, rol, onNavigate }) {
 
     const visibles = grupo.enlaces.filter((e) => {
         if (!e.roles.includes(rol)) return false;
-        if (e.excluirDepartamentos?.includes(usuario?.id_departamento)) return false;
+        if (e.excluirDepartamentos && e.excluirDepartamentos.includes(usuario?.id_departamento)) return false;
         if (e.incluirDepartamentos && !e.incluirDepartamentos.includes(usuario?.id_departamento)) return false;
         return true;
     });

@@ -93,8 +93,6 @@ function Inicio() {
     const rol = (usuario?.rol || 'usuario').toLowerCase();
 
     const [cargando, setCargando] = useState(true);
-
-    // Estados simplificados
     const [tickets, setTickets] = useState([]);
     const [alertasStock, setAlertasStock] = useState([]);
     const [pedido, setPedido] = useState([]);
