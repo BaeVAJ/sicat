@@ -659,6 +659,7 @@ function VerEmpresa() {
                                         value={rfc}
                                         onChange={(e) => setRfc(e.target.value.toUpperCase())}
                                         maxLength={13}
+                                        minLength={12}
                                         required
                                     />
                                 </div>
