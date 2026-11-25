@@ -85,12 +85,12 @@ function Compras() {
                 client.get('/departamentos').catch(() => ({ data: {} })),
                 client.get('/facturas').catch(() => ({ data: {} })),
             ]);
-            setCompras(Array.isArray(cRes.data) ? cRes.data : [])
-            setProveedores(Array.isArray(pRes.data) ? pRes.data : [])
-            setEmpresas(Array.isArray(eRes.data) ? eRes.data : [])
-            setProductos(Array.isArray(prRes.data) ? prRes.data : [])
-            setDepartamentos(Array.isArray(dRes.data) ? dRes.data : [])
-            setFacturas(Array.isArray(facRes.data) ? facRes.data : [])
+            setCompras(Array.isArray(cRes.data) ? cRes.data : []);
+            setProveedores(Array.isArray(pRes.data) ? pRes.data : []);
+            setEmpresas(Array.isArray(eRes.data) ? eRes.data : []);
+            setProductos(Array.isArray(prRes.data) ? prRes.data : []);
+            setDepartamentos(Array.isArray(dRes.data) ? dRes.data : []);
+            setFacturas(Array.isArray(facRes.data) ? facRes.data : []);
         } catch (err) {
             const status = err.response?.status;
             const serverError = err.response?.data?.error;
