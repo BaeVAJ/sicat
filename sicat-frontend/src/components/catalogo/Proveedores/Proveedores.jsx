@@ -132,7 +132,8 @@ function Proveedores() {
                 String(p.id_proveedor || '').includes(search);
 
             const matchesPago =
-                filterPago === "ALL" || (p.tipo_pago || '').toLowerCase() === filterPago.toLowerCase();
+                (filterPago === "ALL" || (p.tipo_pago || '').toLowerCase() === filterPago.toLowerCase()) ||
+                (filterPago === 'sin_especificar' && !p.tipo_pago);
 
             return matchesSearch && matchesPago;
         });
@@ -429,6 +430,7 @@ function Proveedores() {
                         onChange={(e) => setFilterPago(e.target.value)}
                     >
                         <option value="ALL">Todos los Tipos de Pago</option>
+                        <option value="sin_especificar">Sin Especificar</option>
                         <option value="Transferencia">Transferencia</option>
                         <option value="Credito">Crédito</option>
                         <option value="Contado">Contado</option>
@@ -521,7 +523,8 @@ function Proveedores() {
                                                     )}
                                                 </td>
                                                 <td>
-                                                    <span className={`prov-badge prov-badge--${tipoKey}`} onClick={() => setFilterPago(prov.tipo_pago)}>
+                                                    {/* Cuando se da click en un badge de tipo de pago y es sin especificar tira error */ }
+                                                    <span className={`prov-badge prov-badge--${tipoKey}`} onClick={() => setFilterPago((prov.tipo_pago ? prov.tipo_pago : 'sin_especificar'))}>
                                                         {prov.tipo_pago || 'Sin especificar'}
                                                     </span>
                                                 </td>
