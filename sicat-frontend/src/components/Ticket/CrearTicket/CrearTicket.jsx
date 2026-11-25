@@ -1,5 +1,5 @@
 // src/components/Ticket/CrearTicket/CrearTicket.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import client from '../../../api/client';
@@ -20,14 +20,18 @@ function CrearTicket() {
     const [fechaLimite, setFechaLimite] = useState(fechaInicial.toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [loadingDeps, setLoadingDeps] = useState(true);
-    const [message, setMessage] = useState({type: '', text: ''});
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const [usuarioTicket, setUsuarioTicket] = useState((isAdmin ? '' : usuario?.id_usuario));
+    const [usuarios, setUsuarios] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
     const MAX_DESC = 500;
-    
+
     const showMessage = useCallback((type, text) => {
-            setMessage({ type, text });
-        }, [])
-    
+        setMessage({ type, text });
+    }, [])
+
     useEffect(() => {
         let mounted = true;
 
@@ -39,7 +43,7 @@ function CrearTicket() {
                 if (!mounted) return;
                 setDepartamentos(Array.isArray(deps) ? deps : []);
 
-                // Si no es admin, obtener el departamento asignado del usuario
+                
                 let depId = usuario?.id_departamento;
                 let depNombre = usuario?.departamento;
 
@@ -50,7 +54,7 @@ function CrearTicket() {
                         if (me?.id_departamento) depId = me.id_departamento;
                         if (me?.departamento) depNombre = me.departamento;
                     } catch {
-                        // Ignorar fallo de respaldo si /auth/me no responde
+                        // Ignorar fallo
                     }
                 }
 
@@ -91,6 +95,34 @@ function CrearTicket() {
         };
     }, [usuario]);
 
+    const fetchUsuarios = async () => {
+        setLoadingUsers(true);
+        try {
+            const { data } = await client.get('/usuarios');
+            setUsuarios(Array.isArray(data) ? data : []);
+        } catch (error) {
+            const status = error.response?.status;
+            const serverError = error.response?.data?.error;
+            const errorText = typeof serverError === 'string' ? serverError : '';
+            let message = 'Error al cargar los usuarios';
+            if (!error.response) {
+                message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            } else if (errorText.includes('getaddrinfo')) {
+                message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
+            }
+            if (isAdmin) {
+                message += ` [${status ?? error.code} | ${errorText || error.message}]`;
+            }
+            showMessage('error', message);
+        } finally {
+            setLoadingUsers(false);
+        }
+    }
+
+    useEffect(() => {
+        isAdmin ? queueMicrotask(() => fetchUsuarios()) : ''
+    },[]);
+
     const isValid =
         (isAdmin ? idDepartamento !== '' : (idDepartamento !== '' || miDepartamentoNombre !== '')) &&
         descripcion.trim().length >= 10 &&
@@ -99,10 +131,7 @@ function CrearTicket() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        
         setLoading(true);
-
         try {
             const depAEnviar = isAdmin
                 ? Number(idDepartamento)
@@ -111,7 +140,7 @@ function CrearTicket() {
             await client.post('/tickets', {
                 id_departamento: depAEnviar,
                 descripcion: descripcion.trim(),
-                id_usuario: usuario?.id_usuario || null,
+                id_usuario: usuarioTicket,
                 urgente: Boolean(urgente),
                 fecha_limite: fechaLimite,
             });
@@ -119,11 +148,6 @@ function CrearTicket() {
             showMessage('success', 'Ticket creado exitosamente.');
             setDescripcion('');
             setUrgente(false);
-
-            if (isAdmin) {
-                // Mantener o resetear departamento para admin
-                setIdDepartamento(usuario?.id_departamento ? String(usuario.id_departamento) : '');
-            }
         } catch (err) {
             const status = err.response?.status;
             const serverError = err.response?.data?.error;
@@ -139,12 +163,12 @@ function CrearTicket() {
                 message += ` [${status ?? err.code} | ${errorText || err.message}]`;
             }
             showMessage('error', message);
+            usuario?.rol === 'admin' ?? setUsuarioTicket(null);
         } finally {
             setLoading(false);
         }
     };
 
-    
     const alerta = message.text && (
         <div className={`ticket-alert ticket-alert--${message.type}`} role="alert">
             <div className="complementos-alert__content">
@@ -172,6 +196,24 @@ function CrearTicket() {
             </button>
         </div>
     )
+
+    const listaUsuarios = useMemo(() => {
+        const lista = usuarios.filter((u)=>{
+            if (idDepartamento === '') return true; // Si no hay departamento seleccionado, mostrar todos
+            return String(u.id_departamento) === String(idDepartamento);
+            }
+        );
+        return lista
+        
+        
+    }, [usuarios, idDepartamento]);
+
+    const handleUsuarioTicket = (value) => {
+        const usuarioObj = usuarios.find((u) => String(u.id_usuario) === String(value));
+        const departamento= departamentos.find((d) => String(d.id_departamento) === String(usuarioObj?.id_departamento));
+        setUsuarioTicket(Number(value));
+        setIdDepartamento(departamento?.id_departamento);
+    };
 
     return (
         <div className="ticket-page">
@@ -224,7 +266,7 @@ function CrearTicket() {
                                         </option>
                                         {departamentos.map((dep) => (
                                             <option key={dep.id_departamento} value={dep.id_departamento}>
-                                                {dep.nombre}
+                                                {dep.nombre} · {dep.empresa}
                                             </option>
                                         ))}
                                     </select>
@@ -257,6 +299,49 @@ function CrearTicket() {
                         </span>
                     </div>
 
+                        {isAdmin && (
+                            <div className="ticket-field">
+                                <label htmlFor="ticket-user" className="ticket-field__label">
+                                    Asignar ticket a usuario
+                                </label>
+                                <div className="ticket-field__wrapper"></div>
+                                <span className="ticket-field__icon" aria-hidden="true">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <g id="SVGRepo_bgCarrier" strokeWidth="0"/>
+                                        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <g id="SVGRepo_iconCarrier">
+                                            <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </g>
+                                    </svg>
+                                </span> 
+
+                                <select
+                                    id="ticket-user"
+                                    className="ticket-field__select"
+                                    value={usuarioTicket}
+                                    onChange={(e) => handleUsuarioTicket(e.target.value)}
+                                    disabled={loadingUsers}
+                                    required
+                                >
+                                    <option value="">
+                                        {loadingUsers ? 'Cargando usuarios…' : '-- Selecciona un usuario --'}
+                                    </option>
+                                    
+                                    {listaUsuarios.map((u) => (
+                                        <option key={u.id_usuario} value={u.id_usuario}>
+                                            {u.nombre}  {idDepartamento === '' ? `· ${u.departamento_nombre} · ${u.empresa_nombre}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="ticket-field__arrow" aria-hidden="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </span>
+                            </div>
+                        )}
+                    
+
                     {/* Descripción del problema */}
                     <div className="ticket-field">
                         <label htmlFor="ticket-desc" className="ticket-field__label">
@@ -273,7 +358,7 @@ function CrearTicket() {
                             </span>
                             <textarea
                                 id="ticket-desc"
-                                className={`ticket-field__textarea ${descripcion.length<10 ? 'ticket-field__textarea--invalid' : 'ticket-field__textarea--valid'}`}
+                                className={`ticket-field__textarea ${descripcion.length < 10 ? 'ticket-field__textarea--invalid' : 'ticket-field__textarea--valid'}`}
                                 value={descripcion}
                                 onChange={(e) => {
                                     if (e.target.value.length <= MAX_DESC) {
@@ -365,8 +450,8 @@ function CrearTicket() {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 

@@ -54,8 +54,7 @@ export async function getAll(req, res) {
 // A menos que sea administrador, el departamento se asigna automáticamente al de la cuenta creadora.
 // Si es administrador, puede crear tickets para otros departamentos.
 export async function create(req, res) {
-  const { id_departamento, descripcion, urgente, fecha_limite } = req.body;
-  const id_usuario = req.usuario?.id_usuario ?? null;
+  const { id_departamento, id_usuario, descripcion, urgente, fecha_limite } = req.body;
   const rol = req.usuario?.rol;
   const esUrgente = Boolean(urgente);
 
