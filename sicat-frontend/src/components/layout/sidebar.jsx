@@ -140,7 +140,7 @@ const grupos = [
         roles: ['admin', 'gerente'],
         enlaces: [
             { to: '/categorias', label: 'Categorías', icon: 'tag', roles: ['admin'] },
-            { to: '/productos', label: 'Productos', icon: 'box', roles: ['admin', 'gerente'] },
+            { to: '/productos', label: 'Productos', icon: 'box', roles: ['admin', 'gerente'], incluirDepartamentos: [1] },
             { to: '/proveedores', label: 'Proveedores', icon: 'truck', roles: ['admin', 'gerente'] },
         ],
     },
@@ -149,10 +149,10 @@ const grupos = [
         icon: 'warehouse',
         roles: ['admin', 'gerente', 'usuario'],
         enlaces: [
-            { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'] },
+            { to: '/compras', label: 'Compras', icon: 'cart', roles: ['admin', 'gerente'], incluirDepartamentos: [1] },
             { to: '/inventario', label: 'Inventario', icon: 'warehouse', roles: ['admin', 'gerente', 'usuario'], incluirDepartamentos: [1] },
             { to: '/solicitar-material', label: 'Solicitar material', icon: 'plus', roles: ['admin', 'gerente', 'usuario']},
-            { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'] },
+            { to: '/asignaciones', label: 'Asignaciones', icon: 'assign', roles: ['admin', 'gerente'], incluirDepartamentos: [1] },
         ],
     },
     {
