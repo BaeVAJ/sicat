@@ -189,6 +189,9 @@
     line-height: 1.15;
 }
 
+.productos-kpi--clickable{
+    cursor:pointer;
+}
 
 .productos-toolbar{
     display:flex;
