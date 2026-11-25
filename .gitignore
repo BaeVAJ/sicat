@@ -3,3 +3,4 @@
 .idea/
 Doc/
 .github/
+**/node_modules/
