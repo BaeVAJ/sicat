@@ -43,7 +43,7 @@ function CrearTicket() {
                 if (!mounted) return;
                 setDepartamentos(Array.isArray(deps) ? deps : []);
 
-                
+
                 let depId = usuario?.id_departamento;
                 let depNombre = usuario?.departamento;
 
@@ -121,7 +121,7 @@ function CrearTicket() {
 
     useEffect(() => {
         isAdmin ? queueMicrotask(() => fetchUsuarios()) : ''
-    },[]);
+    }, []);
 
     const isValid =
         (isAdmin ? idDepartamento !== '' : (idDepartamento !== '' || miDepartamentoNombre !== '')) &&
@@ -152,7 +152,7 @@ function CrearTicket() {
             const status = err.response?.status;
             const serverError = err.response?.data?.error;
             const errorText = typeof serverError === 'string' ? serverError : '';
-            let message = 'Error al cargar los usuarios';
+            let message = 'Error al crear el ticket';
 
             if (!err.response) {
                 message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
@@ -163,7 +163,7 @@ function CrearTicket() {
                 message += ` [${status ?? err.code} | ${errorText || err.message}]`;
             }
             showMessage('error', message);
-            usuario?.rol === 'admin' ?? setUsuarioTicket(null);
+            usuario?.rol === 'admin' ? (setUsuarioTicket(null), setIdDepartamento('')) : setUsuarioTicket(usuario?.id_usuario);
         } finally {
             setLoading(false);
         }
@@ -198,19 +198,19 @@ function CrearTicket() {
     )
 
     const listaUsuarios = useMemo(() => {
-        const lista = usuarios.filter((u)=>{
+        const lista = usuarios.filter((u) => {
             if (idDepartamento === '') return true; // Si no hay departamento seleccionado, mostrar todos
             return String(u.id_departamento) === String(idDepartamento);
-            }
+        }
         );
         return lista
-        
-        
+
+
     }, [usuarios, idDepartamento]);
 
     const handleUsuarioTicket = (value) => {
         const usuarioObj = usuarios.find((u) => String(u.id_usuario) === String(value));
-        const departamento= departamentos.find((d) => String(d.id_departamento) === String(usuarioObj?.id_departamento));
+        const departamento = departamentos.find((d) => String(d.id_departamento) === String(usuarioObj?.id_departamento));
         setUsuarioTicket(Number(value));
         setIdDepartamento(departamento?.id_departamento);
     };
@@ -237,7 +237,6 @@ function CrearTicket() {
 
                 {/* ── Form ── */}
                 <form onSubmit={handleSubmit} noValidate>
-
                     {/* Departamento: Si es administrador puede elegirlo, si no, se fija automáticamente al suyo */}
                     <div className="ticket-field">
                         <label htmlFor="ticket-dep" className="ticket-field__label">
@@ -299,21 +298,19 @@ function CrearTicket() {
                         </span>
                     </div>
 
-                        {isAdmin && (
-                            <div className="ticket-field">
-                                <label htmlFor="ticket-user" className="ticket-field__label">
-                                    Asignar ticket a usuario
-                                </label>
-                                <div className="ticket-field__wrapper"></div>
+                    {isAdmin && (
+                        <div className="ticket-field">
+                            <label htmlFor="ticket-user" className="ticket-field__label">
+                                Asignar ticket a usuario
+                            </label>
+                            <div className="ticket-field__wrapper">
                                 <span className="ticket-field__icon" aria-hidden="true">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <g id="SVGRepo_bgCarrier" strokeWidth="0"/>
-                                        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                                         <g id="SVGRepo_iconCarrier">
-                                            <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                         </g>
                                     </svg>
-                                </span> 
+                                </span>
 
                                 <select
                                     id="ticket-user"
@@ -326,7 +323,7 @@ function CrearTicket() {
                                     <option value="">
                                         {loadingUsers ? 'Cargando usuarios…' : '-- Selecciona un usuario --'}
                                     </option>
-                                    
+
                                     {listaUsuarios.map((u) => (
                                         <option key={u.id_usuario} value={u.id_usuario}>
                                             {u.nombre}  {idDepartamento === '' ? `· ${u.departamento_nombre} · ${u.empresa_nombre}` : ''}
@@ -339,8 +336,9 @@ function CrearTicket() {
                                     </svg>
                                 </span>
                             </div>
-                        )}
-                    
+                        </div>
+                    )}
+
 
                     {/* Descripción del problema */}
                     <div className="ticket-field">
