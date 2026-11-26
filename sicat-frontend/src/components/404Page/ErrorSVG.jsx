@@ -102,7 +102,7 @@ export default function ErrorSVG() {
                     <hr />
                     <div>Página no encontrada</div>
                     <nav>
-                        <a href="/" style={{ color: '#fff', textDecoration: 'underline' }}>Ir a la página principal</a>
+                        <a href="/inicio" style={{ color: '#fff', textDecoration: 'underline' }}>Ir a la página principal</a>
                     </nav>
                 </div>
 
