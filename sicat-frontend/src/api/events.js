@@ -25,7 +25,7 @@ function closeConnection() {
 }
 
 function createConnection() {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
     const source = new EventSource(
         `${baseUrl}/events/stream`,
@@ -51,6 +51,15 @@ function createConnection() {
 
         return [type, handler];
     });
+
+    const onSessionRevoked = () => {
+        closeConnection();
+        if (typeof window !== 'undefined' && window.location.pathname.toLowerCase() !== '/login') {
+            window.location.href = '/Login';
+        }
+    };
+    source.addEventListener('session_revoked', onSessionRevoked);
+    handlers.push(['session_revoked', onSessionRevoked]);
 
     source.onerror = () => {
         if (source.readyState === EventSource.CLOSED) {

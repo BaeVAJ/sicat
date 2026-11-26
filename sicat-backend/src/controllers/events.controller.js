@@ -63,29 +63,42 @@ export function stream(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
-  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
 
-  const esSistemas = String(req.usuario.departamento || '').toLowerCase().includes('sistema');
+  const rol = req.usuario?.rol;
+  const esSistemas = String(req.usuario?.departamento || '').toLowerCase().includes('sistema');
+  const puedeGestionar = rol === 'admin' || rol === 'gerente' || esSistemas;
 
   const puedeRecibir = (event) => {
-    return esSistemas
-      && (event.type.startsWith('ticket.') || event.type.startsWith('material-request.'));
-  };
+    const tipo = String(event?.type || '');
+    if (puedeGestionar) {
+      return (
+        tipo.startsWith('ticket.') ||
+        tipo.startsWith('material-request.') ||
+        tipo.startsWith('inventory.') ||
+        tipo.startsWith('assignment.')
+      );
+    }
 
-  const send = (event) => {
-    if (!puedeRecibir(event)) return;
-    res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    if (tipo.startsWith('ticket.') || tipo.startsWith('material-request.')) {
+      return Number(event?.payload?.id_usuario) === Number(userId);
+    }
+
+    return false;
   };
-  eventBus.on('event', send);
-  const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 25000);
 
   let cerrado = false;
+  let heartbeat = null;
+  let send = null;
+
+  const entrada = { res, sessionHash, cleanup: () => {} };
+
   const cleanup = () => {
     if (cerrado) return;
     cerrado = true;
-    clearInterval(heartbeat);
-    eventBus.off('event', send);
+    if (heartbeat) clearInterval(heartbeat);
+    if (send) eventBus.off('event', send);
     const setUsuario = conexionesPorUsuario.get(userId);
     if (setUsuario) {
       setUsuario.delete(entrada);
@@ -94,9 +107,35 @@ export function stream(req, res) {
       }
     }
   };
+  entrada.cleanup = cleanup;
 
-  const entrada = { res, sessionHash, cleanup };
+  send = (event) => {
+    if (cerrado || !puedeRecibir(event)) return;
+    try {
+      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      cleanup();
+    }
+  };
+
   activas.add(entrada);
+  eventBus.on('event', send);
+
+  try {
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  } catch {
+    cleanup();
+    return;
+  }
+
+  heartbeat = setInterval(() => {
+    if (cerrado) return;
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      cleanup();
+    }
+  }, 25000);
 
   req.on('close', cleanup);
 }
