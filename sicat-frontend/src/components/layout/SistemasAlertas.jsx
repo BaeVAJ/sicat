@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { subscribeToEvents } from '../../api/events';
 import notificacionSonido from '../../assets/notification.wav';
 import './sistemas-alertas.css';
-
-const eventTypes = [
-    'ticket.created',
-    'ticket.updated',
-    'material-request.created',
-    'material-request.updated',
-];
 
 function SistemasAlertas() {
     const { usuario } = useAuth();
@@ -35,69 +29,40 @@ function SistemasAlertas() {
         // No hay usuario o no es de sistemas → ni intentamos conectar
         if (!esSistemas) return;
 
-        let source = null;
-        let reconnectTimer = null;
-        let stopped = false;
+        const timers = new Set();
 
-        const conectar = () => {
-            if (stopped || source) return;
+        const unsubscribe = subscribeToEvents((type, data) => {
+            if (type !== 'ticket.created' && type !== 'material-request.created') return;
 
-            source = new EventSource(
-                `${import.meta.env.VITE_API_URL || '/api'}/events/stream`,
-                { withCredentials: true } 
-            );
+            const id =
+                data?.payload?.id_ticket ??
+                data?.payload?.id_pedido ??
+                '';
+            const esTicket = type.startsWith('ticket.');
+            const alerta = {
+                id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                esTicket,
+                registroId: id,
+            };
 
-            eventTypes.forEach((type) => {
-                source.addEventListener(type, (event) => {
-                    try {
-                        const esCreacion = type.endsWith('.created');
-                        if (!esCreacion) return;
+            setAlertas((actuales) => [...actuales, alerta]);
+            reproducirNotificacion();
 
-                        const data = JSON.parse(event.data);
-                        const id =
-                            data.payload?.id_ticket ??
-                            data.payload?.id_pedido ??
-                            '';
-                        const esTicket = type.startsWith('ticket.');
-                        const alerta = {
-                            id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                            esTicket,
-                            registroId: id,
-                        };
-
-                        setAlertas((actuales) => [...actuales, alerta]);
-                        reproducirNotificacion();
-                        window.setTimeout(() => {
-                            setAlertas((actuales) =>
-                                actuales.filter((actual) => actual.id !== alerta.id)
-                            );
-                        }, 10000);
-                    } catch {
-                        console.warn('[SICAT] No se pudo leer una advertencia en tiempo real.');
-                    }
-                });
-            });
-
-            source.addEventListener('error', () => {
-                if (stopped) return;
-                console.warn('[SICAT] SSE reconectando…');
-                if (source && source.readyState === EventSource.CLOSED) {
-                    source.close();
-                    source = null;
-                    reconnectTimer = window.setTimeout(conectar, 5000);
-                }
-            });
-        };
-
-        conectar();
+            const timerId = window.setTimeout(() => {
+                timers.delete(timerId);
+                setAlertas((actuales) =>
+                    actuales.filter((actual) => actual.id !== alerta.id)
+                );
+            }, 10000);
+            timers.add(timerId);
+        });
 
         return () => {
-            stopped = true;
-            window.clearTimeout(reconnectTimer);
-            source?.close();
-            source = null;
+            unsubscribe();
+            timers.forEach((timerId) => window.clearTimeout(timerId));
+            timers.clear();
         };
-    }, [esSistemas]); // 👈 se reconecta si cambia el usuario (login/logout)
+    }, [esSistemas]);
 
     const cerrar = (id) => {
         const elemento = document.querySelector(`.sistemas-alerta[data-alerta-id="${id}"]`);
