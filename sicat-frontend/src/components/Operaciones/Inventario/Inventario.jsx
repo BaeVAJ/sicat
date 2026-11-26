@@ -30,6 +30,7 @@ function SortHeader({ label, sortKey, sort, onSort, className }) {
 function Inventario() {
     const { usuario } = useAuth();
     const isAdmin = usuario?.rol === 'admin';
+    const isSistemas = Number(usuario?.id_departamento) === Number(1);
     const [searchParams] = useSearchParams();
 
     const [items, setItems] = useState([]);
@@ -46,7 +47,7 @@ function Inventario() {
 
     const [newProduct, setNewProduct] = useState({
         id_producto: '',
-        id_departamento: usuario?.id_departamento,  
+        id_departamento: usuario?.id_departamento,
         cantidad_disponible: 0,
         cantidad_minima: 1,
     });
@@ -61,14 +62,14 @@ function Inventario() {
 
     const [sort, setSort] = useState({ key: 'departamento', dir: 'desc' });
 
-    const [message, setMessage] = useState({type: '', text: ''});
+    const [message, setMessage] = useState({ type: '', text: '' });
 
     //eliminar productos del inventario
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
 
     const showMessage = useCallback((type, text) => {
-        setMessage({ type, text});
+        setMessage({ type, text });
     }, []);
 
     useEffect(() => {
@@ -86,14 +87,14 @@ function Inventario() {
 
     async function loadInventory() {
         setLoading(true);
-        showMessage('','');
+        showMessage('', '');
         try {
             const [invRes, depRes, empRes, prodRes] = await Promise.all([
                 client.get('/inventario/departamento'),
                 client.get('/departamentos'),
                 client.get('/empresas'),
                 client.get('/productos'),
-            
+
             ]);
             setItems(Array.isArray(invRes.data) ? invRes.data : []);
             setDepartamentos(Array.isArray(depRes.data) ? depRes.data : []);
@@ -105,13 +106,13 @@ function Inventario() {
             const detalle = err.response?.data?.detalle || ''; //el error para el admin
             const codigo = err.response?.data?.codigo || ''; //codigo de error para el admin si existe  
             const errorText = typeof serverError === 'string' ? serverError : '';
-            if(!err.response){
+            if (!err.response) {
                 message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
             }
-            else if(errorText.includes('getaddrinfo')){
+            else if (errorText.includes('getaddrinfo')) {
                 message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
             }
-            if(isAdmin){
+            if (isAdmin) {
                 message += `${(detalle ?? ` | ${detalle} |`)}  ${(codigo ?? `| ${codigo} |`)}`;
             }
             showMessage('error', message);
@@ -121,11 +122,11 @@ function Inventario() {
     }
 
     async function openAddProduct() {
-        showMessage('','');
+        showMessage('', '');
         setActionLoading(true);
         setNewProduct({
             id_producto: '',
-            id_departamento: usuario?.id_departamento,  
+            id_departamento: usuario?.id_departamento,
             cantidad_disponible: 0,
             cantidad_minima: 1,
         });
@@ -136,14 +137,14 @@ function Inventario() {
             const detalle = err.response?.data?.detalle ? err.response?.data?.detalle : ''
             const codigo = err.response?.data?.codigo ? err.response?.data?.codigo : ''
             let message = 'No se pudieron cargar los productos. ';
-            if(!err.response){
+            if (!err.response) {
                 message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet. ';
             }
 
-            else if (serverError.includes('getaddrinfo')){
+            else if (serverError.includes('getaddrinfo')) {
                 message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde. ';
             }
-            if(isAdmin){
+            if (isAdmin) {
                 message += ` ${detalle ?? ` | ${detalle} |`} ${codigo ?? ` | ${codigo} |`} `;
             }
             showMessage('error', message);
@@ -154,7 +155,7 @@ function Inventario() {
 
     async function addProduct(event) {
         event.preventDefault();
-        showMessage('','');
+        showMessage('', '');
         if (!newProduct.id_producto) {
             showMessage('error', 'Selecciona un producto del catálogo.');
             return;
@@ -163,46 +164,46 @@ function Inventario() {
             showMessage('error', 'Las cantidades no pueden ser negativas.');
             return;
         }
-        const existe = items.some((item) => 
-            (Number(item.id_producto) === Number(newProduct.id_producto) &&
+        const existe = items.some((item) =>
+        (Number(item.id_producto) === Number(newProduct.id_producto) &&
             Number(item.id_departamento) === Number(newProduct.id_departamento))
         )
 
-        if(existe){
+        if (existe) {
             const confirmar = window.confirm(
-            'Este producto ya existe en el inventario de este departamento. ¿Deseas actualizarlo a los valores ingresados?'
-        );
-        
-        if (!confirmar) {
-            return; 
-        }
+                'Este producto ya existe en el inventario de este departamento. ¿Deseas actualizarlo a los valores ingresados?'
+            );
+
+            if (!confirmar) {
+                return;
+            }
         }
         setAddSaving(true);
         try {
-                const departamentoNombre = departamentos.find((d) => d.id_departamento === Number(newProduct.id_departamento))?.nombre || departamentos.find((d) => d.id_departamento === Number(usuario?.id_departamento))?.nombre;
-                await client.post('/inventario', {
-                    id_producto: Number(newProduct.id_producto),
-                    cantidad_disponible: Number(newProduct.cantidad_disponible),
-                    cantidad_minima: Number(newProduct.cantidad_minima),
-                    id_departamento: Number(newProduct.id_departamento),
-                });
-                await loadInventory();
-                setAddOpen(false);
-                showMessage('success', `Producto agregado al inventario de ${String(departamentoNombre) || 'tu departamento'}.`);
+            const departamentoNombre = departamentos.find((d) => d.id_departamento === Number(newProduct.id_departamento))?.nombre || departamentos.find((d) => d.id_departamento === Number(usuario?.id_departamento))?.nombre;
+            await client.post('/inventario', {
+                id_producto: Number(newProduct.id_producto),
+                cantidad_disponible: Number(newProduct.cantidad_disponible),
+                cantidad_minima: Number(newProduct.cantidad_minima),
+                id_departamento: Number(newProduct.id_departamento),
+            });
+            await loadInventory();
+            setAddOpen(false);
+            showMessage('success', `Producto agregado al inventario de ${String(departamentoNombre) || 'tu departamento'}.`);
         } catch (err) {
             const serverError = err.response?.data?.error ? String(err.response?.data?.error) : '';
             const detalle = err.response?.data?.detalle ? String(err.response?.data?.detalle) : '';
             const codigo = err.response?.data?.codigo ? String(err.response?.data?.codigo) : '';
-            
+
             let message = 'No se pudo agregar el producto al inventario.';
-            if(!err.response){
-                message= 'No se pudo conectar con el servidor. verifica tu conexión a internet.';
-            } else if (serverError.includes('getaddrinfo')){
+            if (!err.response) {
+                message = 'No se pudo conectar con el servidor. verifica tu conexión a internet.';
+            } else if (serverError.includes('getaddrinfo')) {
                 message = 'No se pudo conectar con un servicio externo. Inténtalo más tarde.';
             }
-            
 
-            if(isAdmin){
+
+            if (isAdmin) {
                 message += ` ${detalle ?? ` | ${detalle} |`} ${codigo ?? ` | ${codigo} |`}`;
             }
             showMessage('error', message);
@@ -219,8 +220,8 @@ function Inventario() {
         if (usuario?.rol === 'usuario') return setError('No tienes permisos para modificar el inventario.');
 
         const departamentoUsuario = isSystems ? Number(item.id_departamento) : Number(usuario?.id_departamento);
-            setSaving(prev => [...prev, item]);
-        showMessage('','');
+        setSaving(prev => [...prev, item]);
+        showMessage('', '');
         try {
             const { data } = await client.patch(`/inventario/${item.id_inventario}`, {
                 [field]: amount,
@@ -238,13 +239,13 @@ function Inventario() {
             const errorText = typeof serverError === 'string' ? serverError : '';
             let message = 'No se pudo actualizar los productos.';
 
-            if(!err.response){
+            if (!err.response) {
                 message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
             }
-            else if(errorText.includes('getaddrinfo')){
+            else if (errorText.includes('getaddrinfo')) {
                 message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
             }
-            if(isSystems){
+            if (isSystems) {
                 message += `${detalle ?? ` | ${detalle} |`} ${codigo ?? ` | ${codigo} | `}`;
             }
 
@@ -297,7 +298,7 @@ function Inventario() {
                 return item[key] ?? null;
         }
     }
-//arreglar el sort para que muestre los elementos ordenados correctamente y no muestre primero 'HP SDA' y depues 'ASDSAD' y por ultimo 'HP'
+    //arreglar el sort para que muestre los elementos ordenados correctamente y no muestre primero 'HP SDA' y depues 'ASDSAD' y por ultimo 'HP'
     const visibles = useMemo(() => {
         const texto = search.trim().toLowerCase();
 
@@ -309,8 +310,8 @@ function Inventario() {
             if (filterEstado === 'OUT' && estado !== 'out') return false;
             if (filterEstado === 'OK' && estado !== 'ok') return false;
             if (filterEstado === 'ATENCION' && estado === 'ok') return false;
-            if(userDepartamento !== productoDepartamento && !isSystems) return false;
-            if(filterDepartamento !== 'ALL' && Number(filterDepartamento) !== Number(item.id_departamento)) return false;
+            if (userDepartamento !== productoDepartamento && !isSystems) return false;
+            if (filterDepartamento !== 'ALL' && Number(filterDepartamento) !== Number(item.id_departamento)) return false;
             if (!texto) return true;
             return [item.producto, item.marca, item.modelo]
                 .filter(Boolean)
@@ -333,7 +334,7 @@ function Inventario() {
             const va = valorOrden(a, sort.key);
             const vb = valorOrden(b, sort.key);
 
-            
+
             if (va == null && vb == null) return 0;
             if (va == null) return 1;
             if (vb == null) return -1;
@@ -369,9 +370,9 @@ function Inventario() {
 
     const renderStepper = (item, field) => {
         const valor = Number(item[field]) || 0;
-        const bloqueado = 
+        const bloqueado =
             !canEdit // admin gerente o sistemas 
-            || saving.some((s) => s.id_departamento === item.id_departamento && s.id_inventario === item.id_inventario)  || //se esta guardando el valor en el servidor
+            || saving.some((s) => s.id_departamento === item.id_departamento && s.id_inventario === item.id_inventario) || //se esta guardando el valor en el servidor
             (!canEdit && Number(item.id_departamento) !== Number(usuario?.id_departamento)) || // usuario de otro departamento
             usuario?.rol === 'usuario'; // usuario no puede modificar inventario
         return (
@@ -383,7 +384,7 @@ function Inventario() {
                     disabled={bloqueado || valor <= 0}
                     aria-label="Restar una unidad"
                 >
-                    <svg height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M6 12L18 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg> 
+                    <svg height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M6 12L18 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path> </g></svg>
                 </button>
                 <input
                     type="number"
@@ -418,7 +419,7 @@ function Inventario() {
     const handleCloseDeleteModal = () => {
         setDeleteModalOpen(false);
         setItemToDelete(null);
-        showMessage('','');
+        showMessage('', '');
         setSaving(prev => prev.filter(id => id.id_inventario !== itemToDelete?.id_inventario));
     }
 
@@ -429,27 +430,27 @@ function Inventario() {
 
     async function removeItem(item) {
         if (!canEdit && (Number(item.id_departamento) !== Number(usuario?.id_departamento))) return;
-        if(!item) return;
+        if (!item) return;
 
         setSaving(prev => [...prev, item]);
-        showMessage('','');
+        showMessage('', '');
         try {
             await client.delete(`/inventario/${item.id_inventario}`);
             setItems((prev) => prev.filter((current) => current.id_inventario !== item.id_inventario));
             showMessage('success', 'El producto se elimino correctamente');
 
         } catch (err) {
-            const serverError = err.response?.data?.error ? String(err.response?.data?.error): '';
-            const detalle = err.response?.data?.detalle ? String(err.response?.data?.detalle): '';
-            const codigo = err.response?.data?.codigo ? String(err.response?.data?.codigo): '';
+            const serverError = err.response?.data?.error ? String(err.response?.data?.error) : '';
+            const detalle = err.response?.data?.detalle ? String(err.response?.data?.detalle) : '';
+            const codigo = err.response?.data?.codigo ? String(err.response?.data?.codigo) : '';
             let message = 'No se pudo eliminar el producto.';
 
-            if(!err.response){
+            if (!err.response) {
                 message = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-            } else if (serverError.includes('getaddrinfo')){
+            } else if (serverError.includes('getaddrinfo')) {
                 message = 'El servidor no pudo conectar con un servicio externo. Inténtalo más tarde.';
             }
-            if (isAdmin){
+            if (isAdmin) {
                 message = `${detalle ?? ` | ${detalle} |`} ${codigo ?? ` | ${codigo} |`}`;
             }
             showMessage('error', message);
@@ -488,17 +489,17 @@ function Inventario() {
         </div>
     )
 
-    const inventarioRecivido = useCallback(()=>{
+    const inventarioRecivido = useCallback(() => {
         const prod = searchParams.get('producto');
         const dep = searchParams.get('departamento');
-        
-        if(!prod && !dep) return;
-        
+
+        if (!prod && !dep) return;
+
         setSearch(prod || '');
         setFilterDepartamento(dep || 'ALL');
     }, [searchParams]);
 
-    useEffect(()=>{
+    useEffect(() => {
         queueMicrotask(() => {
             inventarioRecivido();
         });
@@ -556,11 +557,11 @@ function Inventario() {
                     <div className="inv-kpi">
                         <div className="inv-kpi__icon-box inv-kpi__icon-box--blue">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                                </svg>
+                                <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                                <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                                <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                            </svg>
                         </div>
                         <div className="inv-kpi__content">
                             <div className="inv-kpi__label">Materiales</div>
@@ -581,7 +582,7 @@ function Inventario() {
                         </div>
                     </div>
 
-                        
+
                     <div className={`inv-kpi ${resumen.bajos > 0 ? 'inv-kpi-card--alerta' : ''}`}
                         role={resumen.bajos > 0 ? 'button' : undefined}
                         tabIndex={resumen.bajos > 0 ? 0 : undefined}
@@ -596,7 +597,7 @@ function Inventario() {
                         </div>
                         <div className="kpi-content">
                             <div className="inv-kpi__label">Bajo mínimo</div>
-                            <div className="inv-kpi__val">{loading ? '-' :resumen.bajos}</div>
+                            <div className="inv-kpi__val">{loading ? '-' : resumen.bajos}</div>
                         </div>
                     </div>
 
@@ -605,17 +606,17 @@ function Inventario() {
                         tabIndex={resumen.agotados > 0 ? 0 : undefined}
                         onClick={() => resumen.agotados > 0 && setFilterEstado('OUT')}
                         onKeyDown={(e) => e.key === 'Enter' && resumen.agotados > 0 && setFilterEstado('OUT')}>
-                            <div className="inv-kpi__icon-box inv-kpi__icon-box--red">
-                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <line x1="15" y1="9" x2="9" y2="15" />
-                                    <line x1="9" y1="9" x2="15" y2="15" />
-                                </svg>  
-                            </div>
-                            <div className="inv-kpi__content">
-                                <div className="inv-kpi__label">Agotados</div>
-                                <div className="inv-kpi__val">{loading ? '-' :resumen.agotados}</div>
-                            </div>
+                        <div className="inv-kpi__icon-box inv-kpi__icon-box--red">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="15" y1="9" x2="9" y2="15" />
+                                <line x1="9" y1="9" x2="15" y2="15" />
+                            </svg>
+                        </div>
+                        <div className="inv-kpi__content">
+                            <div className="inv-kpi__label">Agotados</div>
+                            <div className="inv-kpi__val">{loading ? '-' : resumen.agotados}</div>
+                        </div>
                     </div>
 
                 </div>
@@ -662,32 +663,33 @@ function Inventario() {
 
                     <select className="inv-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
                         <option value="ALL">Todos los estados</option>
-                        
+
                         <option value="LOW">Bajo mínimo</option>
                         <option value="OUT">Agotados</option>
                         <option value="OK">Disponibles</option>
                     </select>
-
-                    <select className="inv-select" value={filterDepartamento} onChange={(e) => setFilterDepartamento(e.target.value)}>
-                        <option value="ALL">Todos los Departamentos</option>
-
-                        {empresas.map((e) => {
-                            const deps = departamentos.filter((d) => d.id_empresa === e.id_empresa);
-                            return (
-                                <optgroup key={e.id_empresa} label={e.nombre}>
-                                    {deps.map((d) => {
-                                        return (
-                                            <option key={d.id_departamento} value={d.id_departamento}>
-                                                {d.nombre}
-                                            </option>
-                                        )
-                                    })}
-                                </optgroup>
-                            )
-                        })
-                        } 
-                    </select>
+                    {isSistemas && (
+                        <select className="inv-select" value={filterDepartamento} onChange={(e) => setFilterDepartamento(e.target.value)}>
+                            <option value="ALL">Todos los Departamentos</option>
+                            {empresas.map((e) => {
+                                const deps = departamentos.filter((d) => d.id_empresa === e.id_empresa);
+                                return (
+                                    <optgroup key={e.id_empresa} label={e.nombre}>
+                                        {deps.map((d) => {
+                                            return (
+                                                <option key={d.id_departamento} value={d.id_departamento}>
+                                                    {d.nombre}
+                                                </option>
+                                            )
+                                        })}
+                                    </optgroup>
+                                )
+                            })
+                            }
+                        </select>
+                    )}
                 </div>
+                
                 <div className="inv-table-wrap">
                     {loading ? (
                         <div className="inv-loading">
@@ -730,15 +732,15 @@ function Inventario() {
                                     {isSystems && <SortHeader label="Departamento" sortKey="departamento" sort={sort} onSort={toggleSort} />}
                                     <SortHeader label="Marca / Modelo" sortKey="marca" sort={sort} onSort={toggleSort} />
                                     <SortHeader label="Disponible" sortKey="disponible" sort={sort} onSort={toggleSort} />
-                                    <th title="Al llegar a este nivel, se creara una alerta" className="inv-col-min" >Mínimo 
-                                        <svg  height="10px" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <g id="SVGRepo_bgCarrier" strokeWidth="0"/>
-                                            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <th title="Al llegar a este nivel, se creara una alerta" className="inv-col-min" >Mínimo
+                                        <svg height="10px" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <g id="SVGRepo_bgCarrier" strokeWidth="0" />
+                                            <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round" />
                                             <g id="SVGRepo_iconCarrier">
-                                                <path fillRule="evenodd" clipRule="evenodd" d="M0.877075 7.49972C0.877075 3.84204 3.84222 0.876892 7.49991 0.876892C11.1576 0.876892 14.1227 3.84204 14.1227 7.49972C14.1227 11.1574 11.1576 14.1226 7.49991 14.1226C3.84222 14.1226 0.877075 11.1574 0.877075 7.49972ZM7.49991 1.82689C4.36689 1.82689 1.82708 4.36671 1.82708 7.49972C1.82708 10.6327 4.36689 13.1726 7.49991 13.1726C10.6329 13.1726 13.1727 10.6327 13.1727 7.49972C13.1727 4.36671 10.6329 1.82689 7.49991 1.82689ZM8.24993 10.5C8.24993 10.9142 7.91414 11.25 7.49993 11.25C7.08571 11.25 6.74993 10.9142 6.74993 10.5C6.74993 10.0858 7.08571 9.75 7.49993 9.75C7.91414 9.75 8.24993 10.0858 8.24993 10.5ZM6.05003 6.25C6.05003 5.57211 6.63511 4.925 7.50003 4.925C8.36496 4.925 8.95003 5.57211 8.95003 6.25C8.95003 6.74118 8.68002 6.99212 8.21447 7.27494C8.16251 7.30651 8.10258 7.34131 8.03847 7.37854L8.03841 7.37858C7.85521 7.48497 7.63788 7.61119 7.47449 7.73849C7.23214 7.92732 6.95003 8.23198 6.95003 8.7C6.95004 9.00376 7.19628 9.25 7.50004 9.25C7.8024 9.25 8.04778 9.00601 8.05002 8.70417L8.05056 8.7033C8.05924 8.6896 8.08493 8.65735 8.15058 8.6062C8.25207 8.52712 8.36508 8.46163 8.51567 8.37436L8.51571 8.37433C8.59422 8.32883 8.68296 8.27741 8.78559 8.21506C9.32004 7.89038 10.05 7.35382 10.05 6.25C10.05 4.92789 8.93511 3.825 7.50003 3.825C6.06496 3.825 4.95003 4.92789 4.95003 6.25C4.95003 6.55376 5.19628 6.8 5.50003 6.8C5.80379 6.8 6.05003 6.55376 6.05003 6.25Z" fill="currentColor"/>
+                                                <path fillRule="evenodd" clipRule="evenodd" d="M0.877075 7.49972C0.877075 3.84204 3.84222 0.876892 7.49991 0.876892C11.1576 0.876892 14.1227 3.84204 14.1227 7.49972C14.1227 11.1574 11.1576 14.1226 7.49991 14.1226C3.84222 14.1226 0.877075 11.1574 0.877075 7.49972ZM7.49991 1.82689C4.36689 1.82689 1.82708 4.36671 1.82708 7.49972C1.82708 10.6327 4.36689 13.1726 7.49991 13.1726C10.6329 13.1726 13.1727 10.6327 13.1727 7.49972C13.1727 4.36671 10.6329 1.82689 7.49991 1.82689ZM8.24993 10.5C8.24993 10.9142 7.91414 11.25 7.49993 11.25C7.08571 11.25 6.74993 10.9142 6.74993 10.5C6.74993 10.0858 7.08571 9.75 7.49993 9.75C7.91414 9.75 8.24993 10.0858 8.24993 10.5ZM6.05003 6.25C6.05003 5.57211 6.63511 4.925 7.50003 4.925C8.36496 4.925 8.95003 5.57211 8.95003 6.25C8.95003 6.74118 8.68002 6.99212 8.21447 7.27494C8.16251 7.30651 8.10258 7.34131 8.03847 7.37854L8.03841 7.37858C7.85521 7.48497 7.63788 7.61119 7.47449 7.73849C7.23214 7.92732 6.95003 8.23198 6.95003 8.7C6.95004 9.00376 7.19628 9.25 7.50004 9.25C7.8024 9.25 8.04778 9.00601 8.05002 8.70417L8.05056 8.7033C8.05924 8.6896 8.08493 8.65735 8.15058 8.6062C8.25207 8.52712 8.36508 8.46163 8.51567 8.37436L8.51571 8.37433C8.59422 8.32883 8.68296 8.27741 8.78559 8.21506C9.32004 7.89038 10.05 7.35382 10.05 6.25C10.05 4.92789 8.93511 3.825 7.50003 3.825C6.06496 3.825 4.95003 4.92789 4.95003 6.25C4.95003 6.55376 5.19628 6.8 5.50003 6.8C5.80379 6.8 6.05003 6.55376 6.05003 6.25Z" fill="currentColor" />
                                             </g>
                                         </svg>
-                                        </th>
+                                    </th>
                                     <SortHeader label="Estado" sortKey="estado" sort={sort} onSort={toggleSort} />
                                     {canEdit && <th>Acciones</th>}
                                 </tr>
@@ -817,13 +819,13 @@ function Inventario() {
                                 {alerta}
                                 <div className="inv-form-group">
                                     <label className="inv-label" htmlFor="inv-departamento">Departamento</label>
-                                    <select 
-                                    id="inv-departamento" 
-                                    className="inv-input" 
-                                    value={newProduct.id_departamento} 
-                                    onChange={(event) => setNewProduct({ ...newProduct, id_departamento: event.target.value })} 
-                                    required 
-                                    disabled={!isSystems}>  
+                                    <select
+                                        id="inv-departamento"
+                                        className="inv-input"
+                                        value={newProduct.id_departamento}
+                                        onChange={(event) => setNewProduct({ ...newProduct, id_departamento: event.target.value })}
+                                        required
+                                        disabled={!isSystems}>
                                         {departamentos.map((d) => (
                                             <option key={d.id_departamento} value={d.id_departamento}>{d.nombre} · {empresas.find((e) => (e.id_empresa === d.id_empresa) || '').nombre}</option>
                                         ))}
@@ -895,10 +897,10 @@ function Inventario() {
                                 <h2 className="inv-modal__title">Eliminar producto</h2>
                                 <span className="inv-modal__close" onClick={() => handleCloseDeleteModal()} aria-label="Cerrar">
                                     <svg width="12px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <g id="SVGRepo_bgCarrier" strokeWidth="0"/>
-                                        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <g id="SVGRepo_bgCarrier" strokeWidth="0" />
+                                        <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round" />
                                         <g id="SVGRepo_iconCarrier">
-                                            <path d="M20.7457 3.32851C20.3552 2.93798 19.722 2.93798 19.3315 3.32851L12.0371 10.6229L4.74275 3.32851C4.35223 2.93798 3.71906 2.93798 3.32854 3.32851C2.93801 3.71903 2.93801 4.3522 3.32854 4.74272L10.6229 12.0371L3.32856 19.3314C2.93803 19.722 2.93803 20.3551 3.32856 20.7457C3.71908 21.1362 4.35225 21.1362 4.74277 20.7457L12.0371 13.4513L19.3315 20.7457C19.722 21.1362 20.3552 21.1362 20.7457 20.7457C21.1362 20.3551 21.1362 19.722 20.7457 19.3315L13.4513 12.0371L20.7457 4.74272C21.1362 4.3522 21.1362 3.71903 20.7457 3.32851Z" fill="currentColor"/>
+                                            <path d="M20.7457 3.32851C20.3552 2.93798 19.722 2.93798 19.3315 3.32851L12.0371 10.6229L4.74275 3.32851C4.35223 2.93798 3.71906 2.93798 3.32854 3.32851C2.93801 3.71903 2.93801 4.3522 3.32854 4.74272L10.6229 12.0371L3.32856 19.3314C2.93803 19.722 2.93803 20.3551 3.32856 20.7457C3.71908 21.1362 4.35225 21.1362 4.74277 20.7457L12.0371 13.4513L19.3315 20.7457C19.722 21.1362 20.3552 21.1362 20.7457 20.7457C21.1362 20.3551 21.1362 19.722 20.7457 19.3315L13.4513 12.0371L20.7457 4.74272C21.1362 4.3522 21.1362 3.71903 20.7457 3.32851Z" fill="currentColor" />
                                         </g>
                                     </svg>
                                 </span>
@@ -933,11 +935,11 @@ function Inventario() {
                                 </table>
                             </div>
                             <div className="inv-modal__footer">
-                                <button type="button" className="inv-btn inv-btn--secondary" onClick={()=> handleCloseDeleteModal()}>
+                                <button type="button" className="inv-btn inv-btn--secondary" onClick={() => handleCloseDeleteModal()}>
                                     Cancelar
                                 </button>
                                 <button type="button" className="inv-btn inv-btn--danger" onClick={() => removeItem(itemToDelete)}>
-                                    {saving.some((s)=> s.id_inventario === itemToDelete.id_inventario) ? 'Eliminando...' : 'Eliminar Producto'}
+                                    {saving.some((s) => s.id_inventario === itemToDelete.id_inventario) ? 'Eliminando...' : 'Eliminar Producto'}
                                 </button>
                             </div>
                         </div>
