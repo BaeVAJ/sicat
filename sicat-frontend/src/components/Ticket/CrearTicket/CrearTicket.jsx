@@ -199,7 +199,7 @@ function CrearTicket() {
 
     const listaUsuarios = useMemo(() => {
         const lista = usuarios.filter((u) => {
-            if (idDepartamento === '') return true; // Si no hay departamento seleccionado, mostrar todos
+            if (idDepartamento === '') return true;
             return String(u.id_departamento) === String(idDepartamento);
         }
         );
