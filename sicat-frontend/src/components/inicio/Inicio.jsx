@@ -500,7 +500,7 @@ function Inicio() {
                         {/*Tickets Recientes Usuario */}
                         <div className="simple-box">
                             <div className="simple-box__header">
-                                <h3>Tickets abiertos</h3>
+                                <h3>Tickets pendientes</h3>
                                 <button className="simple-box__link" onClick={() => navigate('/tickets')}>
                                     Todos los tickets {icons.arrowRight}
                                 </button>
