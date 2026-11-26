@@ -579,7 +579,7 @@ function Tickets() {
                             <select value={departamentoFilter} onChange={(e) => setDepartamentoFilter(e.target.value)} className="tickets-select">
                                 <option value="ALL">Todos los departamentos</option>
                                 {departamento.map((d) => (
-                                    <option key={d.id_departamento} value={d.departamento}>
+                                    <option key={d.id_departamento} value={d.nombre}>
                                         {d.nombre}
                                     </option>
                                 ))}
