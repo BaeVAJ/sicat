@@ -20,6 +20,11 @@ function SortHeader({ label, sortKey, sort, onSort, className }) {
     );
 }
 
+//verifica si el correo es valido
+function emailIsValid (email) {
+        return /\S+@\S+\.\S+/.test(email)
+    }
+
 function Proveedores() {
     const { usuario } = useAuth();
     const [proveedores, setProveedores] = useState([]);
@@ -172,6 +177,7 @@ function Proveedores() {
         setSelectedProveedor(proveedor);
     }
 
+
     const handleSave = async (e) => {
         e.preventDefault();
         showMessage('', '');
@@ -180,9 +186,18 @@ function Proveedores() {
             showMessage('error', 'Debes ingresar un nombre para el proveedor');
             return;
         }
+        if(formCorreo === '' || !emailIsValid(formCorreo) || formCorreo===null || formCorreo===undefined){
+            showMessage('error', 'Debes ingresar un correo electrónico válido para el proveedor');
+            return;
+        }
 
         const cleanPhone = formTelefono.replace(/\D/g, '');
 
+        if(!Number.isInteger(formTelefono ) && formTelefono.trim() !== '' && cleanPhone.length !== 10){
+            showMessage('error', 'El teléfono debe ser un número válido');
+            return;
+        }
+        
         if (formTelefono.trim() && cleanPhone.length !== 10) {
             showMessage('error', 'El teléfono debe tener 10 dígitos');
             return;
@@ -264,7 +279,8 @@ function Proveedores() {
             setActionLoading(false);
         }
     }
-
+    
+    
     const alerta = message.text && (
         <div className={`complementos-alert complementos-alert--${message.type}`} role="alert">
             <div className="complementos-alert__content">
