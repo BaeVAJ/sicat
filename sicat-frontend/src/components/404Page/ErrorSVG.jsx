@@ -100,7 +100,10 @@ export default function ErrorSVG() {
                     <div>ERROR</div>
                     <h1>404</h1>
                     <hr />
-                    <div>Page Not Found</div>
+                    <div>Página no encontrada</div>
+                    <nav>
+                        <a href="/" style={{ color: '#fff', textDecoration: 'underline' }}>Ir a la página principal</a>
+                    </nav>
                 </div>
 
                 <div className="error-astronaut">
