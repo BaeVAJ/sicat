@@ -155,3 +155,55 @@ export async function actualizarEstado(req, res) {
     res.json(rows[0]);
   } catch (err) { return enviarErrorInterno(res, err, 'ticket.actualizarEstado'); }
 }
+
+export async function actualizarDescripcion(req, res) {
+  const rol = req.usuario?.rol;
+  const idUsuarioSesion = req.usuario?.id_usuario;
+  const idTicket = Number(req.params.id ?? req.body?.id_ticket);
+  const { descripcion } = req.body;
+
+  if (!Number.isInteger(idTicket) || idTicket <= 0) {
+    return res.status(400).json({ error: 'ID de ticket inválido' });
+  }
+  if (typeof descripcion !== 'string' || descripcion.trim().length < 10) {
+    return res.status(400).json({ error: 'La descripción debe tener al menos 10 caracteres' });
+  }
+
+  try {
+    const { rows: existentes } = await pool.query(
+      `SELECT id_ticket, id_usuario, estado FROM TICKETS WHERE id_ticket = $1`,
+      [idTicket]
+    );
+    const ticketActual = existentes[0];
+    if (!ticketActual) {
+      return res.status(404).json({ error: 'Ticket no encontrado' });
+    }
+
+    const esAdmin = rol === 'admin';
+    const esDueno = Number(ticketActual.id_usuario) === Number(idUsuarioSesion);
+
+    if (!esAdmin && !esDueno) {
+      return res.status(403).json({
+        error: 'No tienes permisos para editar la descripción de este ticket',
+      });
+    }
+
+    if (!esAdmin && ticketActual.estado === 'SOLUCIONADO') {
+      return res.status(400).json({
+        error: 'No puedes editar un ticket que ya fue solucionado',
+      });
+    }
+
+    const { rows } = await pool.query(`
+      UPDATE TICKETS
+      SET descripcion = $1
+      WHERE id_ticket = $2
+      RETURNING *
+    `, [descripcion.trim(), idTicket]);
+
+    publish('ticket.updated', rows[0]);
+    res.json(rows[0]);
+  } catch (err) {
+    return enviarErrorInterno(res, err, 'ticket.actualizarDescripcion');
+  }
+}

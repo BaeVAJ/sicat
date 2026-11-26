@@ -27,7 +27,7 @@ function Tickets() {
     const [userProfile, setUserProfile] = useState(null);
     const searchParams = useSearchParams()[0];
 
-    
+
     useEffect(() => {
         let mounted = true;
         async function fetchProfile() {
@@ -49,7 +49,7 @@ function Tickets() {
     }, [usuario, userProfile]);
 
     const puedeGestionar = usuario?.rol === 'admin' || usuario?.rol === 'gerente' || esSistemas;
-    const isUsuario = !puedeGestionar;
+    const isUsuario = usuario?.rol === 'usuario' && !esSistemas;
 
     const [departamento, setDepartamento] = useState([]);
     const [tickets, setTickets] = useState([]);
@@ -68,15 +68,18 @@ function Tickets() {
     const [fechaHastaSolucion, setFechaHastaSolucion] = useState('');
     const [opcionesFilterOpen, setOpcionesFilterOpen] = useState(false);
     const [departamentoFilter, setDepartamentoFilter] = useState('ALL');
-// Modal de Detalles
+
+    const [editMode, setEditMode] = useState(false);
+    const [editTicket, setEditTicket] = useState(null);
+    const [editDescripcion, setEditDescripcion] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState('');
+
+    // Modal de Detalles
     const [ticketDetalle, setTicketDetalle] = useState(null);
-    
 
     const filtrosRef = useRef(null);
-
     const ticketRecibido = Number(searchParams.get('ticket'));
-
-    
 
     useEffect(() => {
         const handleOutsideClick = (event) => {
@@ -91,8 +94,6 @@ function Tickets() {
         document.addEventListener('pointerdown', handleOutsideClick);
         return () => document.removeEventListener('pointerdown', handleOutsideClick);
     }, []);
-
-    
 
     // Cargar tickets
     useEffect(() => {
@@ -117,8 +118,6 @@ function Tickets() {
         }
     }
 
-    
-
     async function fetchTickets() {
         setLoading(true);
         setError('');
@@ -132,7 +131,6 @@ function Tickets() {
         }
     }
 
-
     const ticketsMostrados = useMemo(() => {
         const q = search.toLowerCase();
         const desdeCreacion = fechaDesdeCreacion ? new Date(`${fechaDesdeCreacion}T00:00:00`) : null;
@@ -141,50 +139,51 @@ function Tickets() {
         const hastaSolucion = fechaHastaSolucion ? new Date(`${fechaHastaSolucion}T23:59:59.999`) : null;
 
         const PRIORITY_ORDER = {
-            PENDIENTE: 1,    
-            EN_PROCESO: 2,   
-            SOLUCIONADO: 3   
+            PENDIENTE: 1,
+            EN_PROCESO: 2,
+            SOLUCIONADO: 3
         };
 
         const estadosSeleccionados = estadoFilter.map((e) => String(e).toUpperCase()).filter((e) => e !== 'ALL');
         const filtrarPorEstado = estadosSeleccionados.length > 0;
+        
 
         return tickets
-        .filter((t) => {
-            const matchesSearch =
-                (t.descripcion || '').toLowerCase().includes(q) ||
-                (t.departamento || '').toLowerCase().includes(q) ||
-                (t.usuario_nombre || '').toLowerCase().includes(q) ||
-                (t.usuario_correo || '').toLowerCase().includes(q) ||
-                String(t.id_ticket || '').includes(q);
+            .filter((t) => {
+                const matchesSearch =
+                    (t.descripcion || '').toLowerCase().includes(q) ||
+                    (t.departamento || '').toLowerCase().includes(q) ||
+                    (t.usuario_nombre || '').toLowerCase().includes(q) ||
+                    (t.usuario_correo || '').toLowerCase().includes(q) ||
+                    String(t.id_ticket || '').includes(q);
 
-            if (!matchesSearch) return false;
+                if (!matchesSearch) return false;
 
-            if (filtrarPorEstado && !estadosSeleccionados.includes(String(t.estado).toUpperCase())) return false;
+                if (filtrarPorEstado && !estadosSeleccionados.includes(String(t.estado).toUpperCase())) return false;
 
-            if (isUsuario && t.usuario_id !== usuario.id_usuario) return false;
+                if (isUsuario && t.id_usuario !== usuario?.id_usuario) return false;
 
-            if (desdeCreacion || hastaCreacion) {
-                const fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion) : null;
-                
-                if (desdeCreacion && fechaCreacion < desdeCreacion) return false;
-                if (hastaCreacion && fechaCreacion > hastaCreacion) return false;
-            }
+                if (desdeCreacion || hastaCreacion) {
+                    const fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion) : null;
 
-            if (desdeSolucion || hastaSolucion) {
-                const fechaSolucion = t.fecha_solucion ? new Date(t.fecha_solucion) : null;
-                if (desdeSolucion && fechaSolucion < desdeSolucion) return false;
-                if (hastaSolucion && fechaSolucion > hastaSolucion) return false;
-            }
+                    if (desdeCreacion && fechaCreacion < desdeCreacion) return false;
+                    if (hastaCreacion && fechaCreacion > hastaCreacion) return false;
+                }
 
-            if (departamentoFilter && t.departamento !== departamentoFilter && departamentoFilter !== 'ALL') return false;
+                if (desdeSolucion || hastaSolucion) {
+                    const fechaSolucion = t.fecha_solucion ? new Date(t.fecha_solucion) : null;
+                    if (desdeSolucion && fechaSolucion < desdeSolucion) return false;
+                    if (hastaSolucion && fechaSolucion > hastaSolucion) return false;
+                }
 
-            return true;
-        }).toSorted((a,b) => {
-            const pesoA = PRIORITY_ORDER[a.estado] ?? 99;
-            const pesoB = PRIORITY_ORDER[b.estado] ?? 99;
-            return pesoA - pesoB;
-        });
+                if (departamentoFilter && t.departamento !== departamentoFilter && departamentoFilter !== 'ALL') return false;
+
+                return true;
+            }).toSorted((a, b) => {
+                const pesoA = PRIORITY_ORDER[a.estado] ?? 99;
+                const pesoB = PRIORITY_ORDER[b.estado] ?? 99;
+                return pesoA - pesoB;
+            });
     }, [tickets, isUsuario, usuario, departamentoFilter, estadoFilter, search, fechaDesdeCreacion, fechaHastaCreacion, fechaDesdeSolucion, fechaHastaSolucion]);
 
     async function cambiarEstado(id, nuevoEstado) {
@@ -209,7 +208,7 @@ function Tickets() {
         } finally {
             setUpdatingId(null);
         }
-    }   
+    }
 
     function formatFecha(fecha) {
         if (!fecha) return '—';
@@ -221,28 +220,80 @@ function Tickets() {
     }
 
     function estadoFechaLimite(ticket) {
-
         if (!ticket.fecha_limite) return null;
-
         const limite = new Date(ticket.fecha_limite);
         const hoy = new Date();
-
-        //poner las horas a 0 para poder comparar solo la fecha
         limite.setHours(0, 0, 0, 0);
         hoy.setHours(0, 0, 0, 0);
-        //se evalua si le fecha es el limite o ya vencio, con las horas ya normalizadas a 0 a.m
         if (limite.getTime() === hoy.getTime()) return ESTADOS_FECHA_LIMITE.HOY;
-        if(limite < hoy) return ESTADOS_FECHA_LIMITE.VENCIDO;
-        //si no es la fecha limite ni a vencido entonces se retorna que esta en plazo
+        if (limite < hoy) return ESTADOS_FECHA_LIMITE.VENCIDO;
+
         return ESTADOS_FECHA_LIMITE.EN_PLAZO;
     }
 
+    
     const toggle = (opcion) => {
         setEstadoFilter((prev) =>
             prev.includes(opcion)
                 ? prev.filter((o) => o !== opcion)
                 : [...prev, opcion])
     };
+
+    const puedeEditarTicket = (ticket) => {
+        if (!ticket || !usuario) return false;
+        if (usuario.rol === 'admin') return true;
+        return Number(ticket.id_usuario) === Number(usuario.id_usuario) && ticket.estado !== 'SOLUCIONADO';
+    };
+
+    const cancelarEdicion = () => {
+        setEditMode(false);
+        setEditTicket(null);
+        setEditDescripcion('');
+        setEditError('');
+    };
+
+    const cerrarModalDetalle = () => {
+        cancelarEdicion();
+        setTicketDetalle(null);
+    };
+
+    const handleEdit = (ticket) => {
+        if (!puedeEditarTicket(ticket)) return;
+        setEditError('');
+        setEditMode(true);
+        setEditTicket(ticket.id_ticket);
+        setEditDescripcion(ticket.descripcion || '');
+    };
+
+    async function guardarDescripcion() {
+        const descLimpia = editDescripcion.trim();
+        if (descLimpia.length < 10) {
+            setEditError('La descripción debe tener al menos 10 caracteres');
+            return;
+        }
+        if (!editTicket) return;
+
+        setEditSaving(true);
+        setEditError('');
+        setError('');
+        try {
+            const { data } = await client.patch(`/tickets/${editTicket}/descripcion`, {
+                descripcion: descLimpia,
+            });
+            setTickets((prev) =>
+                prev.map((t) => (t.id_ticket === editTicket ? { ...t, ...data } : t))
+            );
+            setTicketDetalle((prev) =>
+                prev && prev.id_ticket === editTicket ? { ...prev, ...data } : prev
+            );
+            setSuccess(`Descripción del ticket #${editTicket} actualizada`);
+            cancelarEdicion();
+        } catch (err) {
+            setEditError(err.response?.data?.error || 'Error al actualizar la descripción');
+        } finally {
+            setEditSaving(false);
+        }
+    }
 
     const limpiarFiltros = () => {
         setEstadoFilter(['ALL']);
@@ -256,9 +307,9 @@ function Tickets() {
         setFechasCreacionFilterOpen(false);
         setFechasSolucionFilterOpen(false);
         setDepartamentoFilter('ALL');
-    }; 
+    };
 
-    const ticketRecibidoDetalle = useCallback(() =>{
+    const ticketRecibidoDetalle = useCallback(() => {
         const idTicket = ticketRecibido;
         const ticketD = tickets.find(t => Number(t.id_ticket) === Number(idTicket))
         setTicketDetalle(ticketD)
@@ -273,7 +324,7 @@ function Tickets() {
     return (
         <Layout>
             <div className="dash-container">
-                
+
                 <div className="dash-header">
                     <div>
                         <div className="dash-header__title-container">
@@ -444,7 +495,7 @@ function Tickets() {
                                         setFechasSolucionFilterOpen(false);
                                     }}
                                 >
-                                    <svg fill="currentColor" width="16px" height="16px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M28.106 19.944h-0.85c-0.069-0.019-0.131-0.050-0.2-0.063-1.788-0.275-3.2-1.762-3.319-3.506-0.137-1.95 0.975-3.6 2.787-4.137 0.238-0.069 0.488-0.119 0.731-0.181h0.85c0.056 0.019 0.106 0.050 0.169 0.056 1.65 0.269 2.906 1.456 3.262 3.081 0.025 0.125 0.063 0.25 0.094 0.375v0.85c-0.019 0.056-0.050 0.113-0.056 0.169-0.262 1.625-1.419 2.863-3.025 3.238-0.156 0.038-0.3 0.081-0.444 0.119zM4.081 12.056l0.85 0c0.069 0.019 0.131 0.050 0.2 0.056 1.8 0.281 3.206 1.775 3.319 3.537 0.125 1.944-1 3.588-2.819 4.119-0.231 0.069-0.469 0.119-0.7 0.175h-0.85c-0.056-0.019-0.106-0.050-0.162-0.063-1.625-0.3-2.688-1.244-3.194-2.819-0.069-0.206-0.106-0.425-0.162-0.637v-0.85c0.019-0.056 0.050-0.113 0.056-0.169 0.269-1.631 1.419-2.863 3.025-3.238 0.15-0.037 0.294-0.075 0.437-0.113zM15.669 12.056h0.85c0.069 0.019 0.131 0.050 0.2 0.063 1.794 0.281 3.238 1.831 3.313 3.581 0.087 1.969-1.1 3.637-2.931 4.106-0.194 0.050-0.387 0.094-0.581 0.137h-0.85c-0.069-0.019-0.131-0.050-0.2-0.063-1.794-0.275-3.238-1.831-3.319-3.581-0.094-1.969 1.1-3.637 2.931-4.106 0.2-0.050 0.394-0.094 0.588-0.137z"></path> </g></svg>
+                                    <svg fill="currentColor" width="16px" height="16px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M28.106 19.944h-0.85c-0.069-0.019-0.131-0.050-0.2-0.063-1.788-0.275-3.2-1.762-3.319-3.506-0.137-1.95 0.975-3.6 2.787-4.137 0.238-0.069 0.488-0.119 0.731-0.181h0.85c0.056 0.019 0.106 0.050 0.169 0.056 1.65 0.269 2.906 1.456 3.262 3.081 0.025 0.125 0.063 0.25 0.094 0.375v0.85c-0.019 0.056-0.050 0.113-0.056 0.169-0.262 1.625-1.419 2.863-3.025 3.238-0.156 0.038-0.3 0.081-0.444 0.119zM4.081 12.056l0.85 0c0.069 0.019 0.131 0.050 0.2 0.056 1.8 0.281 3.206 1.775 3.319 3.537 0.125 1.944-1 3.588-2.819 4.119-0.231 0.069-0.469 0.119-0.7 0.175h-0.85c-0.056-0.019-0.106-0.050-0.162-0.063-1.625-0.3-2.688-1.244-3.194-2.819-0.069-0.206-0.106-0.425-0.162-0.637v-0.85c0.019-0.056 0.050-0.113 0.056-0.169 0.269-1.631 1.419-2.863 3.025-3.238 0.15-0.037 0.294-0.075 0.437-0.113zM15.669 12.056h0.85c0.069 0.019 0.131 0.050 0.2 0.063 1.794 0.281 3.238 1.831 3.313 3.581 0.087 1.969-1.1 3.637-2.931 4.106-0.194 0.050-0.387 0.094-0.581 0.137h-0.85c-0.069-0.019-0.131-0.050-0.2-0.063-1.794-0.275-3.238-1.831-3.319-3.581-0.094-1.969 1.1-3.637 2.931-4.106 0.2-0.050 0.394-0.094 0.588-0.137z"/></g></svg>
                                     Rango de fechas
                                     {(fechaDesdeSolucion || fechaHastaSolucion || fechaDesdeCreacion || fechaHastaCreacion) && (
                                         <p>!</p>
@@ -559,7 +610,7 @@ function Tickets() {
                                 <tr>
                                     <th className="hide-on-mobile" >ID</th>
                                     {!isUsuario && <th>Solicitante</th>}
-                                    <th>Departamento</th>
+                                    {esSistemas && <th>Departamento</th>}
                                     <th style={{ textAlign: "center" }}>Descripción</th>
                                     <th className="hide-on-mobile">Fecha creación</th>
                                     <th className="hide-on-mobile">Fecha solución</th>
@@ -570,7 +621,7 @@ function Tickets() {
                             </thead>
                             <tbody>
                                 {(
-                                        ticketsMostrados.map((ticket) => {
+                                    ticketsMostrados.map((ticket) => {
                                         const est = ESTADOS[ticket.estado] || ESTADOS.PENDIENTE;
                                         const fechaEstado = estadoFechaLimite(ticket);
                                         return (
@@ -586,8 +637,6 @@ function Tickets() {
                                                         </span>
                                                     </div>
                                                 </td>
-
-                                                {/* Columna solicitante para admins */}
                                                 {!isUsuario && (
                                                     <td>
                                                         <div style={{ fontWeight: 500, color: '#f1f5f9' }}>
@@ -606,22 +655,25 @@ function Tickets() {
                                                     </td>
                                                 )}
 
-                                                <td>
-                                                    <div style={{ fontWeight: 600, color: '#f1f5f9' }}>
-                                                        {ticket.departamento || 'General'}
-                                                    </div>
-                                                    <div className="show-on-mobile" style={{ fontSize: '0.75rem', color: 'rgba(148,163,184,0.7)', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {ticket.descripcion}
-                                                    </div>
-                                                </td>
-                                                <td className="dash-table__desc" style={{ overflow: 'hidden',  whiteSpace: 'initial' }}>
+                                                {esSistemas && (
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, color: '#f1f5f9' }}>
+                                                            {ticket.departamento || 'General'}
+                                                        </div>
+                                                        <div className="show-on-mobile" style={{ fontSize: '0.75rem', color: 'rgba(148,163,184,0.7)', marginTop: '2px', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {ticket.descripcion}
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                <td className="dash-table__desc" style={{ overflow: 'hidden', whiteSpace: 'initial' }}>
                                                     {ticket.descripcion}
                                                 </td>
                                                 <td className="hide-on-mobile">{formatFecha(ticket.fecha_creacion)}</td>
                                                 <td className="hide-on-mobile">{formatFecha(ticket.fecha_solucion)}</td>
                                                 <td className="hide-on-mobile">
                                                     <div>{formatFecha(ticket.fecha_limite)}</div>
-                                                    {fechaEstado && (
+                                                    {!isUsuario && fechaEstado && (
                                                         <span
                                                             className="dash-badge"
                                                             style={{ color: fechaEstado.color, background: fechaEstado.bg, marginTop: '0.25rem' }}
@@ -630,14 +682,15 @@ function Tickets() {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td>
-                                                    <span
-                                                        className="dash-badge"
-                                                        style={{ color: est.color, background: est.bg }}
-                                                    >
-                                                        {est.label}
-                                                    </span>
-                                                </td>
+                                                    <td>
+                                                        <span
+                                                            className="dash-badge"
+                                                            style={{ color: est.color, background: est.bg }}
+                                                        >
+                                                            {est.label}
+                                                        </span>
+                                                    </td>
+                                                
                                                 <td>
                                                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                                                         {isUsuario ? (
@@ -659,8 +712,11 @@ function Tickets() {
                                                             <>
                                                                 <button
                                                                     type="button"
-                                                                    className="dash-btn-detail show-on-mobile"
-                                                                    onClick={() => setTicketDetalle(ticket)}
+                                                                    className="dash-btn-detail dash-btn-detail--desktop"
+                                                                    onClick={() => {
+                                                                        cancelarEdicion();
+                                                                        setTicketDetalle(ticket);
+                                                                    }}
                                                                     title="Ver detalles completos del ticket"
                                                                 >
                                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -689,7 +745,7 @@ function Tickets() {
                                         );
                                     })
                                 )}
-                                
+
                             </tbody>
                         </table>
 
@@ -698,7 +754,7 @@ function Tickets() {
 
                 {/* ── Modal de Detalles de Ticket ── */}
                 {ticketDetalle && (
-                    <div className="dash-modal-overlay" onClick={() => setTicketDetalle(null)}>
+                    <div className="dash-modal-overlay" onClick={cerrarModalDetalle}>
                         <div className="dash-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="dash-modal__header">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -715,6 +771,7 @@ function Tickets() {
                                     >
                                         {ESTADOS[ticketDetalle.estado]?.label || ticketDetalle.estado}
                                     </span>
+
                                     {estadoFechaLimite(ticketDetalle) && (
                                         <span
                                             className="dash-badge"
@@ -726,11 +783,12 @@ function Tickets() {
                                             {estadoFechaLimite(ticketDetalle).label}
                                         </span>
                                     )}
+
                                 </div>
                                 <button
                                     type="button"
                                     className="dash-modal__close"
-                                    onClick={() => setTicketDetalle(null)}
+                                    onClick={cerrarModalDetalle}
                                     aria-label="Cerrar modal"
                                 >
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -787,13 +845,73 @@ function Tickets() {
 
                                 <div className="dash-detail-group">
                                     <span className="dash-detail-label">Descripción del Problema</span>
-                                    <div className="dash-detail-box">
-                                        {ticketDetalle.descripcion || 'Sin descripción'}
-                                    </div>
+                                    {editMode && editTicket === ticketDetalle.id_ticket ? (
+                                        <div className="dash-detail-edit-wrap">
+                                            <textarea
+                                                className="dash-detail-textarea"
+                                                value={editDescripcion}
+                                                onChange={(e) => {
+                                                    setEditDescripcion(e.target.value);
+                                                    if (editError) setEditError('');
+                                                }}
+                                                rows={4}
+                                                disabled={editSaving}
+                                                placeholder="Describe el problema con al menos 10 caracteres..."
+                                            />
+                                            <div className="dash-detail-edit-meta">
+                                                <span>Mínimo 10 caracteres</span>
+                                                <span>{editDescripcion.trim().length} caracteres</span>
+                                            </div>
+                                            {editError && (
+                                                <div className="dash-detail-edit-error">{editError}</div>
+                                            )}
+                                            <div className="dash-detail-edit-actions">
+                                                <button
+                                                    type="button"
+                                                    className="dash-detail-btn-cancel"
+                                                    onClick={cancelarEdicion}
+                                                    disabled={editSaving}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="dash-detail-btn-save"
+                                                    onClick={guardarDescripcion}
+                                                    disabled={
+                                                        editSaving ||
+                                                        editDescripcion.trim().length < 10 ||
+                                                        editDescripcion.trim() === (ticketDetalle.descripcion || '').trim()
+                                                    }
+                                                >
+                                                    {editSaving ? 'Guardando…' : 'Guardar cambios'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="dash-detail-box">
+                                            <span className="dash-detail-box__text">
+                                                {ticketDetalle.descripcion || 'Sin descripción'}
+                                            </span>
+                                            {puedeEditarTicket(ticketDetalle) && (
+                                                <button
+                                                    type="button"
+                                                    className="dash-detail-button--edit"
+                                                    onClick={() => handleEdit(ticketDetalle)}
+                                                    title="Editar descripción"
+                                                    aria-label="Editar descripción"
+                                                >
+                                                    <svg height="16" width="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M21.2799 6.40005L11.7399 15.94C10.7899 16.89 7.96987 17.33 7.33987 16.7C6.70987 16.07 7.13987 13.25 8.08987 12.3L17.6399 2.75002C17.8754 2.49308 18.1605 2.28654 18.4781 2.14284C18.7956 1.99914 19.139 1.92124 19.4875 1.9139C19.8359 1.90657 20.1823 1.96991 20.5056 2.10012C20.8289 2.23033 21.1225 2.42473 21.3686 2.67153C21.6147 2.91833 21.8083 3.21243 21.9376 3.53609C22.0669 3.85976 22.1294 4.20626 22.1211 4.55471C22.1128 4.90316 22.0339 5.24635 21.8894 5.5635C21.7448 5.88065 21.5375 6.16524 21.2799 6.40005V6.40005Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                        <path d="M11 4H6C4.93913 4 3.92178 4.42142 3.17163 5.17157C2.42149 5.92172 2 6.93913 2 8V18C2 19.0609 2.42149 20.0783 3.17163 20.8284C3.92178 21.5786 4.93913 22 6 22H17C19.21 22 20 20.2 20 18V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {!isUsuario ? (
-                                    /* Solo admin y gerente pueden cambiar el estado */
                                     <div className="dash-detail-group">
                                         <span className="dash-detail-label">Cambiar Estado</span>
                                         <select
@@ -829,7 +947,7 @@ function Tickets() {
                                     type="button"
                                     className="dash-refresh"
                                     style={{ width: '100%', justifyContent: 'center' }}
-                                    onClick={() => setTicketDetalle(null)}
+                                    onClick={cerrarModalDetalle}
                                 >
                                     Cerrar Detalles
                                 </button>

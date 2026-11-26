@@ -561,6 +561,34 @@
     white-space: nowrap;
 }
 
+.dash-detail-button--edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: #facc15;
+    background: rgba(250, 204, 21, 0.14);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dash-detail-button--edit:hover {
+    background: rgba(250, 204, 21, 0.25);
+    border-color: rgba(250, 204, 21, 0.5);
+    color: #fef08a;
+}
+
+.dash-detail-button--edit svg {
+    width: 16px;
+    height: 16px;
+    color: #facc15;
+}
+
+
 .dash-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -725,6 +753,9 @@
 }
 
 .dash-detail-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
     background: rgba(15, 23, 42, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
@@ -734,6 +765,108 @@
     color: #cbd5e1;
     max-height: 160px;
     overflow-y: auto;
+    justify-content: space-between;
+}
+
+.dash-detail-box__text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex: 1;
+}
+
+.dash-detail-button--edit {
+    flex-shrink: 0;
+}
+
+.dash-detail-edit-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.dash-detail-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 0.85rem;
+    font-size: 0.88rem;
+    font-family: inherit;
+    line-height: 1.45;
+    color: #f1f5f9;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    border-radius: 10px;
+    resize: vertical;
+    min-height: 96px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dash-detail-textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
+}
+
+.dash-detail-textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.dash-detail-edit-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.75);
+}
+
+.dash-detail-edit-error {
+    font-size: 0.78rem;
+    color: #fca5a5;
+}
+
+.dash-detail-edit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.dash-detail-btn-cancel,
+.dash-detail-btn-save {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.dash-detail-btn-cancel {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dash-detail-btn-cancel:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+}
+
+.dash-detail-btn-save {
+    color: #ffffff;
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.dash-detail-btn-save:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0369a1, #075985);
+}
+
+.dash-detail-btn-cancel:disabled,
+.dash-detail-btn-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .dash-modal__footer {
